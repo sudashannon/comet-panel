@@ -1,7 +1,7 @@
 'use strict';
 
 let state = {
-  dir: 'openspec',
+  dir: '../miao/openspec',
   changes: [],
   selectedName: null,
   changeDetail: null,
@@ -50,7 +50,7 @@ async function loadChanges() {
   state.chat.messages = []; state.chat.contextFiles = [];
   renderAll();
 }
-function onScan() { state.dir = document.getElementById('dir-input').value.trim()||'openspec'; loadChanges(); }
+function onScan() { state.dir = document.getElementById('dir-input').value.trim()||'../miao/openspec'; loadChanges(); }
 function onDirKey(e) { if(e.key==='Enter') onScan(); }
 
 function onFilterChange() {
@@ -117,7 +117,7 @@ async function selectArtifact(art) {
   state.activeArtifact = art;
   const treeEl = document.getElementById('phase-tree');
   if(state.changeDetail&&treeEl) treeEl.innerHTML = renderPhaseTree(state.changeDetail.phases);
-  if(!state.chat.contextFiles.length) state.chat.contextFiles = [art.label];
+  if(!state.chat.contextFiles.length) state.chat.contextFiles = [{path: art.path, label: art.label}];
   renderChatContext();
   const panel = document.getElementById('content-panel');
   if(!panel) return;
@@ -166,11 +166,11 @@ async function loadChatSession() {
 function renderChatContext() {
   const el = document.getElementById('chat-context');
   if(!el) return;
-  el.innerHTML = state.chat.contextFiles.map(f=>`<span class="ctx-tag">${esc(f)} <span class="remove" onclick="removeContextFile('${esc(f)}')">×</span></span>`).join('');
+  el.innerHTML = state.chat.contextFiles.map(f=>`<span class="ctx-tag">${esc(f.label)} <span class="remove" onclick="removeContextFile('${esc(f.label)}')">×</span></span>`).join('');
 }
 
-function removeContextFile(f) {
-  state.chat.contextFiles = state.chat.contextFiles.filter(x=>x!==f);
+function removeContextFile(lbl) {
+  state.chat.contextFiles = state.chat.contextFiles.filter(x=>x.label!==lbl);
   renderChatContext();
 }
 
@@ -252,7 +252,7 @@ async function sendMessage() {
       body: JSON.stringify({
         change: state.selectedName,
         message: msg||'请分析这张图片',
-        context_files: state.chat.contextFiles,
+        context_files: state.chat.contextFiles.map(f => f.path),
         images: images
       })
     });
@@ -336,12 +336,22 @@ function insertAtFile(name) {
   const cursorPos = input.selectionStart;
   const atIdx = text.lastIndexOf('@', cursorPos-1);
   input.value = text.slice(0, atIdx) + text.slice(cursorPos);
-  if(!state.chat.contextFiles.includes(name)) {
-    state.chat.contextFiles.push(name);
+  // resolve label to artifact path
+  const files = getArtifactFilesWithPaths();
+  const match = files.find(f=>f.label===name);
+  if(match && !state.chat.contextFiles.some(x=>x.path===match.path)) {
+    state.chat.contextFiles.push({path: match.path, label: match.label});
     renderChatContext();
   }
   hideAtMenu();
   input.focus();
+}
+
+function getArtifactFilesWithPaths() {
+  if(!state.changeDetail) return [];
+  const files = [];
+  for(const p of state.changeDetail.phases) for(const a of p.artifacts) if(a.exists) files.push({path:a.path, label:a.label});
+  return files;
 }
 
 function showAtMenu(html) {

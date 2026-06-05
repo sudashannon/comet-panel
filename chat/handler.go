@@ -211,18 +211,9 @@ func buildSystemPrompt(baseDir, openspecDir, change string, contextFiles []strin
 	b.WriteString(defaultSystemPrompt)
 	b.WriteString("\n\n---\n\n可用产物文件：\n")
 
-	changeDir := findChangeDir(openspecDir, change)
-	if changeDir == "" {
-		return defaultSystemPrompt
-	}
-	root := filepath.Join(openspecDir, "..")
-
 	for _, f := range contextFiles {
-		b.WriteString(fmt.Sprintf("\n### %s\n\n", f))
-		content, err := os.ReadFile(filepath.Join(changeDir, f))
-		if err != nil {
-			content, err = os.ReadFile(filepath.Join(root, f))
-		}
+		b.WriteString(fmt.Sprintf("\n### %s\n\n", filepath.Base(f)))
+		content, err := os.ReadFile(f)
 		if err == nil {
 			b.Write(content)
 		}
