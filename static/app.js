@@ -153,6 +153,18 @@ async function renderMarkdown(text, container) {
       block.parentElement.outerHTML = '<div class="mermaid-error">Mermaid 渲染失败: '+esc(e.message)+'</div>';
     }
   }
+  fixTables(wrapper);
+}
+
+function fixTables(el) {
+  el.querySelectorAll('table').forEach(tbl => {
+    if(tbl.parentElement.classList.contains('table-wrapper')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrapper';
+    wrap.style.cssText = 'overflow-x:auto;max-width:100%';
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(tbl);
+  });
 }
 
 async function loadChatSession() {
@@ -187,6 +199,7 @@ function renderChatMessages() {
     else if(msg.role==='assistant') html += renderAssistantMsg(msg);
   }
   el.innerHTML = html;
+  el.querySelectorAll('.markdown-body').forEach(fixTables);
   if(state.chat.scrollPinned) el.scrollTop = el.scrollHeight;
 }
 
