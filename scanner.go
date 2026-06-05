@@ -1,0 +1,386 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+type ChangeSummary struct {
+	Name           string          `json:"name"`
+	Workflow       string          `json:"workflow"`
+	Phase          string          `json:"phase"`
+	Archived       bool            `json:"archived"`
+	TasksCompleted int             `json:"tasksCompleted"`
+	TasksTotal     int             `json:"tasksTotal"`
+	VerifyResult   string          `json:"verifyResult"`
+	CreatedAt      string          `json:"createdAt"`
+	Artifacts      map[string]bool `json:"artifacts"`
+}
+
+type ChangeDetail struct {
+	ChangeSummary
+	Phases []PhaseInfo `json:"phases"`
+}
+
+type PhaseInfo struct {
+	Key       string         `json:"key"`
+	Label     string         `json:"label"`
+	Status    string         `json:"status"`
+	Artifacts []ArtifactInfo `json:"artifacts"`
+}
+
+type ArtifactInfo struct {
+	File     string `json:"file"`
+	Label    string `json:"label"`
+	Exists   bool   `json:"exists"`
+	Path     string `json:"path,omitempty"`
+	External bool   `json:"external,omitempty"`
+	IsTasks  bool   `json:"isTasks,omitempty"`
+}
+
+type cometYAML struct {
+	Workflow           string
+	Phase              string
+	VerifyResult       string
+	DesignDoc          string
+	Plan               string
+	VerificationReport string
+	Archived           bool
+}
+
+func parseCometYAML(path string) (*cometYAML, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	c := &cometYAML{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if val == "null" || val == "~" {
+			val = ""
+		}
+		switch key {
+		case "workflow":
+			c.Workflow = val
+		case "phase":
+			c.Phase = val
+		case "verify_result":
+			c.VerifyResult = val
+		case "design_doc":
+			c.DesignDoc = val
+		case "plan":
+			c.Plan = val
+		case "verification_report":
+			c.VerificationReport = val
+		case "archived":
+			c.Archived = val == "true"
+		}
+	}
+	return c, nil
+}
+
+var taskCheckboxRe = regexp.MustCompile(`^\s*- \[(.)\]`)
+
+func countTasks(tasksPath string) (completed, total int) {
+	data, err := os.ReadFile(tasksPath)
+	if err != nil {
+		return 0, 0
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		m := taskCheckboxRe.FindStringSubmatch(line)
+		if m != nil {
+			total++
+			if strings.ToLower(m[1]) == "x" {
+				completed++
+			}
+		}
+	}
+	return completed, total
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func phaseStatus(actualPhase, targetPhase string) string {
+	phases := []string{"open", "design", "build", "verify", "archive"}
+	actualIdx := -1
+	targetIdx := -1
+	for i, p := range phases {
+		if p == actualPhase {
+			actualIdx = i
+		}
+		if p == targetPhase {
+			targetIdx = i
+		}
+	}
+	if actualIdx < 0 {
+		actualIdx = 0
+	}
+	if targetIdx < actualIdx {
+		return "completed"
+	}
+	if targetIdx == actualIdx {
+		return "current"
+	}
+	return "pending"
+}
+
+func extractDate(dirName string) string {
+	if len(dirName) >= 10 {
+		return dirName[:10]
+	}
+	return ""
+}
+
+func scanAllChanges(baseDir string) ([]ChangeSummary, error) {
+	changesDir := filepath.Join(baseDir, "changes")
+	projectRoot := filepath.Join(baseDir, "..")
+	var results []ChangeSummary
+
+	entries, err := os.ReadDir(changesDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "archive" {
+			continue
+		}
+		ch := scanChange(changesDir, e.Name(), false, projectRoot)
+		results = append(results, ch)
+	}
+
+	archiveDir := filepath.Join(changesDir, "archive")
+	archEntries, err := os.ReadDir(archiveDir)
+	if err == nil {
+		for _, e := range archEntries {
+			if !e.IsDir() {
+				continue
+			}
+			ch := scanChange(archiveDir, e.Name(), true, projectRoot)
+			results = append(results, ch)
+		}
+	}
+
+	return results, nil
+}
+
+func scanChange(parentDir, name string, archived bool, base string) ChangeSummary {
+	dir := filepath.Join(parentDir, name)
+
+	cy, _ := parseCometYAML(filepath.Join(dir, ".comet.yaml"))
+
+	completed, total := countTasks(filepath.Join(dir, "tasks.md"))
+
+	artifacts := map[string]bool{
+		"proposal":     fileExists(filepath.Join(dir, "proposal.md")),
+		"design":       fileExists(filepath.Join(dir, "design.md")),
+		"tasks":        fileExists(filepath.Join(dir, "tasks.md")),
+		"plan":         false,
+		"verifyReport": false,
+	}
+
+	if cy != nil {
+		if cy.Plan != "" {
+			artifacts["plan"] = fileExists(filepath.Join(base, cy.Plan))
+		}
+		if cy.VerificationReport != "" {
+			artifacts["verifyReport"] = fileExists(filepath.Join(base, cy.VerificationReport))
+		}
+	}
+
+	phase := ""
+	workflow := ""
+	verifyResult := "pending"
+	if cy != nil {
+		phase = cy.Phase
+		workflow = cy.Workflow
+		if cy.VerifyResult != "" {
+			verifyResult = cy.VerifyResult
+		}
+	}
+
+	createdAt := ""
+	if archived {
+		createdAt = extractDate(name)
+	}
+
+	return ChangeSummary{
+		Name:           name,
+		Workflow:       workflow,
+		Phase:          phase,
+		Archived:       archived,
+		TasksCompleted: completed,
+		TasksTotal:     total,
+		VerifyResult:   verifyResult,
+		CreatedAt:      createdAt,
+		Artifacts:      artifacts,
+	}
+}
+
+func scanChangeDetail(baseDir, name string) (*ChangeDetail, error) {
+	changesDir := filepath.Join(baseDir, "changes")
+
+	dir := filepath.Join(changesDir, name)
+	archived := false
+	if !fileExists(filepath.Join(dir, ".comet.yaml")) {
+		archiveDir := filepath.Join(changesDir, "archive")
+		entries, err := os.ReadDir(archiveDir)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			trimmed := e.Name()
+			if trimmed == name || (len(trimmed) > 11 && trimmed[11:] == name) {
+				dir = filepath.Join(archiveDir, e.Name())
+				archived = true
+				break
+			}
+		}
+		if !archived {
+			return nil, os.ErrNotExist
+		}
+	}
+
+	root := filepath.Join(baseDir, "..")
+
+	cy, _ := parseCometYAML(filepath.Join(dir, ".comet.yaml"))
+
+	completed, total := countTasks(filepath.Join(dir, "tasks.md"))
+
+	phase := ""
+	workflow := ""
+	verifyResult := "pending"
+	designDoc := ""
+	plan := ""
+	verifyReport := ""
+
+	if cy != nil {
+		phase = cy.Phase
+		workflow = cy.Workflow
+		if cy.VerifyResult != "" {
+			verifyResult = cy.VerifyResult
+		}
+		designDoc = cy.DesignDoc
+		plan = cy.Plan
+		verifyReport = cy.VerificationReport
+	}
+
+	createdAt := ""
+	displayName := name
+	if archived {
+		createdAt = extractDate(filepath.Base(dir))
+		displayName = filepath.Base(dir)
+	}
+
+	phases := buildPhases(root, dir, phase, completed, total, designDoc, plan, verifyReport)
+
+	return &ChangeDetail{
+		ChangeSummary: ChangeSummary{
+			Name:           displayName,
+			Workflow:       workflow,
+			Phase:          phase,
+			Archived:       archived,
+			TasksCompleted: completed,
+			TasksTotal:     total,
+			VerifyResult:   verifyResult,
+			CreatedAt:      createdAt,
+			Artifacts:      nil,
+		},
+		Phases: phases,
+	}, nil
+}
+
+func buildPhases(root, dir, phase string, completed, total int, designDoc, plan, verifyReport string) []PhaseInfo {
+	phases := []struct{ key, label string }{
+		{"open", "1. Open"},
+		{"design", "2. Design"},
+		{"build", "3. Build"},
+		{"verify", "4. Verify"},
+		{"archive", "5. Archive"},
+	}
+	var result []PhaseInfo
+	for _, p := range phases {
+		status := phaseStatus(phase, p.key)
+		artifacts := buildPhaseArtifacts(root, dir, p.key, completed, total, designDoc, plan, verifyReport)
+		result = append(result, PhaseInfo{
+			Key:       p.key,
+			Label:     p.label,
+			Status:    status,
+			Artifacts: artifacts,
+		})
+	}
+	return result
+}
+
+func buildPhaseArtifacts(root, dir, phase string, completed, total int, designDoc, plan, verifyReport string) []ArtifactInfo {
+	switch phase {
+	case "open":
+		return []ArtifactInfo{
+			makeArtifact("proposal.md", "proposal.md", filepath.Join(dir, "proposal.md")),
+			makeArtifact("design.md", "design.md (初稿)", filepath.Join(dir, "design.md")),
+			makeArtifact("tasks.md", "tasks.md (骨架)", filepath.Join(dir, "tasks.md")),
+		}
+	case "design":
+		var specs []ArtifactInfo
+		specsDir := filepath.Join(dir, "specs")
+		if entries, err := os.ReadDir(specsDir); err == nil {
+			for _, e := range entries {
+				if e.IsDir() {
+					specFile := filepath.Join(specsDir, e.Name(), "spec.md")
+					specs = append(specs, makeArtifact("spec:"+e.Name(), "spec: "+e.Name(), specFile))
+				}
+			}
+		}
+		designArtifacts := []ArtifactInfo{
+			makeArtifactExt("design_doc", "design doc", designDoc, root),
+		}
+		designArtifacts = append(designArtifacts, specs...)
+		handoffPath := filepath.Join(dir, ".comet", "handoff", "design-context.md")
+		designArtifacts = append(designArtifacts, makeArtifact("handoff", "handoff/context", handoffPath))
+		return designArtifacts
+	case "build":
+		tasksLabel := "tasks.md"
+		if total > 0 {
+			tasksLabel = fmt.Sprintf("tasks.md (%d 项)", total)
+		}
+		return []ArtifactInfo{
+			makeArtifactExt("plan", "plan", plan, root),
+			{File: "tasks.md", Label: tasksLabel, Exists: fileExists(filepath.Join(dir, "tasks.md")), Path: filepath.Join(dir, "tasks.md"), IsTasks: true},
+		}
+	case "verify":
+		return []ArtifactInfo{
+			makeArtifactExt("verify_report", "verify report", verifyReport, root),
+		}
+	default:
+		return []ArtifactInfo{}
+	}
+}
+
+func makeArtifact(file, label, path string) ArtifactInfo {
+	return ArtifactInfo{File: file, Label: label, Exists: fileExists(path), Path: path}
+}
+
+func makeArtifactExt(file, label, ref, root string) ArtifactInfo {
+	if ref == "" {
+		return ArtifactInfo{File: file, Label: label, Exists: false}
+	}
+	p := filepath.Join(root, ref)
+	return ArtifactInfo{File: file, Label: label, Exists: fileExists(p), Path: p, External: true}
+}

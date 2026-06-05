@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comet UI Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:false,theme:'default'});</script>
+</head>
+<body>
+<div id="app">
+  <div class="top-bar">
+    <h1>Comet UI</h1>
+    <div class="dir-group">
+      <input type="text" id="dir-input" placeholder="openspec 目录路径" onkeydown="onDirKey(event)">
+      <button onclick="onScan()">扫描</button>
+    </div>
+    <span class="stats" id="total-count">共 0 个 change</span>
+  </div>
+  <div class="main-split">
+    <div class="list-panel">
+      <div class="list-filters">
+        <input type="text" id="search" placeholder="搜索..." oninput="onFilterChange()">
+        <div class="filter-row">
+          <select id="filter-status" onchange="onFilterChange()">
+            <option value="active">活跃</option><option value="archived">已归档</option><option value="all">全部</option>
+          </select>
+          <select id="filter-workflow" onchange="onFilterChange()">
+            <option value="">全部 workflow</option><option value="full">full</option><option value="tweak">tweak</option><option value="hotfix">hotfix</option>
+          </select>
+          <select id="filter-phase" onchange="onFilterChange()">
+            <option value="">全部 phase</option><option value="open">open</option><option value="design">design</option><option value="build">build</option><option value="verify">verify</option><option value="archive">archive</option>
+          </select>
+        </div>
+      </div>
+      <div class="list-body" id="list-body"></div>
+    </div>
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-empty">← 点击左侧 change 查看详情</div>
+    </div>
+    <div class="chat-panel" id="chat-panel">
+      <div class="chat-header">
+        <span class="chat-title">Chat Agent</span>
+        <div class="chat-actions">
+          <button onclick="clearChat()" title="清空对话">清空</button>
+          <button onclick="exportChat()" title="导出对话">导出</button>
+          <button onclick="toggleSettings()" title="设置">⚙</button>
+        </div>
+      </div>
+      <div class="chat-context" id="chat-context"></div>
+      <div class="chat-messages" id="chat-messages">
+        <div style="text-align:center;color:var(--muted);padding:40px 16px;font-size:12px;">选择一个产物文件，开始对话<br>输入 @ 可索引其他文件</div>
+      </div>
+      <div class="chat-input-area">
+        <div class="preview-images" id="preview-images"></div>
+        <div class="chat-input-row">
+          <button class="attach-btn" onclick="onAttachClick()" title="附加图片">📎</button>
+          <textarea id="chat-input" rows="1" placeholder="输入消息... @ 索引文件" onkeydown="onChatKey(event)" onpaste="onChatPaste(event)"></textarea>
+          <button onclick="sendMessage()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
