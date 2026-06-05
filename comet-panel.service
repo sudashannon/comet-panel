@@ -1,0 +1,14 @@
+[Unit]
+Description=Comet Panel Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=shanl
+WorkingDirectory=/home/shanl/workspace/comet-panel
+ExecStart=/home/shanl/workspace/comet-panel/comet-panel --port 8989 --dir ../miao/openspec
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

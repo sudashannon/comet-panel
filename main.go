@@ -20,7 +20,7 @@ import (
 var staticFiles embed.FS
 
 func main() {
-	port := flag.Int("port", 8080, "port to listen on")
+	port := flag.Int("port", 8989, "port to listen on")
 	baseDir := flag.String("dir", "openspec", "path to openspec directory")
 	flag.Parse()
 
