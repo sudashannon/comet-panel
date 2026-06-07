@@ -6,7 +6,7 @@ let state = {
   selectedName: null,
   changeDetail: null,
   activeArtifact: null,
-  filters: { search:'', status:'active', workflow:'', phase:'' },
+  filters: { search:'', status:'all', workflow:'', phase:'' },
   chat: {
     messages: [],
     contextFiles: [],
