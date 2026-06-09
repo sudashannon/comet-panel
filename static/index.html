@@ -57,7 +57,7 @@
         <div class="preview-images" id="preview-images"></div>
         <div class="chat-input-row">
           <button class="attach-btn" onclick="onAttachClick()" title="附加图片">📎</button>
-          <textarea id="chat-input" rows="1" placeholder="输入消息... @ 索引文件" onkeydown="onChatKey(event)" onpaste="onChatPaste(event)"></textarea>
+          <textarea id="chat-input" rows="1" placeholder="输入消息... @ 索引文件" onkeydown="onChatKey(event)" oninput="onChatInput(event)" onpaste="onChatPaste(event)"></textarea>
           <button onclick="sendMessage()">发送</button>
         </div>
       </div>

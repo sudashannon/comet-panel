@@ -104,7 +104,7 @@ function renderDetail() {
   const el = document.getElementById('detail-panel'), d = state.changeDetail;
   if(!d) { el.innerHTML = '<div class="detail-empty">← 点击左侧 change 查看详情</div>'; return; }
   const pct = d.tasksTotal>0?Math.round(d.tasksCompleted/d.tasksTotal*100):0, dateStr = d.createdAt?` | ${esc(d.createdAt)}`:'';
-  el.innerHTML = `<div class="detail-content"><div class="meta-bar"><div class="meta-item"><strong>Workflow:</strong> <span class="badge badge-${d.workflow||'full'}">${esc(d.workflow||'?')}</span></div><div class="meta-item"><strong>Phase:</strong> ${esc(d.phase||'?')}</div><div class="meta-item"><strong>进度:</strong> ${d.tasksCompleted}/${d.tasksTotal}</div><div class="meta-item"><strong>Verify:</strong> <span class="badge badge-${d.verifyResult||'pending'}">${esc(d.verifyResult||'pending')}</span></div><div class="meta-item">${dateStr}</div></div><div class="detail-body"><div class="phase-tree" id="phase-tree">${renderPhaseTree(d.phases)}</div><div class="content-panel" id="content-panel"><div class="empty-state">← 点击左侧产物文件查看内容</div></div></div></div>`;
+  el.innerHTML = `<div class="detail-content"><div class="meta-bar"><div class="meta-item"><strong>Workflow:</strong> <span class="badge badge-${d.workflow||'full'}">${esc(d.workflow||'?')}</span></div><div class="meta-item"><strong>Phase:</strong> ${esc(d.phase||'?')}</div><div class="meta-item"><strong>进度:</strong> ${d.tasksCompleted}/${d.tasksTotal}</div><div class="meta-item"><strong>Verify:</strong> <span class="badge badge-${d.verifyResult||'pending'}">${esc(d.verifyResult||'pending')}</span></div><div class="meta-item meta-change-name">📋 ${esc(d.name||'')}${dateStr}</div></div><div class="detail-body"><div class="phase-tree" id="phase-tree">${renderPhaseTree(d.phases)}</div><div class="content-panel" id="content-panel"><div class="empty-state">← 点击左侧产物文件查看内容</div></div></div></div>`;
   if(!state.activeArtifact) { for(const p of d.phases) for(const a of p.artifacts) if(a.exists) { selectArtifact(a); return; } }
 }
 
@@ -307,40 +307,54 @@ async function sendMessage() {
 }
 
 function onChatKey(e) {
-  if(e.key==='Enter'&&!e.shiftKey) { e.preventDefault(); sendMessage(); return; }
-  const input = e.target;
-  const cursorPos = input.selectionStart;
-  const text = input.value;
-  const atIdx = text.lastIndexOf('@', cursorPos-1);
-
-  if(atIdx>=0 && cursorPos>atIdx) {
-    const filter = text.slice(atIdx+1, cursorPos).toLowerCase();
-    const files = getArtifactFiles().filter(f=>f.toLowerCase().includes(filter));
-    if(files.length) {
-      state.chat.showAtMenu = true;
-      state.chat.atFilter = filter;
-      state.chat.atIndex = Math.min(state.chat.atIndex, files.length-1);
-      showAtMenu(files.map((f,i)=>`<div class="at-menu-item${i===state.chat.atIndex?' selected':''}" onclick="insertAtFile('${esc(f)}')">📄 ${esc(f)}</div>`).join(''));
-    } else {
-      state.chat.showAtMenu = false;
-      hideAtMenu();
-    }
-    if(e.key==='ArrowDown') { e.preventDefault(); state.chat.atIndex = Math.min(state.chat.atIndex+1,files.length-1); }
-    if(e.key==='ArrowUp') { e.preventDefault(); state.chat.atIndex = Math.max(state.chat.atIndex-1,0); }
-    if(e.key==='Tab'||e.key==='Enter') { e.preventDefault(); const fs=getArtifactFiles().filter(f=>f.toLowerCase().includes(state.chat.atFilter)); if(fs.length) insertAtFile(fs[state.chat.atIndex]); }
-  } else {
-    state.chat.showAtMenu = false;
-    hideAtMenu();
+  // When @ menu is open, keys navigate/select it (and must NOT send the message)
+  if (state.chat.showAtMenu) {
+    const files = currentAtFiles();
+    if (e.key === 'ArrowDown') { e.preventDefault(); state.chat.atIndex = Math.min(state.chat.atIndex + 1, files.length - 1); renderAtMenu(files); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); state.chat.atIndex = Math.max(state.chat.atIndex - 1, 0); renderAtMenu(files); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); if (files.length) insertAtFile(files[state.chat.atIndex].label); return; }
+    if (e.key === 'Escape') { e.preventDefault(); state.chat.showAtMenu = false; hideAtMenu(); return; }
   }
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 100)+'px';
+  // Menu closed: Enter sends the message
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
 
-function getArtifactFiles() {
-  if(!state.changeDetail) return [];
-  const files = [];
-  for(const p of state.changeDetail.phases) for(const a of p.artifacts) if(a.exists) files.push(a.label);
-  return files;
+function onChatInput(e) {
+  const input = e.target;
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+
+  const cursorPos = input.selectionStart;
+  const text = input.value;
+  const atIdx = text.lastIndexOf('@', cursorPos - 1);
+
+  if (atIdx >= 0 && cursorPos > atIdx) {
+    const fragment = text.slice(atIdx + 1, cursorPos);
+    // only trigger while typing the token (no whitespace between @ and cursor)
+    if (/\s/.test(fragment)) { state.chat.showAtMenu = false; hideAtMenu(); return; }
+    state.chat.atFilter = fragment.toLowerCase();
+    const files = currentAtFiles();
+    if (files.length) {
+      state.chat.showAtMenu = true;
+      state.chat.atIndex = 0;
+      renderAtMenu(files);
+    } else {
+      state.chat.showAtMenu = false; hideAtMenu();
+    }
+  } else {
+    state.chat.showAtMenu = false; hideAtMenu();
+  }
+}
+
+function currentAtFiles() {
+  const f = state.chat.atFilter || '';
+  return getArtifactFilesWithPaths().filter(x => x.label.toLowerCase().includes(f));
+}
+
+function renderAtMenu(files) {
+  showAtMenu(files.map((x, i) =>
+    `<div class="at-menu-item${i === state.chat.atIndex ? ' selected' : ''}" onmousedown="event.preventDefault();insertAtFile('${esc(x.label)}')">📄 ${esc(x.label)}</div>`
+  ).join(''));
 }
 
 function insertAtFile(name) {
@@ -348,7 +362,7 @@ function insertAtFile(name) {
   const text = input.value;
   const cursorPos = input.selectionStart;
   const atIdx = text.lastIndexOf('@', cursorPos-1);
-  input.value = text.slice(0, atIdx) + text.slice(cursorPos);
+  if (atIdx >= 0) input.value = text.slice(0, atIdx) + text.slice(cursorPos);
   // resolve label to artifact path
   const files = getArtifactFilesWithPaths();
   const match = files.find(f=>f.label===name);
@@ -356,6 +370,9 @@ function insertAtFile(name) {
     state.chat.contextFiles.push({path: match.path, label: match.label});
     renderChatContext();
   }
+  state.chat.showAtMenu = false;
+  state.chat.atIndex = 0;
+  state.chat.atFilter = '';
   hideAtMenu();
   input.focus();
 }
