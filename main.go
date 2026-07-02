@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"os/exec"
@@ -149,6 +150,11 @@ func handleGetArtifact(w http.ResponseWriter, r *http.Request, baseDir string) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	ext := filepath.Ext(absPath)
+	ct := mime.TypeByExtension(ext)
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", ct)
 	w.Write(content)
 }

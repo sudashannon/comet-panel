@@ -166,6 +166,10 @@ func scanAllChanges(baseDir string) ([]ChangeSummary, error) {
 	archiveDir := filepath.Join(changesDir, "archive")
 	archEntries, err := os.ReadDir(archiveDir)
 	if err == nil {
+		// reverse to get newest first (dirs are YYYY-MM-DD-name, alpha order = date asc)
+		for i, j := 0, len(archEntries)-1; i < j; i, j = i+1, j-1 {
+			archEntries[i], archEntries[j] = archEntries[j], archEntries[i]
+		}
 		for _, e := range archEntries {
 			if !e.IsDir() {
 				continue
@@ -349,7 +353,7 @@ func buildPhaseArtifacts(root, dir, phase string, completed, total int, designDo
 			}
 		}
 		designArtifacts := []ArtifactInfo{
-			makeArtifactExt("design_doc", "design doc", designDoc, root),
+			makeArtifactExt("design_doc", "design doc", designDoc, root, dir),
 		}
 		designArtifacts = append(designArtifacts, specs...)
 		handoffPath := filepath.Join(dir, ".comet", "handoff", "design-context.md")
@@ -360,13 +364,28 @@ func buildPhaseArtifacts(root, dir, phase string, completed, total int, designDo
 		if total > 0 {
 			tasksLabel = fmt.Sprintf("tasks.md (%d 项)", total)
 		}
-		return []ArtifactInfo{
-			makeArtifactExt("plan", "plan", plan, root),
+		buildArts := []ArtifactInfo{
+			makeArtifactExt("plan", "plan", plan, root, dir),
 			{File: "tasks.md", Label: tasksLabel, Exists: fileExists(filepath.Join(dir, "tasks.md")), Path: filepath.Join(dir, "tasks.md"), IsTasks: true},
 		}
+		// scan docs/superpowers/artifacts/<plan-slug>/ by convention
+		if plan != "" {
+			slug := strings.TrimSuffix(filepath.Base(plan), ".md")
+			artifactsDir := filepath.Join(root, "docs", "superpowers", "artifacts", slug)
+			if entries, err := os.ReadDir(artifactsDir); err == nil {
+				for _, e := range entries {
+					if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+						continue
+					}
+					artPath := filepath.Join(artifactsDir, e.Name())
+					buildArts = append(buildArts, makeArtifact("artifact:"+e.Name(), "📝 "+e.Name(), artPath))
+				}
+			}
+		}
+		return buildArts
 	case "verify":
 		return []ArtifactInfo{
-			makeArtifactExt("verify_report", "verify report", verifyReport, root),
+			makeArtifactExt("verify_report", "verify report", verifyReport, root, dir),
 		}
 	default:
 		return []ArtifactInfo{}
@@ -377,10 +396,17 @@ func makeArtifact(file, label, path string) ArtifactInfo {
 	return ArtifactInfo{File: file, Label: label, Exists: fileExists(path), Path: path}
 }
 
-func makeArtifactExt(file, label, ref, root string) ArtifactInfo {
+func makeArtifactExt(file, label, ref, root, changeDir string) ArtifactInfo {
 	if ref == "" {
 		return ArtifactInfo{File: file, Label: label, Exists: false}
 	}
-	p := filepath.Join(root, ref)
+	// Resolve path: bare filename (no "/") is local to the change dir;
+	// a path with "/" is project-root-relative (e.g. docs/superpowers/specs/...).
+	var p string
+	if !strings.Contains(ref, "/") {
+		p = filepath.Join(changeDir, ref)
+	} else {
+		p = filepath.Join(root, ref)
+	}
 	return ArtifactInfo{File: file, Label: label, Exists: fileExists(p), Path: p, External: true}
 }

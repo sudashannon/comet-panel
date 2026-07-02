@@ -104,7 +104,7 @@ function renderDetail() {
   const el = document.getElementById('detail-panel'), d = state.changeDetail;
   if(!d) { el.innerHTML = '<div class="detail-empty">← 点击左侧 change 查看详情</div>'; return; }
   const pct = d.tasksTotal>0?Math.round(d.tasksCompleted/d.tasksTotal*100):0, dateStr = d.createdAt?` | ${esc(d.createdAt)}`:'';
-  el.innerHTML = `<div class="detail-content"><div class="meta-bar"><div class="meta-item"><strong>Workflow:</strong> <span class="badge badge-${d.workflow||'full'}">${esc(d.workflow||'?')}</span></div><div class="meta-item"><strong>Phase:</strong> ${esc(d.phase||'?')}</div><div class="meta-item"><strong>进度:</strong> ${d.tasksCompleted}/${d.tasksTotal}</div><div class="meta-item"><strong>Verify:</strong> <span class="badge badge-${d.verifyResult||'pending'}">${esc(d.verifyResult||'pending')}</span></div><div class="meta-item meta-change-name">📋 ${esc(d.name||'')}${dateStr}</div></div><div class="detail-body"><div class="phase-tree" id="phase-tree">${renderPhaseTree(d.phases)}</div><div class="content-panel" id="content-panel"><div class="empty-state">← 点击左侧产物文件查看内容</div></div></div></div>`;
+  el.innerHTML = `<div class="detail-content"><div class="meta-bar"><div class="meta-item"><strong>Workflow:</strong> <span class="badge badge-${d.workflow||'full'}">${esc(d.workflow||'?')}</span></div><div class="meta-item"><strong>Phase:</strong> ${esc(d.phase||'?')}</div><div class="meta-item"><strong>进度:</strong> ${d.tasksCompleted}/${d.tasksTotal}</div><div class="meta-item"><strong>Verify:</strong> <span class="badge badge-${d.verifyResult||'pending'}">${esc(d.verifyResult||'pending')}</span></div><div class="meta-item meta-filepath" id="meta-filepath"></div><div class="meta-item meta-change-name">📋 ${esc(d.name||'')}${dateStr}</div></div><div class="detail-body"><div class="phase-tree" id="phase-tree">${renderPhaseTree(d.phases)}</div><div class="content-panel" id="content-panel"><div class="empty-state">← 点击左侧产物文件查看内容</div></div></div></div>`;
   if(!state.activeArtifact) { for(const p of d.phases) for(const a of p.artifacts) if(a.exists) { selectArtifact(a); return; } }
 }
 
@@ -117,6 +117,8 @@ async function selectArtifact(art) {
   state.activeArtifact = art;
   const treeEl = document.getElementById('phase-tree');
   if(state.changeDetail&&treeEl) treeEl.innerHTML = renderPhaseTree(state.changeDetail.phases);
+  const fpEl = document.getElementById('meta-filepath');
+  if(fpEl) fpEl.innerHTML = art.path ? `📄 <span title="${esc(art.path)}">${esc(art.path)}</span>` : '';
   if(!state.chat.contextFiles.length) state.chat.contextFiles = [{path: art.path, label: art.label}];
   renderChatContext();
   const panel = document.getElementById('content-panel');
@@ -135,7 +137,7 @@ async function selectArtifact(art) {
 
 async function renderMarkdown(text, container) {
   if(typeof marked === 'undefined') { container.innerHTML += '<div class="markdown-body">'+esc(text)+'</div>'; return; }
-  let html = marked.parse(text);
+  let html = marked.parse(preprocessPlantuml(text));
   const wrapper = document.createElement('div'); wrapper.className = 'markdown-body'; wrapper.innerHTML = html;
   container.appendChild(wrapper);
   const blocks = wrapper.querySelectorAll('code.language-mermaid');
@@ -153,7 +155,108 @@ async function renderMarkdown(text, container) {
       block.parentElement.outerHTML = '<div class="mermaid-error">Mermaid 渲染失败: '+esc(e.message)+'</div>';
     }
   }
+  const pumlBlocks = wrapper.querySelectorAll('code.language-plantuml');
+  for (const block of pumlBlocks) {
+    const code = block.textContent.trim();
+    try {
+      const enc = await plantumlEncode(code);
+      block.parentElement.outerHTML = '<div class="plantuml-container"><img src="'+plantumlServer()+'/svg/'+enc+'" alt="PlantUML diagram" loading="lazy"></div>';
+    } catch(e) {
+      block.parentElement.outerHTML = '<div class="mermaid-error">PlantUML 渲染失败: '+esc(e.message)+'</div>';
+    }
+  }
   fixTables(wrapper);
+  fixImages(wrapper);
+}
+
+// Collapse ./ and ../ segments in a relative-style path string.
+// Unlike simple regex stripping, this correctly handles multi-level ../ chains
+// (e.g. "a/b/c/../../d" → "a/d").
+function collapseRelativePaths(p) {
+  const isAbs = p.startsWith('/');
+  const parts = p.split('/');
+  const out = [];
+  for (const seg of parts) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') { if (out.length) out.pop(); continue; }
+    out.push(seg);
+  }
+  return (isAbs ? '/' : '') + out.join('/');
+}
+
+function fixImages(el) {
+  const projectRoot = state.dir.split('/').slice(0, -1).join('/') || '.';
+  // compute document directory from active artifact path
+  const docPath = state.activeArtifact ? state.activeArtifact.path : '';
+  const docDir = docPath ? docPath.split('/').slice(0, -1).join('/') : projectRoot;
+
+  el.querySelectorAll('img').forEach(img => {
+    const src = img.getAttribute('src');
+    if (!src || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:') || src.startsWith('/api/')) return;
+
+    // resolve relative to document directory (standard markdown behavior)
+    let resolved;
+    if (src.startsWith('/')) {
+      resolved = projectRoot + src;
+    } else {
+      resolved = docDir + '/' + src;
+    }
+    img.src = '/api/artifact?path=' + encodeURIComponent(resolved) + '&dir=' + encodeURIComponent(state.dir);
+    // fallback: if 404, re-resolve by collapsing all ../ segments from src against projectRoot.
+    // This handles multi-level ../ correctly (unlike regex which only strips one level).
+    // Safety: result must stay within projectRoot, otherwise we'd escape the project directory.
+    img.onerror = function() {
+      this.onerror = null; // prevent infinite loop
+      try {
+        const altResolved = collapseRelativePaths(projectRoot + '/' + src);
+        const root = (projectRoot || '').replace(/\/+$/, '');
+        if (root && altResolved !== root && !altResolved.startsWith(root + '/')) {
+          return; // give up — don't trigger another onerror
+        }
+        this.src = '/api/artifact?path=' + encodeURIComponent(altResolved) + '&dir=' + encodeURIComponent(state.dir);
+      } catch (_) {
+        // silent — malformed src, give up
+      }
+    };
+  });
+}
+
+// ===== PlantUML =====
+const PLANTUML_DEFAULT = 'https://www.plantuml.com/plantuml';
+function plantumlServer() { return localStorage.getItem('plantuml_server') || PLANTUML_DEFAULT; }
+
+// Wrap raw @startuml...@enduml blocks into ```plantuml fences (skip content already inside fences)
+function preprocessPlantuml(md) {
+  const parts = md.split(/(```[\s\S]*?```)/g);
+  for (let i = 0; i < parts.length; i += 2) {
+    parts[i] = parts[i].replace(/@startuml[\s\S]*?@enduml/g, m => '\n```plantuml\n' + m + '\n```\n');
+  }
+  return parts.join('');
+}
+
+// PlantUML text encoding: deflate-raw + custom base64
+async function plantumlEncode(text) {
+  const bytes = new TextEncoder().encode(text);
+  const cs = new CompressionStream('deflate-raw');
+  const writer = cs.writable.getWriter();
+  writer.write(bytes); writer.close();
+  const buf = await new Response(cs.readable).arrayBuffer();
+  return plantumlBase64(new Uint8Array(buf));
+}
+function plantumlBase64(data) {
+  let r = '';
+  for (let i = 0; i < data.length; i += 3) {
+    const b1 = data[i], b2 = i+1 < data.length ? data[i+1] : 0, b3 = i+2 < data.length ? data[i+2] : 0;
+    const c1 = b1 >> 2, c2 = ((b1 & 3) << 4) | (b2 >> 4), c3 = ((b2 & 15) << 2) | (b3 >> 6), c4 = b3 & 63;
+    r += puml6(c1) + puml6(c2) + puml6(c3) + puml6(c4);
+  }
+  return r;
+}
+function puml6(b) {
+  if (b < 10) return String.fromCharCode(48 + b);
+  b -= 10; if (b < 26) return String.fromCharCode(65 + b);
+  b -= 26; if (b < 26) return String.fromCharCode(97 + b);
+  b -= 26; if (b === 0) return '-'; if (b === 1) return '_'; return '?';
 }
 
 function fixTables(el) {
@@ -438,7 +541,7 @@ function renderSettings() {
   let overlay = document.getElementById('settings-overlay');
   if(!state.chat.showSettings) { if(overlay) overlay.remove(); return; }
   if(!overlay) { overlay = document.createElement('div'); overlay.id = 'settings-overlay'; overlay.className = 'settings-overlay'; document.body.appendChild(overlay); }
-  overlay.innerHTML = `<div class="settings-panel"><h3>⚙ Chat 设置</h3><label>Provider</label><select id="cfg-provider" onchange="onProviderChange()"><option>minimax</option></select><label>API Key</label><input id="cfg-apikey" type="password" placeholder="sk-xxxx"><label>Model</label><select id="cfg-model"></select><label>API Base URL</label><input id="cfg-apibase" placeholder="https://api.minimaxi.com"><label>Temperature</label><input id="cfg-temp" type="number" step="0.1" min="0" max="2" value="1"><label>Max Tokens</label><input id="cfg-maxtokens" type="number" value="4096"><label>Thinking</label><select id="cfg-thinking"><option value="auto">开启</option><option value="disabled">关闭</option></select><div class="settings-actions"><button class="btn-secondary" onclick="toggleSettings()">取消</button><button class="btn-primary" onclick="saveSettings()">保存</button></div></div>`;
+  overlay.innerHTML = `<div class="settings-panel"><h3>⚙ Chat 设置</h3><label>Provider</label><select id="cfg-provider" onchange="onProviderChange()"><option>minimax</option></select><label>API Key</label><input id="cfg-apikey" type="password" placeholder="sk-xxxx"><label>Model</label><select id="cfg-model"></select><label>API Base URL</label><input id="cfg-apibase" placeholder="https://api.minimaxi.com"><label>Temperature</label><input id="cfg-temp" type="number" step="0.1" min="0" max="2" value="1"><label>Max Tokens</label><input id="cfg-maxtokens" type="number" value="4096"><label>Thinking</label><select id="cfg-thinking"><option value="auto">开启</option><option value="disabled">关闭</option></select><label>PlantUML Server</label><input id="cfg-plantuml" placeholder="https://www.plantuml.com/plantuml"><div class="settings-actions"><button class="btn-secondary" onclick="toggleSettings()">取消</button><button class="btn-primary" onclick="saveSettings()">保存</button></div></div>`;
   (async()=>{
     try {
       const provs = await api('/api/chat/providers');
@@ -454,6 +557,7 @@ function renderSettings() {
       document.getElementById('cfg-temp').value = pc.temperature||1;
       document.getElementById('cfg-maxtokens').value = pc.max_tokens||4096;
       document.getElementById('cfg-thinking').value = pc.thinking||'auto';
+      document.getElementById('cfg-plantuml').value = plantumlServer();
     } catch(e) {}
   })();
 }
@@ -479,6 +583,8 @@ async function saveSettings() {
   };
   try {
     await fetch('/api/chat/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+    const pumlSrv = document.getElementById('cfg-plantuml').value.trim();
+    if (pumlSrv) localStorage.setItem('plantuml_server', pumlSrv); else localStorage.removeItem('plantuml_server');
     state.chat.showThinking = document.getElementById('cfg-thinking').value !== 'disabled';
     toggleSettings();
   } catch(e) { alert('保存失败: '+e.message); }
