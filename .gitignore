@@ -4,3 +4,4 @@ comet-panel
 .worktrees/
 web/node_modules/
 web/dist/
+web/tsconfig.tsbuildinfo

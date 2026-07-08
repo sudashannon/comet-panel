@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+:root {
+  --color-accent: #0063f8;
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-warn: #c47a06;
+}
+
+body {
+  font-family: Inter, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
