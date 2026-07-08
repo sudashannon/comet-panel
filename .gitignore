@@ -1,3 +1,6 @@
 comet-ui
 comet-panel
 .superpowers/
+.worktrees/
+web/node_modules/
+web/dist/
