@@ -18,6 +18,15 @@ type ChangeSummary struct {
 	VerifyResult   string          `json:"verifyResult"`
 	CreatedAt      string          `json:"createdAt"`
 	Artifacts      map[string]bool `json:"artifacts"`
+	Visualized     bool            `json:"visualized"`
+	DesignReviewed bool            `json:"designReviewed"`
+	VerifyReviewed bool            `json:"verifyReviewed"`
+	VerifiedAt     string          `json:"verifiedAt"`
+	BuildMode      string          `json:"buildMode"`
+	ReviewMode     string          `json:"reviewMode"`
+	TddMode        string          `json:"tddMode"`
+	AutoTransition bool            `json:"autoTransition"`
+	StateWarning   string          `json:"stateWarning,omitempty"`
 }
 
 type ChangeDetail struct {
@@ -49,6 +58,15 @@ type cometYAML struct {
 	Plan               string
 	VerificationReport string
 	Archived           bool
+	Visualized         bool
+	DesignReviewed     bool
+	VerifyReviewed     bool
+	CreatedAt          string
+	VerifiedAt         string
+	BuildMode          string
+	ReviewMode         string
+	TddMode            string
+	AutoTransition     bool
 }
 
 func parseCometYAML(path string) (*cometYAML, error) {
@@ -86,6 +104,24 @@ func parseCometYAML(path string) (*cometYAML, error) {
 			c.VerificationReport = val
 		case "archived":
 			c.Archived = val == "true"
+		case "visualized":
+			c.Visualized = val == "true"
+		case "design_reviewed":
+			c.DesignReviewed = val == "true"
+		case "verify_reviewed":
+			c.VerifyReviewed = val == "true"
+		case "created_at":
+			c.CreatedAt = val
+		case "verified_at":
+			c.VerifiedAt = val
+		case "build_mode":
+			c.BuildMode = val
+		case "review_mode":
+			c.ReviewMode = val
+		case "tdd_mode":
+			c.TddMode = val
+		case "auto_transition":
+			c.AutoTransition = val == "true"
 		}
 	}
 	return c, nil
@@ -137,6 +173,16 @@ func phaseStatus(actualPhase, targetPhase string) string {
 		return "current"
 	}
 	return "pending"
+}
+
+func computeStateWarning(archived bool, phase string) string {
+	if archived && phase != "archive" && phase != "" {
+		return fmt.Sprintf("archived=true 但 phase=%s（状态不一致）", phase)
+	}
+	if !archived && phase == "archive" {
+		return "phase=archive 但 archived=false（状态不一致）"
+	}
+	return ""
 }
 
 func extractDate(dirName string) string {
@@ -220,6 +266,21 @@ func scanChange(parentDir, name string, archived bool, base string) ChangeSummar
 	createdAt := ""
 	if archived {
 		createdAt = extractDate(name)
+	} else if cy != nil && cy.CreatedAt != "" {
+		createdAt = cy.CreatedAt
+	}
+
+	var visualized, designReviewed, verifyReviewed, autoTransition bool
+	var verifiedAt, buildMode, reviewMode, tddMode string
+	if cy != nil {
+		visualized = cy.Visualized
+		designReviewed = cy.DesignReviewed
+		verifyReviewed = cy.VerifyReviewed
+		verifiedAt = cy.VerifiedAt
+		buildMode = cy.BuildMode
+		reviewMode = cy.ReviewMode
+		tddMode = cy.TddMode
+		autoTransition = cy.AutoTransition
 	}
 
 	return ChangeSummary{
@@ -232,6 +293,15 @@ func scanChange(parentDir, name string, archived bool, base string) ChangeSummar
 		VerifyResult:   verifyResult,
 		CreatedAt:      createdAt,
 		Artifacts:      artifacts,
+		Visualized:     visualized,
+		DesignReviewed: designReviewed,
+		VerifyReviewed: verifyReviewed,
+		VerifiedAt:     verifiedAt,
+		BuildMode:      buildMode,
+		ReviewMode:     reviewMode,
+		TddMode:        tddMode,
+		AutoTransition: autoTransition,
+		StateWarning:   computeStateWarning(archived, phase),
 	}
 }
 
