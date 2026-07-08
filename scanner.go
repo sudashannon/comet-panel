@@ -164,7 +164,10 @@ func phaseStatus(actualPhase, targetPhase string) string {
 		}
 	}
 	if actualIdx < 0 {
-		actualIdx = 0
+		// actualPhase is missing/unrecognized (e.g. no .comet.yaml) — don't
+		// fabricate "open" (misleading for a change that's actually far
+		// along but just lacks metadata); signal unknown for every phase.
+		return "unknown"
 	}
 	if targetIdx < actualIdx {
 		return "completed"

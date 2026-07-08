@@ -20,4 +20,22 @@ describe('PhaseStepper', () => {
     expect(screen.getByText('验证')).toBeTruthy()
     expect(screen.getByText('归档')).toBeTruthy()
   })
+
+  it('marks all phases as unknown (not pending) when currentPhase is empty, e.g. a change with no .comet.yaml', () => {
+    render(<PhaseStepper currentPhase="" />)
+    expect(screen.getByTestId('step-open').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('step-design').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('step-build').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('step-verify').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('step-archive').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('phase-unknown-notice')).toBeTruthy()
+    expect(screen.getByText('⚠ 阶段信息缺失')).toBeTruthy()
+  })
+
+  it('marks all phases as unknown for an arbitrary unrecognized phase string', () => {
+    render(<PhaseStepper currentPhase="not-a-real-phase" />)
+    expect(screen.getByTestId('step-open').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('step-archive').dataset.state).toBe('unknown')
+    expect(screen.getByTestId('phase-unknown-notice')).toBeTruthy()
+  })
 })

@@ -67,3 +67,35 @@ func TestStateWarning_Consistent(t *testing.T) {
 		t.Fatalf("expected no warning, got %q", got)
 	}
 }
+
+func TestPhaseStatus_KnownPhase(t *testing.T) {
+	cases := []struct {
+		target, want string
+	}{
+		{"open", "completed"},
+		{"design", "completed"},
+		{"build", "current"},
+		{"verify", "pending"},
+		{"archive", "pending"},
+	}
+	for _, c := range cases {
+		if got := phaseStatus("build", c.target); got != c.want {
+			t.Errorf("phaseStatus(%q, %q) = %q, want %q", "build", c.target, got, c.want)
+		}
+	}
+}
+
+func TestPhaseStatus_UnknownActualPhase(t *testing.T) {
+	// A change with no .comet.yaml (or an unrecognized phase value) must not
+	// fabricate "open" (index 0 default) — that misleadingly presents a
+	// possibly far-along change as "just started". Every target phase
+	// should come back "unknown" instead.
+	for _, target := range []string{"open", "design", "build", "verify", "archive"} {
+		if got := phaseStatus("", target); got != "unknown" {
+			t.Errorf("phaseStatus(%q, %q) = %q, want %q", "", target, got, "unknown")
+		}
+		if got := phaseStatus("not-a-real-phase", target); got != "unknown" {
+			t.Errorf("phaseStatus(%q, %q) = %q, want %q", "not-a-real-phase", target, got, "unknown")
+		}
+	}
+}
