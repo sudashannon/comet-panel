@@ -99,3 +99,41 @@ func TestPhaseStatus_UnknownActualPhase(t *testing.T) {
 		}
 	}
 }
+
+func TestScanWorkspaceChanges_TagsWorkspaceAlias(t *testing.T) {
+	dir := t.TempDir()
+	changesDir := filepath.Join(dir, "changes")
+	os.MkdirAll(filepath.Join(changesDir, "my-change"), 0755)
+	writeYAML(t, filepath.Join(changesDir, "my-change"), "phase: build\n")
+
+	ws := WorkspaceConfig{Alias: "miao", Path: dir, Color: "#0063f8"}
+	summaries, err := scanWorkspaceChanges(ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summaries) != 1 || summaries[0].Workspace != "miao" {
+		t.Fatalf("expected 1 change tagged with workspace 'miao', got %+v", summaries)
+	}
+}
+
+func TestScanAllWorkspaces_AggregatesAndSkipsUnreadable(t *testing.T) {
+	dir := t.TempDir()
+	changesDir := filepath.Join(dir, "changes")
+	os.MkdirAll(filepath.Join(changesDir, "my-change"), 0755)
+	writeYAML(t, filepath.Join(changesDir, "my-change"), "phase: build\n")
+
+	registry := []WorkspaceConfig{
+		{Alias: "good", Path: dir, Color: "#0063f8"},
+		{Alias: "broken", Path: "/nonexistent/path/does/not/exist", Color: "#dc2626"},
+	}
+	summaries, failed := scanAllWorkspaces(registry)
+	if len(summaries) != 1 {
+		t.Fatalf("expected 1 change from the readable workspace, got %d", len(summaries))
+	}
+	if summaries[0].Workspace != "good" {
+		t.Fatalf("expected workspace tag 'good', got %q", summaries[0].Workspace)
+	}
+	if len(failed) != 1 || failed[0] != "broken" {
+		t.Fatalf("expected failedAliases=['broken'], got %+v", failed)
+	}
+}

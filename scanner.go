@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 
 type ChangeSummary struct {
 	Name           string          `json:"name"`
+	Workspace      string          `json:"workspace,omitempty"`
 	Workflow       string          `json:"workflow"`
 	Phase          string          `json:"phase"`
 	Archived       bool            `json:"archived"`
@@ -229,6 +231,35 @@ func scanAllChanges(baseDir string) ([]ChangeSummary, error) {
 	}
 
 	return results, nil
+}
+
+func scanWorkspaceChanges(ws WorkspaceConfig) ([]ChangeSummary, error) {
+	summaries, err := scanAllChanges(ws.Path)
+	if err != nil {
+		return nil, err
+	}
+	for i := range summaries {
+		summaries[i].Workspace = ws.Alias
+	}
+	return summaries, nil
+}
+
+// scanAllWorkspaces aggregates changes across every registered workspace.
+// An unreadable workspace path is skipped (logged) rather than failing the
+// whole aggregation — one bad path shouldn't take down the dashboard.
+// failedAliases is returned (not just logged) so the HTTP layer can surface
+// a warning banner to the frontend (design doc error table requirement).
+func scanAllWorkspaces(registry []WorkspaceConfig) (all []ChangeSummary, failedAliases []string) {
+	for _, ws := range registry {
+		summaries, err := scanWorkspaceChanges(ws)
+		if err != nil {
+			log.Printf("workspace %q (%s) unreadable, skipping: %v", ws.Alias, ws.Path, err)
+			failedAliases = append(failedAliases, ws.Alias)
+			continue
+		}
+		all = append(all, summaries...)
+	}
+	return all, failedAliases
 }
 
 func scanChange(parentDir, name string, archived bool, base string) ChangeSummary {
