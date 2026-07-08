@@ -43,3 +43,44 @@ func TestLoadWorkspaces_MissingFileReturnsEmpty(t *testing.T) {
 		t.Fatalf("expected empty slice, got %d entries", len(ws))
 	}
 }
+
+func TestWorkspaceRegistry_AddPersistsAndUpdatesMemory(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "workspaces.yaml")
+
+	reg, err := NewWorkspaceRegistry(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reg.List()) != 0 {
+		t.Fatalf("expected empty registry, got %d", len(reg.List()))
+	}
+
+	if err := reg.Add(WorkspaceConfig{Alias: "miao", Path: "/x/miao/openspec", Color: "#0063f8"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// in-memory reflects the addition immediately
+	if len(reg.List()) != 1 || reg.List()[0].Alias != "miao" {
+		t.Fatalf("expected in-memory registry to contain 'miao', got %+v", reg.List())
+	}
+
+	// a fresh load from disk also reflects it (proves it was persisted)
+	reloaded, err := LoadWorkspaces(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded) != 1 || reloaded[0].Alias != "miao" {
+		t.Fatalf("expected persisted config to contain 'miao', got %+v", reloaded)
+	}
+}
+
+func TestWorkspaceRegistry_AddDuplicateAliasRejected(t *testing.T) {
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+	_ = reg.Add(WorkspaceConfig{Alias: "miao", Path: "/x", Color: "#000"})
+	err := reg.Add(WorkspaceConfig{Alias: "miao", Path: "/y", Color: "#111"})
+	if err == nil {
+		t.Fatal("expected an error when adding a duplicate alias")
+	}
+}
