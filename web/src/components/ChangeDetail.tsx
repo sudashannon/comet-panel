@@ -1,0 +1,32 @@
+import type { ChangeSummary } from '../api/types'
+import { PhaseStepper } from './PhaseStepper'
+import { TaskDonut } from './TaskDonut'
+import { ReviewBadges } from './ReviewBadges'
+
+export function ChangeDetail({ change }: { change: ChangeSummary }) {
+  return (
+    <div className="bg-white rounded-lg p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">{change.name}</h3>
+        <ReviewBadges
+          visualized={change.visualized}
+          designReviewed={change.designReviewed}
+          verifyReviewed={change.verifyReviewed}
+        />
+      </div>
+      {change.stateWarning && (
+        <div className="text-xs text-[#dc2626] bg-[#fdeeee] rounded p-2">
+          ⚠ {change.stateWarning}
+        </div>
+      )}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-[2]">
+          <PhaseStepper currentPhase={change.phase} />
+        </div>
+        <div className="flex-1">
+          <TaskDonut completed={change.tasksCompleted} total={change.tasksTotal} />
+        </div>
+      </div>
+    </div>
+  )
+}
