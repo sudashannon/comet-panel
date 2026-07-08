@@ -36,8 +36,24 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	reg, err := NewWorkspaceRegistry(filepath.Join(os.Getenv("HOME"), ".comet-panel", "workspaces.yaml"))
+	if err != nil {
+		log.Fatalf("workspace registry: %v", err)
+	}
+
+	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleListWorkspaces(w, r, reg)
+		case http.MethodPost:
+			handleAddWorkspace(w, r, reg)
+		default:
+			writeJSONError(w, "method not allowed", 405)
+		}
+	})
+
 	mux.HandleFunc("/api/changes", func(w http.ResponseWriter, r *http.Request) {
-		handleListChanges(w, r, *baseDir)
+		handleListChangesMultiWorkspace(w, r, *baseDir, reg)
 	})
 	mux.HandleFunc("/api/changes/", func(w http.ResponseWriter, r *http.Request) {
 		handleGetChange(w, r, *baseDir)
@@ -89,16 +105,61 @@ func getDir(r *http.Request, defaultDir string) string {
 	return d
 }
 
-func handleListChanges(w http.ResponseWriter, r *http.Request, baseDir string) {
-	dir := getDir(r, baseDir)
+func handleListWorkspaces(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry) {
 	w.Header().Set("Content-Type", "application/json")
-	changes, err := scanAllChanges(dir)
-	if err != nil {
-		writeJSONError(w, err.Error(), 500)
+	json.NewEncoder(w).Encode(reg.List())
+}
+
+func handleAddWorkspace(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry) {
+	var cfg WorkspaceConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		writeJSONError(w, "invalid body", 400)
 		return
 	}
-	enc := json.NewEncoder(w)
-	enc.Encode(map[string]interface{}{"changes": changes, "dir": dir})
+	if cfg.Alias == "" || cfg.Path == "" {
+		writeJSONError(w, "alias and path are required", 400)
+		return
+	}
+	if err := reg.Add(cfg); err != nil {
+		writeJSONError(w, err.Error(), 409)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(cfg)
+}
+
+// handleListChangesMultiWorkspace replaces handleListChanges as the /api/changes
+// entry point. If no workspaces are registered, it preserves the original
+// single-directory behavior (scanAllChanges against the --dir flag value) so
+// existing deployments keep working without a workspaces.yaml migration.
+func handleListChangesMultiWorkspace(w http.ResponseWriter, r *http.Request, defaultDir string, reg *WorkspaceRegistry) {
+	w.Header().Set("Content-Type", "application/json")
+
+	registered := reg.List()
+	if len(registered) == 0 {
+		dir := getDir(r, defaultDir)
+		changes, err := scanAllChanges(dir)
+		if err != nil {
+			writeJSONError(w, err.Error(), 500)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"changes": changes, "dir": dir})
+		return
+	}
+
+	filterAlias := r.URL.Query().Get("workspace")
+	changes, failedWorkspaces := scanAllWorkspaces(registered)
+	if filterAlias != "" {
+		var filtered []ChangeSummary
+		for _, c := range changes {
+			if c.Workspace == filterAlias {
+				filtered = append(filtered, c)
+			}
+		}
+		changes = filtered
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"changes": changes, "failedWorkspaces": failedWorkspaces})
 }
 
 func handleGetChange(w http.ResponseWriter, r *http.Request, baseDir string) {
