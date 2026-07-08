@@ -1,21 +1,39 @@
 import { useEffect, useState } from 'react'
-import { fetchChanges } from './api/client'
-import type { ChangeSummary } from './api/types'
+import { fetchWorkspaces, addWorkspace, fetchChangesWithMeta } from './api/client'
+import type { ChangeSummary, WorkspaceConfig } from './api/types'
 import { KpiCards } from './components/KpiCards'
 import { ChangeExplorer } from './components/ChangeExplorer'
 import { ChangeDetail } from './components/ChangeDetail'
 import { ChatBubble } from './components/ChatBubble'
+import { WorkspaceChips } from './components/WorkspaceChips'
 
 export default function App() {
   const [changes, setChanges] = useState<ChangeSummary[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [workspaces, setWorkspaces] = useState<WorkspaceConfig[]>([])
+  const [activeWorkspace, setActiveWorkspace] = useState<string | null>(null)
+  const [failedWorkspaces, setFailedWorkspaces] = useState<string[]>([])
 
   useEffect(() => {
-    fetchChanges().then(setChanges).catch(() => setChanges([]))
+    fetchWorkspaces()
+      .then((ws) => setWorkspaces(ws ?? []))
+      .catch(() => setWorkspaces([]))
+  }, [])
+
+  useEffect(() => {
+    fetchChangesWithMeta()
+      .then((r) => {
+        setChanges(r.changes ?? [])
+        setFailedWorkspaces(r.failedWorkspaces ?? [])
+      })
+      .catch(() => setChanges([]))
   }, [])
 
   const selectedChange = changes.find((c) => c.name === selected) ?? null
+  const visibleChanges = activeWorkspace
+    ? changes.filter((c) => c.workspace === activeWorkspace)
+    : changes
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
@@ -37,11 +55,25 @@ export default function App() {
             ' xl:block w-full xl:w-[280px] border-r border-[#e8e8ed] p-3'
           }
         >
-          <ChangeExplorer changes={changes} selected={selected} onSelect={setSelected} />
+          {failedWorkspaces.length > 0 && (
+            <div data-testid="workspace-warning-banner" className="text-xs bg-[#fdeeee] text-[#dc2626] rounded p-2 mb-2">
+              ⚠ 以下 workspace 无法读取，已跳过：{failedWorkspaces.join(', ')}
+            </div>
+          )}
+          <WorkspaceChips
+            workspaces={workspaces}
+            active={activeWorkspace}
+            onSelect={setActiveWorkspace}
+            onAdd={async (cfg) => {
+              await addWorkspace(cfg)
+              setWorkspaces((prev) => [...prev, cfg])
+            }}
+          />
+          <ChangeExplorer changes={visibleChanges} selected={selected} onSelect={setSelected} />
         </aside>
 
         <main className="flex-1 p-4 space-y-4">
-          <KpiCards changes={changes} stuckThresholdDays={14} />
+          <KpiCards changes={visibleChanges} stuckThresholdDays={14} />
           {selectedChange && <ChangeDetail change={selectedChange} />}
         </main>
       </div>

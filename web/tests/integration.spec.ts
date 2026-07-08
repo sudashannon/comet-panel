@@ -15,7 +15,13 @@ test('dashboard loads real changes from the configured workspace and renders KPI
 
 test('selecting a change renders its PhaseStepper with a valid current step', async ({ page }) => {
   await page.goto('/')
-  const firstChange = page.locator('[data-testid="sidebar"] >> text=/.+/').first()
+  // Scoped to ChangeExplorer's name div specifically (className from
+  // ChangeExplorer.tsx). Task 17 added WorkspaceChips' "全部" / "+ 添加"
+  // buttons earlier in the sidebar's DOM order, above ChangeExplorer's list
+  // (by design — filter chips belong above the list they filter) — a plain
+  // `text=/.+/` match would now hit those buttons instead of the first
+  // change's name.
+  const firstChange = page.locator('[data-testid="sidebar"] div.text-sm.font-medium').first()
   await firstChange.click()
   const steps = ['step-open', 'step-design', 'step-build', 'step-verify', 'step-archive']
   let currentCount = 0

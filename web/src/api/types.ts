@@ -25,3 +25,9 @@ export interface ChangesResponse {
   dir?: string
   failedWorkspaces?: string[]
 }
+
+export interface WorkspaceConfig {
+  alias: string
+  path: string
+  color: string
+}
