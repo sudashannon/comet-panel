@@ -36,7 +36,7 @@ export function KpiCards({ changes, stuckThresholdDays, now = new Date() }: Prop
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div data-testid="kpi-grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       {cards.map((c) => (
         <div
           key={c.key}
