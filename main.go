@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"mime"
 	"net/http"
@@ -17,8 +18,16 @@ import (
 	"comet-ui/chat"
 )
 
-//go:embed static/*
-var staticFiles embed.FS
+//go:embed web/dist
+var webDist embed.FS
+
+func staticHandler() http.Handler {
+	sub, err := fs.Sub(webDist, "web/dist")
+	if err != nil {
+		log.Fatalf("embed sub: %v", err)
+	}
+	return http.FileServer(http.FS(sub))
+}
 
 func main() {
 	port := flag.Int("port", 8989, "port to listen on")
@@ -42,17 +51,7 @@ func main() {
 	mux.HandleFunc("/api/chat/config", chat.HandleConfig)
 	mux.HandleFunc("/api/chat/providers", chat.HandleProviders)
 
-	mux.Handle("/static/", http.FileServer(http.FS(staticFiles)))
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		data, err := staticFiles.ReadFile("static/index.html")
-		if err != nil {
-			http.Error(w, "index not found", 500)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(data)
-	})
+	mux.Handle("/", staticHandler())
 
 	addr := fmt.Sprintf(":%d", *port)
 	url := fmt.Sprintf("http://localhost:%d", *port)
