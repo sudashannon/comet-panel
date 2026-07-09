@@ -1,17 +1,19 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ChatBubble } from './ChatBubble'
-import { streamChat, fetchChatSession } from '../api/client'
+import { streamChat, fetchChatSession, fetchChangeDetail } from '../api/client'
 
 vi.mock('../api/client', () => ({
   streamChat: vi.fn(),
   fetchChatSession: vi.fn(),
+  fetchChangeDetail: vi.fn(),
 }))
 
 describe('ChatBubble', () => {
   beforeEach(() => {
     vi.mocked(streamChat).mockReset()
     vi.mocked(fetchChatSession).mockReset()
+    vi.mocked(fetchChangeDetail).mockReset()
     // Default: no persisted history, so pre-existing tests (which never set
     // up fetchChatSession themselves) still start from an empty transcript.
     vi.mocked(fetchChatSession).mockResolvedValue({
@@ -21,6 +23,19 @@ describe('ChatBubble', () => {
       usage: { total_input: 0, total_output: 0 },
       created_at: '',
       updated_at: '',
+    })
+    // Default: no artifacts, so pre-existing tests see an empty context-file
+    // selector (and don't need to mock fetchChangeDetail themselves).
+    vi.mocked(fetchChangeDetail).mockResolvedValue({
+      name: 'rx101-x',
+      workflow: '',
+      phase: '',
+      archived: false,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      verifyResult: '',
+      createdAt: '',
+      phases: [],
     })
   })
 
@@ -120,4 +135,55 @@ describe('ChatBubble', () => {
 
     expect(screen.getByTestId('chat-messages').textContent).toBe('')
   })
+
+  it('renders context-file chips from the change artifacts and passes selected paths to streamChat', async () => {
+    vi.mocked(fetchChangeDetail).mockResolvedValue({
+      name: 'rx101-x',
+      workflow: '',
+      phase: '',
+      archived: false,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      verifyResult: '',
+      createdAt: '',
+      phases: [
+        {
+          key: 'design',
+          label: 'Design',
+          status: 'done',
+          artifacts: [
+            { file: 'design.md', label: 'Design', exists: true, path: 'openspec/changes/rx101-x/design.md' },
+            { file: 'proposal.md', label: 'Proposal', exists: true, path: 'openspec/changes/rx101-x/proposal.md' },
+            { file: 'tasks.md', label: 'Tasks', exists: false, path: 'openspec/changes/rx101-x/tasks.md' },
+          ],
+        },
+      ],
+    })
+    vi.mocked(streamChat).mockImplementation(async (_change, _message, contextFiles, onEvent) => {
+      expect(contextFiles).toEqual(['openspec/changes/rx101-x/design.md'])
+      onEvent({ type: 'delta', content: 'ok' })
+      onEvent({ type: 'done' })
+    })
+
+    render(<ChatBubble changeName="rx101-x" />)
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+
+    await waitFor(() => expect(fetchChangeDetail).toHaveBeenCalledWith('rx101-x'))
+
+    // Only artifacts that exist are offered as context; the missing tasks.md is excluded.
+    const designChip = await screen.findByTestId('context-file-chip-openspec/changes/rx101-x/design.md')
+    expect(screen.getByTestId('context-file-chip-openspec/changes/rx101-x/proposal.md')).toBeTruthy()
+    expect(screen.queryByTestId('context-file-chip-openspec/changes/rx101-x/tasks.md')).toBeNull()
+
+    fireEvent.click(designChip)
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'what changed?' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('chat-send'))
+    })
+
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1))
+  })
 })
+

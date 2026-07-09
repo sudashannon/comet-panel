@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { streamChat, fetchChatSession, type ChatSessionMessage } from '../api/client'
+import { streamChat, fetchChatSession, fetchChangeDetail, type ChatSessionMessage } from '../api/client'
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'error'
@@ -28,6 +28,8 @@ export function ChatBubble({ changeName }: { changeName: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [contextFiles, setContextFiles] = useState<string[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const messagesRef = useRef<HTMLDivElement>(null)
   // Guards against the history load resolving AFTER the user has already
   // sent a message (e.g. slow /api/chat/session, fast first keystroke):
@@ -53,6 +55,31 @@ export function ChatBubble({ changeName }: { changeName: string }) {
     }
   }, [changeName])
 
+  // 上下文文件注入：挂载时拉取该变更的产物清单，把已存在的产物文件路径
+  // 作为可勾选的上下文文件展示；用户勾选后发送时会连同消息一起传给后端。
+  useEffect(() => {
+    let cancelled = false
+    fetchChangeDetail(changeName)
+      .then((detail) => {
+        if (cancelled) return
+        const paths = (detail.phases ?? [])
+          .flatMap((phase) => phase.artifacts ?? [])
+          .filter((artifact) => artifact.exists)
+          .map((artifact) => artifact.path || artifact.file)
+        setContextFiles(paths)
+      })
+      .catch(() => {
+        // 产物清单加载失败不阻塞聊天：静默保持空的上下文文件选择器。
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [changeName])
+
+  function toggleContextFile(path: string) {
+    setSelectedFiles((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]))
+  }
+
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight
@@ -64,10 +91,8 @@ export function ChatBubble({ changeName }: { changeName: string }) {
     if (!text || sending) return
     userActedRef.current = true
 
-    // Context files: no file-picker UI yet, so every send passes an empty
-    // list. The mechanism (parameter threaded through to streamChat) is what
-    // the spec requires here; a future task can wire an actual @-mention picker.
-    const contextFiles: string[] = []
+    // 上下文文件注入：把用户在选择器中勾选的产物路径作为 contextFiles 传给后端。
+    const filesToSend = selectedFiles
 
     setMessages((prev) => [...prev, { role: 'user', text }])
     setInput('')
@@ -77,7 +102,7 @@ export function ChatBubble({ changeName }: { changeName: string }) {
     setMessages((prev) => [...prev, { role: 'assistant', text: '', thinking: '' }])
 
     try {
-      await streamChat(changeName, text, contextFiles, (event) => {
+      await streamChat(changeName, text, filesToSend, (event) => {
         setMessages((prev) => {
           const next = [...prev]
           const last = next[next.length - 1]
@@ -157,6 +182,29 @@ export function ChatBubble({ changeName }: { changeName: string }) {
               </div>
             ))}
           </div>
+          {contextFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1 px-3 py-2 border-t border-[#e8e8ed]">
+              {contextFiles.map((path) => {
+                const selected = selectedFiles.includes(path)
+                return (
+                  <button
+                    key={path}
+                    type="button"
+                    data-testid={`context-file-chip-${path}`}
+                    onClick={() => toggleContextFile(path)}
+                    title={path}
+                    className={
+                      selected
+                        ? 'text-xs rounded-full px-2 py-0.5 bg-[#0063f8] text-white'
+                        : 'text-xs rounded-full px-2 py-0.5 bg-[#f5f5f7] text-[#6e6e73] border border-[#e8e8ed]'
+                    }
+                  >
+                    {path.split('/').pop()}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <div className="p-3 border-t border-[#e8e8ed] flex gap-2">
             <textarea
               data-testid="chat-input"
