@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import { fetchArtifactContent } from '../api/client'
+import { DiagramBlock } from './DiagramBlock'
+
+// Fenced code blocks carry their language as `language-xxx` in the code
+// element's className (e.g. ```mermaid -> "language-mermaid"). Only these two
+// languages should render as diagrams; everything else stays plain code.
+function getDiagramLanguage(className?: string): 'mermaid' | 'plantuml' | null {
+  if (className === 'language-mermaid') return 'mermaid'
+  if (className === 'language-plantuml') return 'plantuml'
+  return null
+}
 
 // Strips a leading YAML frontmatter block (---\n...\n---). Real design-doc
 // artifacts from the API start with this metadata, but it's noise inside the
@@ -25,9 +35,17 @@ const markdownComponents: Components = {
   li: ({ node, ...rest }) => <li className="mb-0.5" {...rest} />,
   // Inline `code` is different from block code; react-markdown nests the
   // inline case inside <code> only, and the block case inside <pre><code>.
-  code: ({ node, ...rest }) => (
-    <code className="bg-[#f5f5f7] rounded px-1 py-0.5 font-mono text-sm" {...rest} />
-  ),
+  code: ({ node, className, children, ...rest }) => {
+    const language = getDiagramLanguage(className)
+    if (language) {
+      return <DiagramBlock language={language} code={String(children).replace(/\n$/, '')} />
+    }
+    return (
+      <code className="bg-[#f5f5f7] rounded px-1 py-0.5 font-mono text-sm" {...rest}>
+        {children}
+      </code>
+    )
+  },
   pre: ({ node, ...rest }) => (
     <pre className="bg-[#f5f5f7] rounded-lg p-4 overflow-x-auto font-mono text-sm mb-3" {...rest} />
   ),
