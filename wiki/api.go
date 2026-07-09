@@ -3,6 +3,8 @@ package wiki
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -110,4 +112,33 @@ func (a *API) HandleRebuild(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "rebuilt"})
+}
+
+// HandleSummarize returns an opt-in LLM summary for a component, using a
+// single centralized cache directory (~/.comet-panel/wiki/summaries) rather
+// than one derived from the component's own path. Deriving the cache dir
+// from filepath.Dir(id) would scatter summaries across inconsistent
+// locations depending on how deeply nested the component is (e.g. a
+// change's design.md vs. a top-level spec vs. a nested artifact would each
+// land in a different directory) — this mirrors the centralized
+// ~/.comet-panel/wiki/ convention persistIndexCache already established for
+// the index cache.
+func (a *API) HandleSummarize(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	a.mu.RLock()
+	c, ok := a.graph.Component(id)
+	a.mu.RUnlock()
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	cacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki", "summaries")
+	summary, err := Summarize(r.Context(), c, cacheDir)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"summary": summary})
 }
