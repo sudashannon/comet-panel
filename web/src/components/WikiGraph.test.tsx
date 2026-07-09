@@ -44,4 +44,18 @@ describe('WikiGraph', () => {
     unmount()
     expect(mockCy.destroy).toHaveBeenCalled()
   })
+
+  it('shows an empty-state message when the wiki index is empty', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    } as Response)
+    const onNodeClick = vi.fn()
+    const { getByText } = render(<WikiGraph onNodeClick={onNodeClick} />)
+
+    await waitFor(() =>
+      expect(getByText(/索引为空，请先注册工作区并重建（POST \/api\/wiki\/rebuild）/)).toBeTruthy(),
+    )
+    expect(cytoscape).not.toHaveBeenCalled()
+  })
 })

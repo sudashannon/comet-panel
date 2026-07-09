@@ -44,9 +44,13 @@ export const TYPE_COLORS: Record<string, string> = {
 export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [components, setComponents] = useState<WikiComponent[]>([])
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    fetchWikiIndex().then(setComponents).catch(() => setComponents([]))
+    fetchWikiIndex()
+      .then(setComponents)
+      .catch(() => setComponents([]))
+      .finally(() => setLoaded(true))
   }, [])
 
   useEffect(() => {
@@ -62,6 +66,14 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     cy.on('tap', 'node', (evt) => onNodeClick(evt.target.id()))
     return () => cy.destroy()
   }, [components, onNodeClick])
+
+  if (loaded && components.length === 0) {
+    return (
+      <div className="w-full h-[500px] flex items-center justify-center text-xs text-[#6e6e73]">
+        索引为空，请先注册工作区并重建（POST /api/wiki/rebuild）
+      </div>
+    )
+  }
 
   return <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-[500px]" />
 }

@@ -140,13 +140,17 @@ describe('App view switcher', () => {
   })
 
   it('switches to the 图谱 view and mounts WikiGraph', async () => {
+    const nonEmptyIndex = [
+      { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+    ]
+    vi.mocked(fetchWikiIndex).mockResolvedValueOnce(nonEmptyIndex).mockResolvedValueOnce(nonEmptyIndex)
     render(<App />)
     await screen.findByTestId('workspace-warning-banner')
 
     fireEvent.click(screen.getByRole('button', { name: '图谱' }))
 
     await waitFor(() => expect(fetchWikiIndex).toHaveBeenCalled())
-    expect(screen.getByTestId('wiki-graph-canvas')).toBeTruthy()
+    await waitFor(() => expect(screen.getByTestId('wiki-graph-canvas')).toBeTruthy())
     // 变更列表-only content is no longer mounted.
     expect(screen.queryByTestId('kpi-grid')).toBeNull()
   })
