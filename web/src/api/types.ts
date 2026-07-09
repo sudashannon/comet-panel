@@ -59,3 +59,31 @@ export interface WikiComponent {
   path: string
   workspace: string
 }
+
+export interface ArtifactInfo {
+  file: string
+  label: string
+  exists: boolean
+  path?: string
+  external?: boolean
+  isTasks?: boolean
+}
+
+export interface PhaseInfo {
+  key: string
+  label: string
+  status: string
+  artifacts: ArtifactInfo[]
+}
+
+export interface ChangeDetail {
+  name: string
+  workflow: string
+  phase: string
+  archived: boolean
+  tasksCompleted: number
+  tasksTotal: number
+  verifyResult: string
+  createdAt: string
+  phases: PhaseInfo[]
+}

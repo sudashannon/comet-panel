@@ -9,10 +9,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.1.0",
+    "cytoscape": "^3.30.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@fontsource/inter": "^5.1.0",
-    "cytoscape": "^3.30.2"
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

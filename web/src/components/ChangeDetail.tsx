@@ -1,10 +1,15 @@
+import { useState } from 'react'
 import type { ChangeSummary } from '../api/types'
 import { PhaseStepper } from './PhaseStepper'
 import { TaskDonut } from './TaskDonut'
 import { ReviewBadges } from './ReviewBadges'
 import { BacklinksPanel } from './BacklinksPanel'
+import { ArtifactList } from './ArtifactList'
+import { MarkdownViewer } from './MarkdownViewer'
 
 export function ChangeDetail({ change }: { change: ChangeSummary }) {
+  const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null)
+
   return (
     <div className="bg-white rounded-lg p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] space-y-4">
       <div className="flex items-center justify-between">
@@ -29,6 +34,10 @@ export function ChangeDetail({ change }: { change: ChangeSummary }) {
         </div>
       </div>
       <BacklinksPanel componentId={change.componentId ?? change.name} />
+      <ArtifactList changeName={change.name} onSelectArtifact={setSelectedArtifact} />
+      {selectedArtifact && (
+        <MarkdownViewer path={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
+      )}
     </div>
   )
 }
