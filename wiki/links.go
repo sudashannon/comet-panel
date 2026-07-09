@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"comet-ui/internal/pathresolve"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 )
 
 // ExtractYAMLLinks reads .comet.yaml in changeDir and builds Edges for its
@@ -47,5 +50,61 @@ func ExtractYAMLLinks(changeDir, root string) ([]Edge, error) {
 			Source: "yaml",
 		})
 	}
+	return edges, nil
+}
+
+// ExtractMarkdownLinks parses [text](path) links and ![alt](path) images out
+// of a component's source file and resolves relative paths against the
+// file's own directory — standard markdown semantics. filepath.Join +
+// filepath.Clean correctly collapse multi-level "../" (Go's stdlib does
+// this right; do not hand-roll this resolution).
+//
+// goldmark represents links and images as distinct concrete AST types
+// (*ast.Link and *ast.Image) that both embed an unexported baseLink struct
+// independently — they are sibling types, not parent/child — so a single
+// type assertion on *ast.Link alone would silently skip every image
+// reference (e.g. diagram embeds like "![diagram](../../diagrams/x.svg)").
+// Both node types promote the same Destination field from baseLink, so it
+// is read the same way for either.
+func ExtractMarkdownLinks(component Component) ([]Edge, error) {
+	data, err := os.ReadFile(component.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	md := goldmark.New()
+	doc := md.Parser().Parse(text.NewReader(data))
+
+	var edges []Edge
+	fileDir := filepath.Dir(component.Path)
+
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		var dest []byte
+		switch v := n.(type) {
+		case *ast.Link:
+			dest = v.Destination
+		case *ast.Image:
+			dest = v.Destination
+		default:
+			return ast.WalkContinue, nil
+		}
+		d := string(dest)
+		if d == "" || strings.HasPrefix(d, "http://") || strings.HasPrefix(d, "https://") ||
+			strings.HasPrefix(d, "#") || strings.HasPrefix(d, "mailto:") {
+			return ast.WalkContinue, nil
+		}
+		target := filepath.Clean(filepath.Join(fileDir, d))
+		edges = append(edges, Edge{
+			From:   component.Path,
+			To:     target,
+			Kind:   "references",
+			Source: "markdown-link",
+		})
+		return ast.WalkContinue, nil
+	})
+
 	return edges, nil
 }
