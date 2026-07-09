@@ -22,6 +22,22 @@ describe('MarkdownViewer', () => {
     expect(screen.getByText('body')).toBeTruthy()
   })
 
+  it('strips a leading YAML frontmatter block before rendering', async () => {
+    const raw =
+      '---\ncomet_change: foo\nrole: technical-design\ncanonical_spec: openspec\n---\n# Real Title\n\nBody.'
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => raw,
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('Real Title')).toBeTruthy())
+    // Frontmatter keys must not appear in the rendered document.
+    expect(screen.queryByText('comet_change: foo')).toBeNull()
+    expect(screen.queryByText('canonical_spec: openspec')).toBeNull()
+  })
+
   it('calls onClose when the close button is clicked', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -33,6 +49,20 @@ describe('MarkdownViewer', () => {
     await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
 
     screen.getByText('✕ 关闭').click()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onClose when Escape is pressed', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Hello',
+    } as Response)
+
+    const onClose = vi.fn()
+    render(<MarkdownViewer path="/x/design.md" onClose={onClose} />)
+    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
