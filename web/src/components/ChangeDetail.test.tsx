@@ -33,7 +33,7 @@ describe('ChangeDetail', () => {
       artifacts: {}, visualized: true, designReviewed: true, verifyReviewed: false,
       verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
     }
-    render(<ChangeDetail change={change} />)
+    render(<ChangeDetail change={change} onChangeUpdated={() => {}} />)
     expect(screen.getByTestId('step-build').dataset.state).toBe('current')
     expect(screen.getByTestId('donut-fraction').textContent).toBe('19/31 任务完成')
     expect(screen.getByTestId('badge-visualized').dataset.tone).toBe('ok')

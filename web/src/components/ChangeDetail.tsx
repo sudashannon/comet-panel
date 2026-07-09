@@ -6,8 +6,13 @@ import { ReviewBadges } from './ReviewBadges'
 import { BacklinksPanel } from './BacklinksPanel'
 import { ArtifactList } from './ArtifactList'
 import { MarkdownViewer } from './MarkdownViewer'
+import { GuardButton } from './GuardButton'
 
-export function ChangeDetail({ change }: { change: ChangeSummary }) {
+// PHASES order matches PhaseStepper's own list — the "next phase" is
+// simply the one after change.phase in that fixed sequence.
+const PHASE_ORDER = ['open', 'design', 'build', 'verify', 'archive']
+
+export function ChangeDetail({ change, onChangeUpdated }: { change: ChangeSummary; onChangeUpdated: () => void }) {
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null)
 
   return (
@@ -33,6 +38,11 @@ export function ChangeDetail({ change }: { change: ChangeSummary }) {
           <TaskDonut completed={change.tasksCompleted} total={change.tasksTotal} />
         </div>
       </div>
+      {(() => {
+        const idx = PHASE_ORDER.indexOf(change.phase)
+        const next = idx >= 0 && idx < PHASE_ORDER.length - 1 ? PHASE_ORDER[idx + 1] : null
+        return next && <GuardButton changeName={change.name} targetPhase={next} onComplete={onChangeUpdated} />
+      })()}
       <BacklinksPanel componentId={change.componentId ?? change.name} />
       <ArtifactList changeName={change.name} onSelectArtifact={setSelectedArtifact} />
       {selectedArtifact && (

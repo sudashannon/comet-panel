@@ -110,7 +110,19 @@ export default function App() {
             activeFilter={activeKpiFilter}
             onFilterSelect={setActiveKpiFilter}
           />
-          {selectedChange && <ChangeDetail change={selectedChange} />}
+          {selectedChange && (
+            <ChangeDetail
+              change={selectedChange}
+              onChangeUpdated={() =>
+                fetchChangesWithMeta()
+                  .then((r) => {
+                    setChanges(r.changes ?? [])
+                    setFailedWorkspaces(r.failedWorkspaces ?? [])
+                  })
+                  .catch(() => {})
+              }
+            />
+          )}
         </main>
       </div>
 
