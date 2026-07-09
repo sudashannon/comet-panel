@@ -132,3 +132,123 @@ func TestHandleLint_CleanGraphReturnsEmptyArrayNotNull(t *testing.T) {
 		t.Fatalf("expected raw response body to be the empty JSON array literal \"[]\" for a clean graph, got %q", body)
 	}
 }
+
+// fakeLister is a test double for WorkspaceLister returning a fixed set of
+// workspaces regardless of what was passed at construction time.
+type fakeLister struct {
+	workspaces []WorkspaceConfig
+}
+
+func (f *fakeLister) List() []WorkspaceConfig {
+	return f.workspaces
+}
+
+// TestHandleRebuild_UsesLiveListerNotConstructionSnapshot guards against
+// HandleRebuild always rebuilding from the frozen a.ws slice captured at
+// NewAPIWithWorkspaces time. When a lister is set, HandleRebuild must pull
+// the CURRENT workspace registry via lister.List() so that workspaces
+// added/changed after startup are picked up on rebuild, instead of silently
+// re-indexing the stale startup snapshot forever.
+func TestHandleRebuild_UsesLiveListerNotConstructionSnapshot(t *testing.T) {
+	root := t.TempDir()
+	openspecDir := filepath.Join(root, "openspec")
+	changeDir := filepath.Join(openspecDir, "changes", "old-change")
+	os.MkdirAll(changeDir, 0755)
+	os.WriteFile(filepath.Join(changeDir, ".comet.yaml"), []byte("design_doc: design.md\n"), 0644)
+	os.WriteFile(filepath.Join(changeDir, "design.md"), []byte("# Old\n"), 0644)
+
+	api, err := NewAPIWithWorkspaces([]WorkspaceConfig{{Alias: "old", Path: openspecDir}}, "")
+	if err != nil {
+		t.Fatalf("NewAPIWithWorkspaces: %v", err)
+	}
+
+	// New workspace registered live, after construction, containing a
+	// different component than the one baked into a.ws.
+	newRoot := t.TempDir()
+	newOpenspecDir := filepath.Join(newRoot, "openspec")
+	newChangeDir := filepath.Join(newOpenspecDir, "changes", "new-change")
+	os.MkdirAll(newChangeDir, 0755)
+	os.WriteFile(filepath.Join(newChangeDir, ".comet.yaml"), []byte("design_doc: design.md\n"), 0644)
+	os.WriteFile(filepath.Join(newChangeDir, "design.md"), []byte("# New\n"), 0644)
+
+	api.SetLister(&fakeLister{workspaces: []WorkspaceConfig{{Alias: "new", Path: newOpenspecDir}}})
+
+	rebuildReq := httptest.NewRequest("POST", "/api/wiki/rebuild", nil)
+	rebuildW := httptest.NewRecorder()
+	api.HandleRebuild(rebuildW, rebuildReq)
+	if rebuildW.Code != http.StatusOK {
+		t.Fatalf("HandleRebuild: expected 200, got %d: %s", rebuildW.Code, rebuildW.Body.String())
+	}
+
+	indexReq := httptest.NewRequest("GET", "/api/wiki/index", nil)
+	indexW := httptest.NewRecorder()
+	api.HandleIndex(indexW, indexReq)
+
+	var components []Component
+	if err := json.Unmarshal(indexW.Body.Bytes(), &components); err != nil {
+		t.Fatalf("decode index response: %v", err)
+	}
+
+	newChangeID := filepath.Join(newChangeDir, ".comet.yaml")
+	oldChangeID := filepath.Join(changeDir, ".comet.yaml")
+	var foundNew, foundOld bool
+	for _, c := range components {
+		if c.ID == newChangeID {
+			foundNew = true
+		}
+		if c.ID == oldChangeID {
+			foundOld = true
+		}
+	}
+	if !foundNew {
+		t.Errorf("expected rebuilt index to contain live-listed component %q, got %+v", newChangeID, components)
+	}
+	if foundOld {
+		t.Errorf("expected rebuilt index to NOT contain construction-time-only component %q after lister took over", oldChangeID)
+	}
+}
+
+// TestHandleRebuild_NilListerFallsBackToConstructionWorkspaces preserves the
+// pre-existing behavior for APIs that never call SetLister: HandleRebuild
+// must keep rebuilding from a.ws exactly as before.
+func TestHandleRebuild_NilListerFallsBackToConstructionWorkspaces(t *testing.T) {
+	root := t.TempDir()
+	openspecDir := filepath.Join(root, "openspec")
+	changeDir := filepath.Join(openspecDir, "changes", "my-change")
+	os.MkdirAll(changeDir, 0755)
+	os.WriteFile(filepath.Join(changeDir, ".comet.yaml"), []byte("design_doc: design.md\n"), 0644)
+	os.WriteFile(filepath.Join(changeDir, "design.md"), []byte("# Design\n"), 0644)
+
+	api, err := NewAPIWithWorkspaces([]WorkspaceConfig{{Alias: "miao", Path: openspecDir}}, "")
+	if err != nil {
+		t.Fatalf("NewAPIWithWorkspaces: %v", err)
+	}
+
+	rebuildReq := httptest.NewRequest("POST", "/api/wiki/rebuild", nil)
+	rebuildW := httptest.NewRecorder()
+	api.HandleRebuild(rebuildW, rebuildReq)
+	if rebuildW.Code != http.StatusOK {
+		t.Fatalf("HandleRebuild: expected 200, got %d: %s", rebuildW.Code, rebuildW.Body.String())
+	}
+
+	indexReq := httptest.NewRequest("GET", "/api/wiki/index", nil)
+	indexW := httptest.NewRecorder()
+	api.HandleIndex(indexW, indexReq)
+
+	var components []Component
+	if err := json.Unmarshal(indexW.Body.Bytes(), &components); err != nil {
+		t.Fatalf("decode index response: %v", err)
+	}
+
+	wantID := filepath.Join(changeDir, ".comet.yaml")
+	var found bool
+	for _, c := range components {
+		if c.ID == wantID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected rebuild-from-a.ws fallback to keep component %q, got %+v", wantID, components)
+	}
+}

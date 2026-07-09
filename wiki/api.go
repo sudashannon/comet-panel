@@ -14,6 +14,15 @@ type API struct {
 	graph         *Graph
 	ws            []WorkspaceConfig
 	indexCacheDir string
+	lister        WorkspaceLister
+}
+
+// WorkspaceLister exposes the CURRENT workspace registry, decoupling
+// HandleRebuild from the []WorkspaceConfig slice captured once at
+// construction time. Implementations (e.g. main.go's workspace registry)
+// return the live set of configured workspaces on every call.
+type WorkspaceLister interface {
+	List() []WorkspaceConfig
 }
 
 func NewAPI(g *Graph) *API {
@@ -26,6 +35,15 @@ func NewAPIWithWorkspaces(ws []WorkspaceConfig, indexCacheDir string) (*API, err
 		return nil, err
 	}
 	return &API{graph: g, ws: ws, indexCacheDir: indexCacheDir}, nil
+}
+
+// SetLister wires a live WorkspaceLister so HandleRebuild rebuilds from the
+// current workspace registry instead of the construction-time snapshot in
+// a.ws. Passing nil restores the a.ws fallback behavior.
+func (a *API) SetLister(lister WorkspaceLister) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.lister = lister
 }
 
 type componentResponse struct {
@@ -118,7 +136,16 @@ func (a *API) HandleLint(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) HandleRebuild(w http.ResponseWriter, r *http.Request) {
-	newGraph, err := BuildIndex(a.ws, a.indexCacheDir)
+	a.mu.RLock()
+	lister := a.lister
+	ws := a.ws
+	a.mu.RUnlock()
+
+	if lister != nil {
+		ws = lister.List()
+	}
+
+	newGraph, err := BuildIndex(ws, a.indexCacheDir)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
