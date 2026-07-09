@@ -66,3 +66,27 @@ func TestResolveCometGuard_ErrorsWhenNothingFound(t *testing.T) {
 		t.Fatal("expected an error when no guard script can be located")
 	}
 }
+
+func TestTransitionLock_SecondAcquireForSameChangeFails(t *testing.T) {
+	l := NewTransitionLock()
+	if !l.TryAcquire("change-a") {
+		t.Fatal("expected first acquire to succeed")
+	}
+	if l.TryAcquire("change-a") {
+		t.Fatal("expected second concurrent acquire for the same change to fail")
+	}
+	l.Release("change-a")
+	if !l.TryAcquire("change-a") {
+		t.Fatal("expected acquire to succeed again after release")
+	}
+}
+
+func TestTransitionLock_DifferentChangesDoNotBlockEachOther(t *testing.T) {
+	l := NewTransitionLock()
+	if !l.TryAcquire("change-a") {
+		t.Fatal("expected acquire for change-a to succeed")
+	}
+	if !l.TryAcquire("change-b") {
+		t.Fatal("expected acquire for change-b to succeed independently")
+	}
+}

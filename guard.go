@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 )
 
 // resolveCometGuard locates the comet-guard entrypoint. It never
@@ -75,4 +76,32 @@ func TriggerTransition(changeName, targetPhase, workspaceDir string) (io.ReadClo
 	}()
 
 	return pr, nil
+}
+
+// TransitionLock guards against concurrent guard invocations for the same
+// change. Each change name may have at most one in-flight transition;
+// different change names never block each other.
+type TransitionLock struct {
+	mu       sync.Mutex
+	inFlight map[string]bool
+}
+
+func NewTransitionLock() *TransitionLock {
+	return &TransitionLock{inFlight: make(map[string]bool)}
+}
+
+func (l *TransitionLock) TryAcquire(changeName string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.inFlight[changeName] {
+		return false
+	}
+	l.inFlight[changeName] = true
+	return true
+}
+
+func (l *TransitionLock) Release(changeName string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.inFlight, changeName)
 }
