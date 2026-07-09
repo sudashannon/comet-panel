@@ -44,3 +44,9 @@ export interface WikiComponentResponse {
   forward: WikiEdge[]
   backlinks: WikiEdge[]
 }
+
+export interface LintIssue {
+  rule: string
+  componentId: string
+  detail: string
+}

@@ -78,6 +78,26 @@ func (a *API) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(matches)
 }
 
+// HandleLint normalizes a nil Lint() result to an empty slice before
+// encoding. (*Graph).Lint() returns `var issues []LintIssue` unmodified when
+// there are zero issues, which is a nil slice — encoding/json serializes nil
+// slices as the JSON literal `null`, not `[]`. LintPanel.tsx relies on
+// distinguishing "not yet fetched" (state stays null) from "fetched, zero
+// issues" (state becomes []), so a raw `null` response for the clean-graph
+// case would be indistinguishable from the loading state and the panel would
+// never render. This mirrors HandleIndex's existing `make([]Component, 0)`
+// pattern above.
+func (a *API) HandleLint(w http.ResponseWriter, r *http.Request) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	issues := a.graph.Lint()
+	if issues == nil {
+		issues = []LintIssue{}
+	}
+	json.NewEncoder(w).Encode(issues)
+}
+
 func (a *API) HandleRebuild(w http.ResponseWriter, r *http.Request) {
 	newGraph, err := BuildIndex(a.ws, a.indexCacheDir)
 	if err != nil {

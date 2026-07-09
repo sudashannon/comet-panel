@@ -63,6 +63,7 @@ func main() {
 	mux.HandleFunc("/api/wiki/component/", wikiAPI.HandleComponent)
 	mux.HandleFunc("/api/wiki/search", wikiAPI.HandleSearch)
 	mux.HandleFunc("/api/wiki/rebuild", wikiAPI.HandleRebuild)
+	mux.HandleFunc("/api/wiki/lint", wikiAPI.HandleLint)
 
 	mux.HandleFunc("/api/changes", func(w http.ResponseWriter, r *http.Request) {
 		handleListChangesMultiWorkspace(w, r, *baseDir, reg)

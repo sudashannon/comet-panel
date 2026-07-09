@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -37,5 +37,11 @@ export async function fetchChangesWithMeta(): Promise<ChangesResponse> {
 export async function fetchWikiComponent(id: string): Promise<WikiComponentResponse> {
   const res = await fetch('/api/wiki/component/x?id=' + encodeURIComponent(id))
   if (!res.ok) throw new Error(`fetchWikiComponent failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchLintIssues(): Promise<LintIssue[]> {
+  const res = await fetch('/api/wiki/lint')
+  if (!res.ok) throw new Error(`fetchLintIssues failed: ${res.status}`)
   return res.json()
 }
