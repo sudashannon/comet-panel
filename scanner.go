@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"comet-ui/internal/pathresolve"
 )
 
 type ChangeSummary struct {
@@ -501,16 +503,9 @@ func makeArtifact(file, label, path string) ArtifactInfo {
 }
 
 func makeArtifactExt(file, label, ref, root, changeDir string) ArtifactInfo {
-	if ref == "" {
+	p := pathresolve.ResolveArtifactPath(ref, root, changeDir)
+	if p == "" {
 		return ArtifactInfo{File: file, Label: label, Exists: false}
-	}
-	// Resolve path: bare filename (no "/") is local to the change dir;
-	// a path with "/" is project-root-relative (e.g. docs/superpowers/specs/...).
-	var p string
-	if !strings.Contains(ref, "/") {
-		p = filepath.Join(changeDir, ref)
-	} else {
-		p = filepath.Join(root, ref)
 	}
 	return ArtifactInfo{File: file, Label: label, Exists: fileExists(p), Path: p, External: true}
 }
