@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"mime"
@@ -69,8 +70,14 @@ func main() {
 	mux.HandleFunc("/api/changes", func(w http.ResponseWriter, r *http.Request) {
 		handleListChangesMultiWorkspace(w, r, *baseDir, reg)
 	})
+	transitionLock := NewTransitionLock()
 	mux.HandleFunc("/api/changes/", func(w http.ResponseWriter, r *http.Request) {
-		handleGetChange(w, r, *baseDir)
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/transition") {
+			name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/changes/"), "/transition")
+			handleTransition(w, r, name, *baseDir, transitionLock)
+			return
+		}
+		handleGetChange(w, r, *baseDir) // existing GET behavior, unchanged
 	})
 	mux.HandleFunc("/api/artifact", func(w http.ResponseWriter, r *http.Request) {
 		handleGetArtifact(w, r, *baseDir)
@@ -211,6 +218,68 @@ func handleGetChange(w http.ResponseWriter, r *http.Request, baseDir string) {
 	}
 	enc := json.NewEncoder(w)
 	enc.Encode(detail)
+}
+
+func handleTransition(w http.ResponseWriter, r *http.Request, changeName, workspaceDir string, lock *TransitionLock) {
+	var body struct {
+		TargetPhase string `json:"targetPhase"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.TargetPhase == "" {
+		writeJSONError(w, "invalid body: targetPhase required", 400)
+		return
+	}
+
+	// Pre-flight: fail fast if the guard script can't even be located,
+	// before opening an SSE stream or taking the lock.
+	if _, _, err := resolveCometGuard(); err != nil {
+		writeJSONError(w, err.Error(), 400)
+		return
+	}
+
+	if !lock.TryAcquire(changeName) {
+		writeJSONError(w, fmt.Sprintf("a transition for %q is already in progress", changeName), 409)
+		return
+	}
+	defer lock.Release(changeName)
+
+	output, err := TriggerTransition(changeName, body.TargetPhase, workspaceDir)
+	if err != nil {
+		writeJSONError(w, err.Error(), 500)
+		return
+	}
+	defer output.Close()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeJSONError(w, "streaming not supported", 500)
+		return
+	}
+
+	buf := make([]byte, 4096)
+	for {
+		n, readErr := output.Read(buf)
+		if n > 0 {
+			fmt.Fprintf(w, "data: %s\n\n", string(buf[:n]))
+			flusher.Flush()
+		}
+		if readErr != nil {
+			// A clean io.EOF means the guard process exited 0 (success).
+			// Any other error (from cmd.Run() via pw.CloseWithError in
+			// TriggerTransition) means it exited non-zero or failed to
+			// start. Emit an explicit final marker — the raw output
+			// stream alone gives the client no way to tell these apart.
+			if readErr == io.EOF {
+				fmt.Fprintf(w, "data: __GUARD_EXIT__:0\n\n")
+			} else {
+				fmt.Fprintf(w, "data: __GUARD_EXIT__:1:%s\n\n", readErr.Error())
+			}
+			flusher.Flush()
+			break
+		}
+	}
 }
 
 func handleGetArtifact(w http.ResponseWriter, r *http.Request, baseDir string) {
