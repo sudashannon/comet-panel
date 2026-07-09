@@ -8,6 +8,75 @@
 
 **Tech Stack:** Go 1.26 (backend, stdlib + existing `chat/` package), React 18 + TypeScript + Vite + Tailwind CSS v4 (frontend), `goldmark` (Go markdown AST parser), `chromem-go` (reserved, disabled retriever), Cytoscape.js (graph view), Vitest + React Testing Library (frontend tests), Playwright (responsive viewport tests).
 
+---
+
+## 执行记录与偏离（Execution Record & Deviations）
+
+> 本节由执行完成后回填，记录计划**实际执行结果**与原始设计的偏离。下方原始计划正文保持不变，作为设计蓝图存档参考；本节是竣工记录。Worktree：`.worktrees/v2-implementation`。
+
+### 1. 实际新增的任务（Additional Tasks Beyond the Original 33）
+
+原计划 33 个任务全部完成；执行过程中另外产生了 11 个计划外的任务/修复，均由集成测试、smoke test 或 Gate 评审触发，而非需求变更：
+
+| # | 任务 | 触发方式 | 内容 | Commit |
+|---|---|---|---|---|
+| task-12b | PhaseStepper unknown-phase 状态修复 | Task 12 集成测试发现真实 bug | 缺少 `.comet.yaml` 的 change 被误渲染为"全部待处理"，改为明确的 unknown-phase 态 | `b263107` |
+| task-17b | KPI 卡片点击筛选 | Gate A 人工评审，用户要求交互式筛选 | KPI 卡片从纯展示改为可点击筛选 change 列表 | `97e8488` |
+| task-23b | ScanComponents 权限拒绝容错 | Task 23 真实数据 smoke test 发现真实 bug | vendored Tegra rootfs 树中 37 处权限受限路径导致整棵扫描中止；改为跳过并返回部分结果 | `a3e823c` |
+| Phase③ 收尾 #1 | BacklinksPanel 404 修复 | Gate B Critical | 创建 TypeChange wiki 节点，为前端打通真实 componentId | `33e78dc` |
+| Phase③ 收尾 #2 | ScanComponents 目录排除 | Gate B Major | 跳过 `.git`/`node_modules`/点目录/`rootfs`，扫描耗时 120s→3s | `b64779b` |
+| Phase③ 收尾 #3 | Lint 噪音降噪 | Gate B Major | 排除归档孤儿、文件名回退重复、非路径 YAML 值 | `40816b5` |
+| Artifact 浏览 | ArtifactList + MarkdownViewer | Gate A 视觉评审发现 V1 功能缺口 | 后端 API 完好，前端从未消费；补齐 V1 的 artifact 浏览能力 | `1297113` |
+| 视觉打磨 | MarkdownViewer 模态化 | 后续打磨 | 模态浮层、frontmatter 剥离、可折叠归档侧栏、代码高亮样式 | `84b2010` |
+| 图表渲染 | Mermaid + PlantUML | 后续打磨 | MarkdownViewer 内渲染 Mermaid（客户端 mermaid.js）与 PlantUML（Kroki.io） | `72d0e8e` |
+| CI 测试接入 | GitHub Actions 补测试步骤 | Gate A P1 | CI 此前只 build 不 test，补上 `go test`/`npm test` | `5d7b503` |
+| Gate C 安全加固 | handleTransition 输入校验 + 超时 | Gate C Important | 输入校验对齐 `handleGetChange`，guard 执行加 context 超时防挂死 | `15ab9e9` |
+
+### 2. 已知缺口（Known Gaps — Not Delivered）
+
+- **Chat SSE 迁移未完成**：Task 10 的 `ChatBubble` 只是外壳组件——到 `/api/chat/*` 的 SSE 接线被推迟为"后续任务"，但该任务从未被排期。后端 `/api/chat/*` 完好且可用，缺的只是 React 前端消费者。需要产品决策：V2 是否可以不带 chat 发布，或补一个专门任务。
+- **LintPanel 未挂载**：组件已实现，但没有任何页面引用它。
+- **WikiGraph 未挂载**：组件已实现，但没有任何页面引用它。
+- **LintTaskArtifacts 从未被调用**：已实现但是死代码——`HandleLint` 只调用了 `g.Lint()`。
+- **Retriever 接口（keywordRetriever/vectorRetriever）从未被调用**：`HandleSearch` 自己内联了一套基于标题子串的搜索，未使用该接口。
+- **Layer-4 slug 模糊匹配**：Gate B 评审时已明确排除范围（descoped）。
+
+### 3. Brief 缺陷修正记录（Brief-Level Bugs Found & Corrected During Execution）
+
+执行过程中发现并修正的、源自任务 brief 本身的缺陷（非需求变更，均有 RED→GREEN 或真实数据复现证据）：
+
+- **Task 11**：`kpi-grid` 包装 div 造成嵌套 grid 挤压（oracle 报告的 968px 外层宽度 vs 184px 挤压后卡片宽度）；修复为将 `data-testid` 直接移到 `KpiCards` 自身的 grid div 上，删除多余包装层。
+- **Task 17**：`setChanges(r.changes)` 缺少 `?? []` 空值保护——单目录部署（无 workspace 注册）时 `r.changes` 为 `null` 会直接崩溃。
+- **Task 20**：brief 代码只对 `*ast.Link` 做类型断言，遗漏 `*ast.Image`——goldmark 源码证实两者是各自独立嵌入 `baseLink` 的同级类型（sibling，非父子），导致图片链接被静默丢弃（0 条边而非报错）。
+- **Task 23**：`ws.Path` 被 brief 中的代码不一致地当作"openspec 目录"和"项目根目录"两种语义使用——实际约定是前者（`scanner.go`/测试 fixture/生产启动参数均证实），brief 的双重语义会导致所有真实 workspace 找到 0 个 component。
+- **Task 23**：`WorkspaceConfig` 跨包引用不可行——Go 不允许 import `package main`；修复为在 `wiki` 包内新增镜像 DTO + `main.go` 侧转换函数。
+- **Task 26**：`HandleLint` 空 slice 序列化为 JSON `null`——前端 `useState<T[] | null>(null)` 语义下无法区分"未加载"与"零问题"，修复为显式 `[]LintIssue{}` 归一化。
+- **Task 27**：`cytoscape` 在 jsdom 环境下的 canvas 调用会 throw，导致 vitest 进程退出码非 0（CI 回归）；修复为 mock 整个 `cytoscape` 模块。
+- **Task 27**：`TYPE_COLORS` 中 3 组临时选定的颜色彼此过于近似；替换为经 CIE Lab ΔE 验证过、两两可分辨的配色方案。
+- **Task 28**：`HandleSummarize` 原公式按文件路径深度散落出多个缓存目录（同一 workspace 内 5 个代表性组件产生 3 个不同缓存目录）；修复为复用 Task 23 已有的 `~/.comet-panel/wiki/` 统一缓存目录。
+- **多个任务**：brief 中引用的行号普遍失效（代码随文件增长而漂移）；执行时以实际文件内容核对为准，不机械套用行号。
+- **多个任务**：brief 给出的人工验证脚本示例使用端口 8989（生产服务端口）；执行时统一改用 8990 等隔离端口，全程未触碰生产进程。
+
+### 4. Gate 评审结论汇总（Gate Review Verdicts）
+
+| Gate | 位置 | 结论 | 关键发现 |
+|---|---|---|---|
+| Gate A | Task 17 之后（Stage 1-3） | PASS WITH NOTES | Chat 迁移缺口（见"已知缺口"）；CI 只 build 不 test |
+| Gate B | Task 29 之后（Phase③） | PASS WITH NOTES | BacklinksPanel 404；Lint 噪音占比 ~90%；扫描耗时 120s；悬空 edge 端点 |
+| Gate C | Task 33 之后（Phase④，最终） | PASS WITH NOTES | `handleTransition` 缺输入校验；`TriggerTransition` 无 context 超时（挂死 guard 会永久锁死该 change + goroutine 泄漏） |
+
+三次 Gate 评审均为 **PASS WITH NOTES**——架构与实现整体通过，各自发现的问题均已通过第 1 节列出的修复任务解决。
+
+### 5. 最终指标（Final Metrics）
+
+- **Commit 数**：仓库全部历史 `git rev-list --count HEAD` = 57；其中本次 V2 执行新增 46 个 commit —— 33 个计划任务 + 12 个计划外修复/功能（第 1 节所列 11 项 + 1 个未单独列出的早期 CI/Makefile 修复 `4e80632`）+ 1 个启动前的 `.gitignore` 设置 `47faa43`；其余 11 个为执行前既有历史（9 个 V1 基线 commit + 撰写本设计/计划文档自身的 2 个 commit）。
+- **Go 测试**：63 个全部通过（文档更新时以 `go test ./...` 重新验证）。
+- **前端测试**：56 个全部通过，vitest 退出码 0（文档更新时以 `vitest run` 重新验证）。
+- **Playwright E2E**：6 个全部通过（执行期间记录，本次文档更新未重新运行）。
+- **生产服务**：PID 608，端口 8989（文档更新时以 `ps`/`ss` 复核，进程持续运行、全程未被本次执行触碰）。
+
+---
+
 ## Global Constraints
 
 - Colors: accent `#0063f8`, success `#16a34a`, danger `#dc2626`, warn `#c47a06` (exact hex values, no substitutions)
