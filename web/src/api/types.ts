@@ -50,3 +50,11 @@ export interface LintIssue {
   componentId: string
   detail: string
 }
+
+export interface WikiComponent {
+  id: string
+  type: string
+  title: string
+  path: string
+  workspace: string
+}
