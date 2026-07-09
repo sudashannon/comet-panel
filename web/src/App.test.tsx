@@ -1,8 +1,16 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import App from './App'
-import { fetchWorkspaces, fetchChangesWithMeta } from './api/client'
+import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
+
+// WikiGraph renders a cytoscape canvas; mock it out the same way
+// WikiGraph.test.tsx does so App-level tests stay isolated from the real
+// graph-layout engine.
+const mockCy = { on: vi.fn(), destroy: vi.fn() }
+vi.mock('cytoscape', () => ({
+  default: vi.fn(() => mockCy),
+}))
 
 // Regression test for the Critical finding in Task 17 review: the Go backend
 // genuinely returns "changes": null (nil slice) in two real scenarios —
@@ -16,6 +24,9 @@ vi.mock('./api/client', () => ({
   fetchWorkspaces: vi.fn().mockResolvedValue(null),
   addWorkspace: vi.fn(),
   fetchChangesWithMeta: vi.fn().mockResolvedValue({ changes: null, failedWorkspaces: ['broken-ws'] }),
+  fetchWikiIndex: vi.fn().mockResolvedValue([]),
+  fetchWikiLint: vi.fn().mockResolvedValue([]),
+  fetchLintIssues: vi.fn().mockResolvedValue([]),
 }))
 
 function makeChange(overrides: Partial<ChangeSummary>): ChangeSummary {
@@ -70,5 +81,53 @@ describe('App', () => {
     fireEvent.click(screen.getByText('ws2'))
     expect(screen.queryByText('beta')).toBeNull()
     expect(screen.getByText('gamma')).toBeTruthy()
+  })
+
+})
+
+describe('App view switcher', () => {
+  it('defaults to the 变更列表 view showing KpiCards and ChangeExplorer', async () => {
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+    expect(screen.getByTestId('kpi-grid')).toBeTruthy()
+    expect(screen.queryByTestId('wiki-graph-canvas')).toBeNull()
+  })
+
+  it('switches to the 图谱 view and mounts WikiGraph', async () => {
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+
+    fireEvent.click(screen.getByRole('button', { name: '图谱' }))
+
+    await waitFor(() => expect(fetchWikiIndex).toHaveBeenCalled())
+    expect(screen.getByTestId('wiki-graph-canvas')).toBeTruthy()
+    // 变更列表-only content is no longer mounted.
+    expect(screen.queryByTestId('kpi-grid')).toBeNull()
+  })
+
+  it('switches to the Lint view and mounts LintPanel', async () => {
+    vi.mocked(fetchLintIssues).mockResolvedValueOnce([
+      { rule: 'orphan', componentId: '/x/a.md', detail: '孤立组件' },
+    ])
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lint' }))
+
+    await waitFor(() => expect(fetchLintIssues).toHaveBeenCalled())
+    await screen.findByText(/orphan/)
+    expect(screen.queryByTestId('kpi-grid')).toBeNull()
+  })
+
+  it('switching back to 变更列表 restores KpiCards and ChangeExplorer', async () => {
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+
+    fireEvent.click(screen.getByRole('button', { name: '图谱' }))
+    await waitFor(() => expect(fetchWikiIndex).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByRole('button', { name: '变更列表' }))
+    expect(screen.getByTestId('kpi-grid')).toBeTruthy()
+    expect(screen.queryByTestId('wiki-graph-canvas')).toBeNull()
   })
 })
