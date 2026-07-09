@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fetchChanges, fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchWikiLint, streamChat } from './client'
+import { fetchChanges, fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchWikiLint, streamChat, fetchChatSession } from './client'
 import type { ChatStreamEvent } from './client'
 
 afterEach(() => {
@@ -279,5 +279,46 @@ describe('streamChat', () => {
     const events: ChatStreamEvent[] = []
     await streamChat('foo-change', 'hi', [], (e) => events.push(e))
     expect(events).toEqual([{ type: 'delta', content: 'ok' }])
+  })
+})
+
+describe('fetchChatSession', () => {
+  it('GETs /api/chat/session with the change query param and returns the parsed session', async () => {
+    const mockSession = {
+      change: 'rx101-x',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: '之前的问题' }] },
+        { role: 'assistant', content: [{ type: 'text', text: '之前的回答' }] },
+      ],
+      context_files: ['proposal.md'],
+      usage: { total_input: 10, total_output: 20 },
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-02T00:00:00Z',
+    }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockSession,
+    } as Response)
+
+    const result = await fetchChatSession('rx101-x')
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/chat/session?change=' + encodeURIComponent('rx101-x'))
+    expect(result).toEqual(mockSession)
+  })
+
+  it('encodes special characters in the change name', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ change: 'a/b', messages: [], context_files: [], usage: { total_input: 0, total_output: 0 }, created_at: '', updated_at: '' }),
+    } as Response)
+
+    await fetchChatSession('a/b')
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/chat/session?change=' + encodeURIComponent('a/b'))
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchChatSession('rx101-x')).rejects.toThrow()
   })
 })

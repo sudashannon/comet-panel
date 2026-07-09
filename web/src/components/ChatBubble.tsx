@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { streamChat } from '../api/client'
+import { streamChat, fetchChatSession, type ChatSessionMessage } from '../api/client'
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'error'
   text: string
   thinking?: string
+}
+
+// Backend content blocks separate `text` and `thinking` blocks (see
+// provider.ContentBlock); the component's ChatMessage flattens each kind
+// into its own field, matching how handleSend already accumulates streamed
+// deltas/thinking onto a single message.
+function toChatMessage(msg: ChatSessionMessage): ChatMessage {
+  const role = msg.role === 'user' ? 'user' : 'assistant'
+  let text = ''
+  let thinking = ''
+  for (const block of msg.content ?? []) {
+    if (block.type === 'thinking') thinking += block.thinking ?? ''
+    else text += block.text ?? ''
+  }
+  return thinking ? { role, text, thinking } : { role, text }
 }
 
 export function ChatBubble({ changeName }: { changeName: string }) {
@@ -14,6 +29,29 @@ export function ChatBubble({ changeName }: { changeName: string }) {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const messagesRef = useRef<HTMLDivElement>(null)
+  // Guards against the history load resolving AFTER the user has already
+  // sent a message (e.g. slow /api/chat/session, fast first keystroke):
+  // without this, the late resolve would stomp the just-sent message with
+  // the (now stale) persisted history.
+  const userActedRef = useRef(false)
+
+  // 会话按变更隔离：挂载时加载该变更持久化的历史消息，还原之前的对话；
+  // App.tsx 给 ChatBubble 加了 key={changeName}，切换变更会整体重新挂载
+  // 本组件（内存 state 清空），随后这里再从后端拉回该变更自己的历史。
+  useEffect(() => {
+    let cancelled = false
+    fetchChatSession(changeName)
+      .then((session) => {
+        if (cancelled || userActedRef.current) return
+        setMessages((session.messages ?? []).map(toChatMessage))
+      })
+      .catch(() => {
+        // 加载历史失败不阻塞聊天：静默保持空会话，用户仍可正常发送新消息。
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [changeName])
 
   useEffect(() => {
     if (messagesRef.current) {
@@ -24,6 +62,7 @@ export function ChatBubble({ changeName }: { changeName: string }) {
   async function handleSend() {
     const text = input.trim()
     if (!text || sending) return
+    userActedRef.current = true
 
     // Context files: no file-picker UI yet, so every send passes an empty
     // list. The mechanism (parameter threaded through to streamChat) is what

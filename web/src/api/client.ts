@@ -75,6 +75,26 @@ export interface ChatStreamEvent {
   content?: string
 }
 
+export interface ChatSessionMessage {
+  role: string
+  content: { type: string; text?: string; thinking?: string }[]
+}
+
+export interface ChatSession {
+  change: string
+  messages: ChatSessionMessage[]
+  context_files: string[]
+  usage: { total_input: number; total_output: number }
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchChatSession(change: string): Promise<ChatSession> {
+  const res = await fetch('/api/chat/session?change=' + encodeURIComponent(change))
+  if (!res.ok) throw new Error(`fetchChatSession failed: ${res.status}`)
+  return res.json()
+}
+
 // Mirrors V1's static/app.js fetch+reader loop (lines ~366-401): the backend
 // streams `data: {json}\n\n` SSE frames with {type, content} where type is
 // thinking/delta/done — there is NO in-stream error event. Auth/provider

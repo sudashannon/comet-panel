@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import App from './App'
-import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues } from './api/client'
+import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
 
 // WikiGraph renders a cytoscape canvas; mock it out the same way
@@ -27,6 +27,15 @@ vi.mock('./api/client', () => ({
   fetchWikiIndex: vi.fn().mockResolvedValue([]),
   fetchWikiLint: vi.fn().mockResolvedValue([]),
   fetchLintIssues: vi.fn().mockResolvedValue([]),
+  fetchChangeDetail: vi.fn().mockResolvedValue({
+    name: '', workflow: '', phase: '', archived: false, tasksCompleted: 0, tasksTotal: 0,
+    verifyResult: '', createdAt: '', phases: [],
+  }),
+  fetchWikiComponent: vi.fn().mockResolvedValue({ component: { id: '', title: '' }, forward: [], backlinks: [] }),
+  fetchChatSession: vi.fn().mockResolvedValue({
+    change: '', messages: [], context_files: [], usage: { total_input: 0, total_output: 0 }, created_at: '', updated_at: '',
+  }),
+  streamChat: vi.fn(),
 }))
 
 function makeChange(overrides: Partial<ChangeSummary>): ChangeSummary {
@@ -83,6 +92,43 @@ describe('App', () => {
     expect(screen.getByText('gamma')).toBeTruthy()
   })
 
+
+  it('remounts ChatBubble per selected change so switching changes does not bleed chat history', async () => {
+    const changes = [
+      makeChange({ name: 'alpha' }),
+      makeChange({ name: 'beta' }),
+    ]
+    vi.mocked(fetchWorkspaces).mockResolvedValueOnce([])
+    vi.mocked(fetchChangesWithMeta).mockResolvedValueOnce({ changes, failedWorkspaces: [] })
+    vi.mocked(fetchChatSession).mockImplementation(async (change: string) => ({
+      change,
+      messages:
+        change === 'alpha'
+          ? [{ role: 'user', content: [{ type: 'text', text: 'alpha 的历史消息' }] }]
+          : [],
+      context_files: [],
+      usage: { total_input: 0, total_output: 0 },
+      created_at: '',
+      updated_at: '',
+    }))
+
+    render(<App />)
+    await screen.findByText('alpha')
+
+    fireEvent.click(screen.getByText('alpha'))
+    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('alpha'))
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-messages').textContent).toContain('alpha 的历史消息'),
+    )
+
+    fireEvent.click(screen.getByText('beta'))
+    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('beta'))
+    // Freshly-mounted ChatBubble for beta starts collapsed again (state was
+    // reset), and once opened must NOT show alpha's leaked history.
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+    expect(screen.getByTestId('chat-messages').textContent).not.toContain('alpha 的历史消息')
+  })
 })
 
 describe('App view switcher', () => {

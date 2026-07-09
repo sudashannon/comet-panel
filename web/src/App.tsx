@@ -170,7 +170,7 @@ export default function App() {
             </main>
           </div>
 
-          {selectedChange && <ChatBubble changeName={selectedChange.name} />}
+          {selectedChange && <ChatBubble key={selectedChange.name} changeName={selectedChange.name} />}
         </>
       )}
 
