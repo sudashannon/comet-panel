@@ -2,6 +2,8 @@
 comet_change: complete-v2-dashboard-features
 role: technical-design
 canonical_spec: openspec
+archived-with: complete-v2-dashboard-features
+status: archived
 ---
 
 # Design Doc — comet-panel V2 功能修复与补全

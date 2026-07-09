@@ -2,6 +2,7 @@
 change: complete-v2-dashboard-features
 design-doc: docs/superpowers/specs/2026-07-10-complete-v2-dashboard-features-design.md
 base-ref: b8934ed6ee57db6c7a9df298d65cd5bff1c13628
+archived-with: complete-v2-dashboard-features
 ---
 
 # 实施计划 — comet-panel V2 功能修复与补全
