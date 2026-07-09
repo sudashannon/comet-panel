@@ -108,6 +108,28 @@ func TestScanComponents_SkipsPermissionDeniedPathWithoutAbortingWholeScan(t *tes
 	}
 }
 
+func TestScanComponents_SkipsExcludedDirectories(t *testing.T) {
+	root := t.TempDir()
+	// Create files that WOULD be classified if not excluded:
+	for _, dir := range []string{".git/specs", "node_modules/specs", ".hidden/specs", "rootfs/usr/share/doc/specs"} {
+		d := filepath.Join(root, dir)
+		os.MkdirAll(d, 0755)
+		os.WriteFile(filepath.Join(d, "should-be-skipped.md"), []byte("# Skipped\n"), 0644)
+	}
+	// One file that SHOULD be found (not under an excluded dir):
+	goodDir := filepath.Join(root, "docs", "superpowers", "specs")
+	os.MkdirAll(goodDir, 0755)
+	os.WriteFile(filepath.Join(goodDir, "real-spec.md"), []byte("# Real Spec\n"), 0644)
+
+	components, err := ScanComponents(root, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(components) != 1 || components[0].Title != "Real Spec" {
+		t.Fatalf("expected only the non-excluded spec, got %d: %+v", len(components), components)
+	}
+}
+
 func TestScanComponents_ParsesFrontmatter(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "docs", "superpowers", "specs")

@@ -24,6 +24,13 @@ import (
 // this same principle from content-errors to access-errors: they are
 // logged and skipped (SkipDir for a directory, skip-this-entry for a
 // file) rather than aborting the entire walk.
+//
+// Certain directories are never descended into, regardless of contents:
+// .git, node_modules, any dotdir (name starting with "."), and rootfs
+// (a vendored OS root filesystem tree, as found on embedded/Tegra-style
+// workspaces). These are skipped for both correctness (avoid indexing
+// vendored/unrelated markdown that happens to match a classifyPath
+// substring) and performance (avoid traversing huge unrelated trees).
 func ScanComponents(workspaceRoot, workspaceAlias string) ([]Component, error) {
 	var components []Component
 
@@ -38,7 +45,17 @@ func ScanComponents(workspaceRoot, workspaceAlias string) ([]Component, error) {
 			}
 			return err // other traversal errors remain genuinely fatal
 		}
-		if info.IsDir() || !strings.HasSuffix(path, ".md") {
+		if info.IsDir() {
+			name := filepath.Base(path)
+			switch {
+			case name == ".git" || name == "node_modules" || name == "rootfs":
+				return filepath.SkipDir
+			case strings.HasPrefix(name, ".") && name != ".":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".md") {
 			return nil
 		}
 		typ := classifyPath(path)
