@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"comet-ui/chat"
+	"comet-ui/wiki"
 )
 
 //go:embed web/dist
@@ -51,6 +52,17 @@ func main() {
 			writeJSONError(w, "method not allowed", 405)
 		}
 	})
+
+	wikiCacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki")
+	wikiAPI, err := wiki.NewAPIWithWorkspaces(toWikiWorkspaces(reg.List()), wikiCacheDir)
+	if err != nil {
+		log.Printf("wiki index build failed (non-fatal, dashboard still serves): %v", err)
+		wikiAPI, _ = wiki.NewAPIWithWorkspaces(nil, wikiCacheDir)
+	}
+	mux.HandleFunc("/api/wiki/index", wikiAPI.HandleIndex)
+	mux.HandleFunc("/api/wiki/component/", wikiAPI.HandleComponent)
+	mux.HandleFunc("/api/wiki/search", wikiAPI.HandleSearch)
+	mux.HandleFunc("/api/wiki/rebuild", wikiAPI.HandleRebuild)
 
 	mux.HandleFunc("/api/changes", func(w http.ResponseWriter, r *http.Request) {
 		handleListChangesMultiWorkspace(w, r, *baseDir, reg)
@@ -89,6 +101,20 @@ func openBrowser(url string) {
 		return
 	}
 	cmd.Start()
+}
+
+// toWikiWorkspaces converts main's WorkspaceConfig to wiki's WorkspaceConfig.
+// The two types are structurally identical but distinct named types in
+// different packages — Go cannot import a `package main` directory
+// ("is a program, not an importable package"), so wiki defines its own
+// mirrored WorkspaceConfig (see wiki/index.go) and this converts between
+// them at the one call site that crosses the boundary.
+func toWikiWorkspaces(ws []WorkspaceConfig) []wiki.WorkspaceConfig {
+	out := make([]wiki.WorkspaceConfig, len(ws))
+	for i, w := range ws {
+		out[i] = wiki.WorkspaceConfig{Alias: w.Alias, Path: w.Path, Color: w.Color}
+	}
+	return out
 }
 
 func writeJSONError(w http.ResponseWriter, msg string, code int) {
