@@ -19,13 +19,24 @@ import (
 // A single malformed file must not abort the whole scan (design doc error
 // table: "遇到格式错误的 markdown → 跳过+记录日志，不中断整体索引"). Only a
 // directory-read failure from filepath.Walk itself propagates as a real
-// error; a per-file parse failure is logged and skipped.
+// error; a per-file parse failure is logged and skipped. Permission-denied
+// paths (e.g. a restricted file/dir inside a vendored rootfs tree) extend
+// this same principle from content-errors to access-errors: they are
+// logged and skipped (SkipDir for a directory, skip-this-entry for a
+// file) rather than aborting the entire walk.
 func ScanComponents(workspaceRoot, workspaceAlias string) ([]Component, error) {
 	var components []Component
 
 	err := filepath.Walk(workspaceRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err // directory traversal error — genuinely fatal, propagate
+			if os.IsPermission(err) {
+				log.Printf("wiki scan: permission denied, skipping %s: %v", path, err)
+				if info != nil && info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			return err // other traversal errors remain genuinely fatal
 		}
 		if info.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil

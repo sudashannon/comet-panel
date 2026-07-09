@@ -71,6 +71,43 @@ func TestScanComponents_SkipsMalformedFileWithoutAbortingWholeScan(t *testing.T)
 	}
 }
 
+func TestScanComponents_SkipsPermissionDeniedPathWithoutAbortingWholeScan(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("permission checks bypassed as root")
+	}
+
+	root := t.TempDir()
+	dir := filepath.Join(root, "docs", "superpowers", "specs")
+	os.MkdirAll(dir, 0755)
+
+	// "a_restricted" sorts lexically before "z_good.md" so filepath.Walk
+	// (which visits directory entries in sorted order) hits the
+	// permission-denied directory BEFORE the readable file — this is what
+	// makes the pre-fix bug (abort-whole-walk) actually lose the readable
+	// component instead of merely returning it alongside a non-nil error.
+	restrictedDir := filepath.Join(dir, "a_restricted")
+	os.MkdirAll(restrictedDir, 0755)
+	os.WriteFile(filepath.Join(restrictedDir, "secret.md"), []byte("# Secret Doc\n"), 0644)
+	if err := os.Chmod(restrictedDir, 0000); err != nil {
+		t.Fatalf("could not chmod restrictedDir to 0000: %v", err)
+	}
+	// Restore permissions before t.TempDir()'s cleanup runs, otherwise a
+	// 0000 directory may not be removable.
+	t.Cleanup(func() {
+		os.Chmod(restrictedDir, 0755)
+	})
+
+	os.WriteFile(filepath.Join(dir, "z_good.md"), []byte("# Good Doc\n"), 0644)
+
+	components, err := ScanComponents(root, "miao")
+	if err != nil {
+		t.Fatalf("expected no error (permission-denied paths must be skipped, not fatal), got: %v", err)
+	}
+	if len(components) != 1 || components[0].Title != "Good Doc" {
+		t.Fatalf("expected the readable file past the restricted dir to still be found, got %+v", components)
+	}
+}
+
 func TestScanComponents_ParsesFrontmatter(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "docs", "superpowers", "specs")

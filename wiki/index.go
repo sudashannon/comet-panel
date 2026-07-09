@@ -49,7 +49,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 
 		components, err := ScanComponents(projectRoot, ws.Alias)
 		if err != nil {
-			continue // skip unreadable workspace, matches scanner.go's scanAllWorkspaces behavior
+			log.Printf("wiki index: workspace %q scan had errors, using %d partial components: %v", ws.Alias, len(components), err)
 		}
 		allComponents = append(allComponents, components...)
 
