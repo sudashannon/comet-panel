@@ -3,12 +3,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { ChangeExplorer } from './ChangeExplorer'
 import type { ChangeSummary } from '../api/types'
 
-function makeChange(name: string, archived = false): ChangeSummary {
+function makeChange(overrides: Partial<ChangeSummary> & { name: string }): ChangeSummary {
   return {
-    name, workflow: 'full', phase: 'build', archived,
+    workflow: 'full', phase: 'build', archived: false,
     tasksCompleted: 1, tasksTotal: 2, verifyResult: 'pending', createdAt: '2026-07-01',
     artifacts: {}, visualized: false, designReviewed: false, verifyReviewed: false,
     verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
+    ...overrides,
   }
 }
 
@@ -16,7 +17,11 @@ describe('ChangeExplorer', () => {
   it('lists changes and calls onSelect when clicked', () => {
     const onSelect = vi.fn()
     render(
-      <ChangeExplorer changes={[makeChange('foo'), makeChange('bar')]} selected={null} onSelect={onSelect} />,
+      <ChangeExplorer
+        changes={[makeChange({ name: 'foo' }), makeChange({ name: 'bar' })]}
+        selected={null}
+        onSelect={onSelect}
+      />,
     )
     expect(screen.getByText('foo')).toBeTruthy()
     expect(screen.getByText('bar')).toBeTruthy()
@@ -28,7 +33,11 @@ describe('ChangeExplorer', () => {
     const onSelect = vi.fn()
     const { container } = render(
       <ChangeExplorer
-        changes={[makeChange('active-1'), makeChange('archived-1', true), makeChange('archived-2', true)]}
+        changes={[
+          makeChange({ name: 'active-1' }),
+          makeChange({ name: 'archived-1', archived: true }),
+          makeChange({ name: 'archived-2', archived: true }),
+        ]}
         selected={null}
         onSelect={onSelect}
       />,
@@ -52,7 +61,7 @@ describe('ChangeExplorer', () => {
   it('auto-expands the archived section when an archived change is selected', () => {
     const { container } = render(
       <ChangeExplorer
-        changes={[makeChange('archived-1', true)]}
+        changes={[makeChange({ name: 'archived-1', archived: true })]}
         selected="archived-1"
         onSelect={vi.fn()}
       />,
@@ -64,12 +73,137 @@ describe('ChangeExplorer', () => {
   it('leaves the archived section collapsed when nothing is selected', () => {
     const { container } = render(
       <ChangeExplorer
-        changes={[makeChange('archived-1', true)]}
+        changes={[makeChange({ name: 'archived-1', archived: true })]}
         selected={null}
         onSelect={vi.fn()}
       />,
     )
     const details = container.querySelector('details')
     expect(details?.hasAttribute('open')).toBe(false)
+  })
+
+  it('narrows the list to a case-insensitive substring match on name via the search input', () => {
+    render(
+      <ChangeExplorer
+        changes={[
+          makeChange({ name: 'Add-Wiki-Feature' }),
+          makeChange({ name: 'fix-bug' }),
+          makeChange({ name: 'add-chat' }),
+        ]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    const input = screen.getByPlaceholderText('搜索变更名称…')
+    fireEvent.change(input, { target: { value: 'add' } })
+    expect(screen.getByText('Add-Wiki-Feature')).toBeTruthy()
+    expect(screen.getByText('add-chat')).toBeTruthy()
+    expect(screen.queryByText('fix-bug')).toBeNull()
+  })
+
+  it('filters by workflow using the workflow select', () => {
+    render(
+      <ChangeExplorer
+        changes={[
+          makeChange({ name: 'full-1', workflow: 'full' }),
+          makeChange({ name: 'hotfix-1', workflow: 'hotfix' }),
+          makeChange({ name: 'tweak-1', workflow: 'tweak' }),
+        ]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    const select = screen.getByLabelText('工作流')
+    fireEvent.change(select, { target: { value: 'hotfix' } })
+    expect(screen.getByText('hotfix-1')).toBeTruthy()
+    expect(screen.queryByText('full-1')).toBeNull()
+    expect(screen.queryByText('tweak-1')).toBeNull()
+  })
+
+  it('filters by phase using the phase select', () => {
+    render(
+      <ChangeExplorer
+        changes={[
+          makeChange({ name: 'open-1', phase: 'open' }),
+          makeChange({ name: 'design-1', phase: 'design' }),
+          makeChange({ name: 'build-1', phase: 'build' }),
+        ]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    const select = screen.getByLabelText('阶段')
+    fireEvent.change(select, { target: { value: 'design' } })
+    expect(screen.getByText('design-1')).toBeTruthy()
+    expect(screen.queryByText('open-1')).toBeNull()
+    expect(screen.queryByText('build-1')).toBeNull()
+  })
+
+  it('filters by status using the status select, spanning both active and archived groups', () => {
+    render(
+      <ChangeExplorer
+        changes={[
+          makeChange({ name: 'active-1', archived: false }),
+          makeChange({ name: 'archived-1', archived: true }),
+        ]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    const select = screen.getByLabelText('状态')
+    fireEvent.change(select, { target: { value: 'archived' } })
+    expect(screen.queryByText('active-1')).toBeNull()
+    expect(screen.getByText('archived-1')).toBeTruthy()
+  })
+
+  it('applies search + workflow + phase filters as an intersection', () => {
+    render(
+      <ChangeExplorer
+        changes={[
+          makeChange({ name: 'add-wiki', workflow: 'full', phase: 'build' }),
+          makeChange({ name: 'add-hotfix', workflow: 'hotfix', phase: 'build' }),
+          makeChange({ name: 'add-other', workflow: 'full', phase: 'verify' }),
+          makeChange({ name: 'skip-this', workflow: 'full', phase: 'build' }),
+        ]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('搜索变更名称…'), { target: { value: 'add' } })
+    fireEvent.change(screen.getByLabelText('工作流'), { target: { value: 'full' } })
+    fireEvent.change(screen.getByLabelText('阶段'), { target: { value: 'build' } })
+
+    expect(screen.getByText('add-wiki')).toBeTruthy()
+    expect(screen.queryByText('add-hotfix')).toBeNull()
+    expect(screen.queryByText('add-other')).toBeNull()
+    expect(screen.queryByText('skip-this')).toBeNull()
+  })
+
+  it('shows a "无匹配" message when filters produce an empty result', () => {
+    render(
+      <ChangeExplorer
+        changes={[makeChange({ name: 'foo' }), makeChange({ name: 'bar' })]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('搜索变更名称…'), { target: { value: 'nonexistent' } })
+    expect(screen.getByText('无匹配')).toBeTruthy()
+  })
+
+  it('clearing the search input restores the full list', () => {
+    render(
+      <ChangeExplorer
+        changes={[makeChange({ name: 'foo' }), makeChange({ name: 'bar' })]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    const input = screen.getByPlaceholderText('搜索变更名称…')
+    fireEvent.change(input, { target: { value: 'foo' } })
+    expect(screen.queryByText('bar')).toBeNull()
+    fireEvent.change(input, { target: { value: '' } })
+    expect(screen.getByText('foo')).toBeTruthy()
+    expect(screen.getByText('bar')).toBeTruthy()
   })
 })
