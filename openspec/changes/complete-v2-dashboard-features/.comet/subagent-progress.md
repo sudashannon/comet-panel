@@ -18,9 +18,9 @@ branch: feature/20260710/complete-v2-dashboard-features
 | A2 main.go adapter + workspace routing | main.go, main_workspace_test.go, main_transition_test.go | pending | | | cross-module + security (path-traversal, external input) → RISK |
 | B1 ChangeExplorer search/filter | ChangeExplorer.tsx(.test) | pending | | | |
 | B2 GuardButton preflight | GuardButton.tsx(.test) | pending | | | |
-| C1 client streamChat + wiki fetch | api/client.ts, client.test.ts | pending | | | external input (SSE) |
-| C2 App app-level wiki views | App.tsx(.test) | pending | | | |
-| C3 ChatBubble SSE overlay | ChatBubble.tsx(.test) | pending | | | |
+- init: baseline green. Wave 1 DONE: A1 `67180c5` (SetLister), B1 `7c3c3f7`, B2 `b5e3193`, C1 `dd111f8`. All TDD RED/GREEN reported, web suite 73 green, go green. No risk signals requiring per-task review (B1 diff 216 but pure additive UI+tests; none security). Dispatching Wave 2: A2 (main.go, dep A1), C2 (App.tsx, dep C1), C3 (ChatBubble, dep C1).
+- Wave 2 DONE: A2 `415c59f` (RISK: security+cross-module+public-API → per-task review REQUIRED), C2 `1bce926`, C3 `4340e2d`. Go green, web 79 tests green. Stage: A2 task-review + integration + final-light-review.
+- A2 task-review: CHANGES-REQUIRED (2 CRITICAL path-traversal). Fix `245dcba` (separator-bounded guard + workspace path validation + 5 load-bearing tests). 1 review-fix round used, resolved. Go+web green, build green. Stage: final-light-review.
 
 ## Log
 
