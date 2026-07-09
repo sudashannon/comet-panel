@@ -17,7 +17,7 @@ func TestHandleTransition_RejectsInvalidChangeName(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
 	req := httptest.NewRequest("POST", "/api/changes/../etc/passwd/transition", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handleTransition(w, req, "../etc/passwd", ".", lock)
+	handleTransition(w, req, "../etc/passwd", ".", lock, nil)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for path-traversal change name, got %d", w.Code)
 	}
@@ -28,7 +28,7 @@ func TestHandleTransition_RejectsInvalidTargetPhase(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"targetPhase": "invalid-phase"})
 	req := httptest.NewRequest("POST", "/api/changes/my-change/transition", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handleTransition(w, req, "my-change", ".", lock)
+	handleTransition(w, req, "my-change", ".", lock, nil)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid phase, got %d: %s", w.Code, w.Body.String())
 	}
@@ -42,7 +42,7 @@ func TestHandleTransition_ReturnsPreflightErrorWhenGuardMissing(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
 	req := httptest.NewRequest("POST", "/api/changes/my-change/transition", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handleTransition(w, req, "my-change", ".", lock)
+	handleTransition(w, req, "my-change", ".", lock, nil)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 when guard can't be resolved, got %d: %s", w.Code, w.Body.String())
@@ -56,7 +56,7 @@ func TestHandleTransition_ReturnsConflictWhenLockHeld(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
 	req := httptest.NewRequest("POST", "/api/changes/my-change/transition", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handleTransition(w, req, "my-change", ".", lock)
+	handleTransition(w, req, "my-change", ".", lock, nil)
 
 	if w.Code != http.StatusConflict {
 		t.Fatalf("expected 409 when a transition is already in flight, got %d", w.Code)
@@ -72,7 +72,7 @@ func TestHandleTransition_StreamsSuccessExitMarker(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
 	req := httptest.NewRequest("POST", "/api/changes/my-change/transition", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handleTransition(w, req, "my-change", ".", lock)
+	handleTransition(w, req, "my-change", ".", lock, nil)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
@@ -91,9 +91,40 @@ func TestHandleTransition_StreamsFailureExitMarker(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
 	req := httptest.NewRequest("POST", "/api/changes/my-change/transition", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	handleTransition(w, req, "my-change", ".", lock)
+	handleTransition(w, req, "my-change", ".", lock, nil)
 
 	if !strings.Contains(w.Body.String(), "__GUARD_EXIT__:1") {
 		t.Fatalf("expected a failure exit marker in the stream, got: %s", w.Body.String())
+	}
+}
+
+func TestHandleTransition_RunsAgainstAliasedWorkspacePath(t *testing.T) {
+	fakeGuard := filepath.Join(t.TempDir(), "fake-guard.sh")
+	os.WriteFile(fakeGuard, []byte("#!/bin/bash\npwd\nexit 0\n"), 0755)
+	t.Setenv("COMET_GUARD", fakeGuard)
+
+	wsDir := t.TempDir()
+	openspecDir := filepath.Join(wsDir, "openspec")
+	os.MkdirAll(openspecDir, 0755)
+
+	regDir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(regDir, "workspaces.yaml"))
+	reg.Add(WorkspaceConfig{Alias: "aliased", Path: openspecDir, Color: "#000"})
+
+	lock := NewTransitionLock()
+	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
+	req := httptest.NewRequest("POST", "/api/changes/my-change/transition?workspace=aliased", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handleTransition(w, req, "my-change", ".", lock, reg)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	resolved, err := filepath.EvalSymlinks(openspecDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(w.Body.String(), resolved) {
+		t.Fatalf("expected guard to run in aliased workspace dir %q, got: %s", resolved, w.Body.String())
 	}
 }

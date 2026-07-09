@@ -60,6 +60,9 @@ func main() {
 		log.Printf("wiki index build failed (non-fatal, dashboard still serves): %v", err)
 		wikiAPI, _ = wiki.NewAPIWithWorkspaces(nil, wikiCacheDir)
 	}
+	// Wire the live registry so /api/wiki/rebuild reflects runtime workspace
+	// adds instead of only the construction-time snapshot taken above.
+	wikiAPI.SetLister(registryLister{reg})
 	mux.HandleFunc("/api/wiki/index", wikiAPI.HandleIndex)
 	mux.HandleFunc("/api/wiki/component/", wikiAPI.HandleComponent)
 	mux.HandleFunc("/api/wiki/search", wikiAPI.HandleSearch)
@@ -74,13 +77,13 @@ func main() {
 	mux.HandleFunc("/api/changes/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/transition") {
 			name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/changes/"), "/transition")
-			handleTransition(w, r, name, *baseDir, transitionLock)
+			handleTransition(w, r, name, *baseDir, transitionLock, reg)
 			return
 		}
-		handleGetChange(w, r, *baseDir) // existing GET behavior, unchanged
+		handleGetChange(w, r, *baseDir, reg) // existing GET behavior, unchanged
 	})
 	mux.HandleFunc("/api/artifact", func(w http.ResponseWriter, r *http.Request) {
-		handleGetArtifact(w, r, *baseDir)
+		handleGetArtifact(w, r, *baseDir, reg)
 	})
 
 	mux.HandleFunc("/api/chat/message", chat.HandleMessage(*baseDir, *baseDir))
@@ -126,6 +129,16 @@ func toWikiWorkspaces(ws []WorkspaceConfig) []wiki.WorkspaceConfig {
 	return out
 }
 
+// registryLister adapts *WorkspaceRegistry to wiki.WorkspaceLister so
+// wiki.API.HandleRebuild always sees the live registry contents (including
+// workspaces added at runtime via POST /api/workspaces) rather than the
+// slice captured once when wikiAPI was constructed.
+type registryLister struct{ reg *WorkspaceRegistry }
+
+func (l registryLister) List() []wiki.WorkspaceConfig {
+	return toWikiWorkspaces(l.reg.List())
+}
+
 func writeJSONError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -138,6 +151,28 @@ func getDir(r *http.Request, defaultDir string) string {
 		return defaultDir
 	}
 	return d
+}
+
+// resolveWorkspaceDir resolves the working directory for a request that may
+// carry a `?workspace=<alias>` query param. Precedence: `?workspace=`
+// (looked up against the live registry) wins over the legacy `?dir=` param,
+// which in turn wins over defaultDir. An unregistered alias is a hard
+// error — it must never silently fall back to defaultDir, since that would
+// let a client unknowingly operate on the wrong (or a shared default)
+// workspace.
+func resolveWorkspaceDir(r *http.Request, defaultDir string, reg *WorkspaceRegistry) (string, error) {
+	alias := r.URL.Query().Get("workspace")
+	if alias == "" {
+		return getDir(r, defaultDir), nil
+	}
+	if reg != nil {
+		for _, ws := range reg.List() {
+			if ws.Alias == alias {
+				return ws.Path, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unknown workspace %q", alias)
 }
 
 func handleListWorkspaces(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry) {
@@ -197,8 +232,12 @@ func handleListChangesMultiWorkspace(w http.ResponseWriter, r *http.Request, def
 	json.NewEncoder(w).Encode(map[string]interface{}{"changes": changes, "failedWorkspaces": failedWorkspaces})
 }
 
-func handleGetChange(w http.ResponseWriter, r *http.Request, baseDir string) {
-	dir := getDir(r, baseDir)
+func handleGetChange(w http.ResponseWriter, r *http.Request, baseDir string, reg *WorkspaceRegistry) {
+	dir, err := resolveWorkspaceDir(r, baseDir, reg)
+	if err != nil {
+		writeJSONError(w, err.Error(), 400)
+		return
+	}
 	name := strings.TrimPrefix(r.URL.Path, "/api/changes/")
 	name = filepath.Clean(name)
 	if name == "" || name == "." {
@@ -211,16 +250,16 @@ func handleGetChange(w http.ResponseWriter, r *http.Request, baseDir string) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	detail, err := scanChangeDetail(dir, name)
-	if err != nil {
-		writeJSONError(w, err.Error(), 404)
+	detail, scanErr := scanChangeDetail(dir, name)
+	if scanErr != nil {
+		writeJSONError(w, scanErr.Error(), 404)
 		return
 	}
 	enc := json.NewEncoder(w)
 	enc.Encode(detail)
 }
 
-func handleTransition(w http.ResponseWriter, r *http.Request, changeName, workspaceDir string, lock *TransitionLock) {
+func handleTransition(w http.ResponseWriter, r *http.Request, changeName, defaultDir string, lock *TransitionLock, reg *WorkspaceRegistry) {
 	var body struct {
 		TargetPhase string `json:"targetPhase"`
 	}
@@ -238,6 +277,12 @@ func handleTransition(w http.ResponseWriter, r *http.Request, changeName, worksp
 	validPhases := map[string]bool{"open": true, "design": true, "build": true, "verify": true, "archive": true}
 	if !validPhases[body.TargetPhase] {
 		writeJSONError(w, "invalid targetPhase: must be one of open/design/build/verify/archive", 400)
+		return
+	}
+
+	workspaceDir, err := resolveWorkspaceDir(r, defaultDir, reg)
+	if err != nil {
+		writeJSONError(w, err.Error(), 400)
 		return
 	}
 
@@ -294,27 +339,36 @@ func handleTransition(w http.ResponseWriter, r *http.Request, changeName, worksp
 	}
 }
 
-func handleGetArtifact(w http.ResponseWriter, r *http.Request, baseDir string) {
-	dir := getDir(r, baseDir)
+func handleGetArtifact(w http.ResponseWriter, r *http.Request, baseDir string, reg *WorkspaceRegistry) {
+	dir, err := resolveWorkspaceDir(r, baseDir, reg)
+	if err != nil {
+		writeJSONError(w, err.Error(), 400)
+		return
+	}
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		writeJSONError(w, "missing path", 400)
 		return
 	}
 
-	absPath, err := filepath.Abs(path)
-	if err != nil {
+	absPath, absErr := filepath.Abs(path)
+	if absErr != nil {
 		writeJSONError(w, "invalid path", 400)
 		return
 	}
+	// The traversal guard root MUST be derived from the resolved workspace
+	// dir (which may come from ?workspace=<alias>), never from the process's
+	// --dir flag baseDir — otherwise a request scoped to workspace A could
+	// read files belonging to workspace B or any other directory reachable
+	// only via baseDir's parent.
 	rootAbs, _ := filepath.Abs(filepath.Join(dir, ".."))
 	if !strings.HasPrefix(absPath, rootAbs) {
 		writeJSONError(w, "path outside project directory", 403)
 		return
 	}
 
-	content, err := os.ReadFile(absPath)
-	if err != nil {
+	content, readErr := os.ReadFile(absPath)
+	if readErr != nil {
 		writeJSONError(w, "file not found", 404)
 		return
 	}
