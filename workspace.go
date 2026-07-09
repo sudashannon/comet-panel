@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -62,6 +63,10 @@ func (r *WorkspaceRegistry) List() []WorkspaceConfig {
 }
 
 func (r *WorkspaceRegistry) Add(cfg WorkspaceConfig) error {
+	if err := validateWorkspacePath(cfg.Path); err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -76,6 +81,35 @@ func (r *WorkspaceRegistry) Add(cfg WorkspaceConfig) error {
 		return err
 	}
 	r.workspaces = updated
+	return nil
+}
+
+// validateWorkspacePath rejects workspace paths that would make the
+// per-request traversal guard in handleGetArtifact a no-op or otherwise
+// expose the whole filesystem: the path must be an absolute, existing
+// directory, and must not be the filesystem root or one of its direct
+// children (e.g. "/", "/etc", "/home") — registering such a path would let
+// GET /api/artifact?workspace=<alias>&path=/etc/shadow read anything the
+// server process can access.
+func validateWorkspacePath(path string) error {
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("workspace path %q must be an absolute path", path)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("workspace path %q is not accessible: %w", path, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("workspace path %q is not a directory", path)
+	}
+
+	clean := filepath.Clean(path)
+	segments := strings.FieldsFunc(clean, func(c rune) bool { return c == filepath.Separator })
+	if len(segments) < 2 {
+		return fmt.Errorf("workspace path %q must not be the filesystem root or a direct child of it", path)
+	}
+
 	return nil
 }
 

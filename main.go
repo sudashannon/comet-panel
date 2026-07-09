@@ -190,6 +190,13 @@ func handleAddWorkspace(w http.ResponseWriter, r *http.Request, reg *WorkspaceRe
 		writeJSONError(w, "alias and path are required", 400)
 		return
 	}
+	// Validate the path up front so a bad Path (non-absolute, missing, or
+	// the filesystem root / a direct child of it) surfaces as 400 rather
+	// than being conflated with the 409 alias-conflict case below.
+	if err := validateWorkspacePath(cfg.Path); err != nil {
+		writeJSONError(w, err.Error(), 400)
+		return
+	}
 	if err := reg.Add(cfg); err != nil {
 		writeJSONError(w, err.Error(), 409)
 		return
@@ -361,8 +368,16 @@ func handleGetArtifact(w http.ResponseWriter, r *http.Request, baseDir string, r
 	// --dir flag baseDir — otherwise a request scoped to workspace A could
 	// read files belonging to workspace B or any other directory reachable
 	// only via baseDir's parent.
+	//
+	// The check below is boundary-correct: filepath.Rel gives the relative
+	// path from rootAbs to absPath, and any escape outside rootAbs produces
+	// a leading ".." segment (or exactly ".."). A plain strings.HasPrefix on
+	// the raw absolute paths is NOT safe here — HasPrefix("/tmp/ws-evil",
+	// "/tmp/ws") is true even though ws-evil is a sibling, not a
+	// subdirectory, of ws.
 	rootAbs, _ := filepath.Abs(filepath.Join(dir, ".."))
-	if !strings.HasPrefix(absPath, rootAbs) {
+	rel, relErr := filepath.Rel(rootAbs, absPath)
+	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		writeJSONError(w, "path outside project directory", 403)
 		return
 	}

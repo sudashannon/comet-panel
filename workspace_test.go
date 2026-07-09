@@ -56,7 +56,11 @@ func TestWorkspaceRegistry_AddPersistsAndUpdatesMemory(t *testing.T) {
 		t.Fatalf("expected empty registry, got %d", len(reg.List()))
 	}
 
-	if err := reg.Add(WorkspaceConfig{Alias: "miao", Path: "/x/miao/openspec", Color: "#0063f8"}); err != nil {
+	miaoPath := filepath.Join(t.TempDir(), "miao", "openspec")
+	if err := os.MkdirAll(miaoPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.Add(WorkspaceConfig{Alias: "miao", Path: miaoPath, Color: "#0063f8"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,8 +82,12 @@ func TestWorkspaceRegistry_AddPersistsAndUpdatesMemory(t *testing.T) {
 func TestWorkspaceRegistry_AddDuplicateAliasRejected(t *testing.T) {
 	dir := t.TempDir()
 	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
-	_ = reg.Add(WorkspaceConfig{Alias: "miao", Path: "/x", Color: "#000"})
-	err := reg.Add(WorkspaceConfig{Alias: "miao", Path: "/y", Color: "#111"})
+	pathX := filepath.Join(t.TempDir(), "x")
+	pathY := filepath.Join(t.TempDir(), "y")
+	os.MkdirAll(pathX, 0755)
+	os.MkdirAll(pathY, 0755)
+	_ = reg.Add(WorkspaceConfig{Alias: "miao", Path: pathX, Color: "#000"})
+	err := reg.Add(WorkspaceConfig{Alias: "miao", Path: pathY, Color: "#111"})
 	if err == nil {
 		t.Fatal("expected an error when adding a duplicate alias")
 	}

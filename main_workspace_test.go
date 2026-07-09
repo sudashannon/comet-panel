@@ -34,7 +34,11 @@ func TestHandleAddWorkspace_PersistsAndReturns201(t *testing.T) {
 	dir := t.TempDir()
 	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
 
-	body, _ := json.Marshal(WorkspaceConfig{Alias: "miao", Path: "/x/miao/openspec", Color: "#0063f8"})
+	// The workspace Path must be a real, existing directory now that
+	// validateWorkspacePath rejects non-existent paths at Add() time.
+	miaoPath := filepath.Join(t.TempDir(), "miao", "openspec")
+	os.MkdirAll(miaoPath, 0755)
+	body, _ := json.Marshal(WorkspaceConfig{Alias: "miao", Path: miaoPath, Color: "#0063f8"})
 	req := httptest.NewRequest("POST", "/api/workspaces", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	handleAddWorkspace(w, req, reg)
@@ -169,5 +173,88 @@ func TestHandleGetArtifact_TraversalGuardUsesResolvedWorkspaceRoot(t *testing.T)
 	handleGetArtifact(w2, req2, "unused-default", reg)
 	if w2.Code != http.StatusOK {
 		t.Fatalf("expected 200 for in-workspace artifact, got %d: %s", w2.Code, w2.Body.String())
+	}
+}
+
+// TestHandleGetArtifact_SiblingPrefixEscapeBlocked exercises the exact
+// vulnerability flagged in review: strings.HasPrefix(absPath, rootAbs) does
+// a plain string-prefix comparison, so a sibling directory whose name is
+// prefixed by the workspace root's name (e.g. "<root>-evil") satisfies the
+// old guard even though it is NOT inside the workspace. This must be
+// rejected with 403.
+func TestHandleGetArtifact_SiblingPrefixEscapeBlocked(t *testing.T) {
+	base := t.TempDir()
+	// The traversal guard's root is the PARENT of the resolved workspace
+	// dir (openspecPath's parent), so nest the registered path one level
+	// deep: rootAbs will resolve to base/ws, and base/ws-evil is a sibling
+	// of "ws" at that same level — exactly the string-prefix collision
+	// strings.HasPrefix("/base/ws-evil", "/base/ws") falsely allows.
+	wsRoot := filepath.Join(base, "ws")
+	openspecDir := filepath.Join(wsRoot, "openspec")
+	os.MkdirAll(openspecDir, 0755)
+
+	evilRoot := filepath.Join(base, "ws-evil")
+	os.MkdirAll(evilRoot, 0755)
+	secret := filepath.Join(evilRoot, "secret.txt")
+	os.WriteFile(secret, []byte("top-secret"), 0644)
+
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+	reg.Add(WorkspaceConfig{Alias: "w", Path: openspecDir, Color: "#000"})
+
+	req := httptest.NewRequest("GET", "/api/artifact?workspace=w&path="+secret, nil)
+	w := httptest.NewRecorder()
+	handleGetArtifact(w, req, "unused-default", reg)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for sibling-prefix path escape (ws vs ws-evil), got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestWorkspaceRegistry_Add_RejectsRootPath ensures registering "/" (or any
+// non-absolute / non-existent path) as a workspace is rejected outright,
+// since an unvalidated root path makes the traversal guard a no-op and
+// permits reading arbitrary files on the host.
+func TestWorkspaceRegistry_Add_RejectsRootPath(t *testing.T) {
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+
+	if err := reg.Add(WorkspaceConfig{Alias: "root", Path: "/", Color: "#000"}); err == nil {
+		t.Fatal("expected Add to reject Path \"/\", got nil error")
+	}
+	if len(reg.List()) != 0 {
+		t.Fatalf("expected registry to remain empty after rejected root path, got %d", len(reg.List()))
+	}
+}
+
+func TestWorkspaceRegistry_Add_RejectsNonAbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+
+	if err := reg.Add(WorkspaceConfig{Alias: "rel", Path: "relative/path", Color: "#000"}); err == nil {
+		t.Fatal("expected Add to reject a non-absolute Path, got nil error")
+	}
+}
+
+func TestWorkspaceRegistry_Add_RejectsNonExistentPath(t *testing.T) {
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+
+	if err := reg.Add(WorkspaceConfig{Alias: "ghost", Path: filepath.Join(dir, "does-not-exist"), Color: "#000"}); err == nil {
+		t.Fatal("expected Add to reject a non-existent Path, got nil error")
+	}
+}
+
+func TestHandleAddWorkspace_RootPathReturns400(t *testing.T) {
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+
+	body, _ := json.Marshal(WorkspaceConfig{Alias: "root", Path: "/", Color: "#000"})
+	req := httptest.NewRequest("POST", "/api/workspaces", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handleAddWorkspace(w, req, reg)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for root path workspace registration, got %d: %s", w.Code, w.Body.String())
 	}
 }
