@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // resolveCometGuard locates the comet-guard entrypoint. It never
@@ -54,19 +56,22 @@ func interpreterFor(path string) string {
 // TriggerTransition shells out to the resolved comet-guard script with
 // --apply. It never inspects or judges the output — the caller streams it
 // verbatim to the client (see HandleTransition in Task 32).
-func TriggerTransition(changeName, targetPhase, workspaceDir string) (io.ReadCloser, error) {
+func TriggerTransition(ctx context.Context, changeName, targetPhase, workspaceDir string) (io.ReadCloser, error) {
 	interp, script, err := resolveCometGuard()
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.Command(interp, script, changeName, targetPhase, "--apply")
+	// 5-minute timeout — a guard transition should never take longer
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	cmd := exec.CommandContext(ctx, interp, script, changeName, targetPhase, "--apply")
 	cmd.Dir = workspaceDir
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
 	cmd.Stderr = pw
 
 	go func() {
+		defer cancel()
 		err := cmd.Run()
 		if err != nil {
 			pw.CloseWithError(err)

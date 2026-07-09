@@ -12,6 +12,28 @@ import (
 	"testing"
 )
 
+func TestHandleTransition_RejectsInvalidChangeName(t *testing.T) {
+	lock := NewTransitionLock()
+	body, _ := json.Marshal(map[string]string{"targetPhase": "build"})
+	req := httptest.NewRequest("POST", "/api/changes/../etc/passwd/transition", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handleTransition(w, req, "../etc/passwd", ".", lock)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for path-traversal change name, got %d", w.Code)
+	}
+}
+
+func TestHandleTransition_RejectsInvalidTargetPhase(t *testing.T) {
+	lock := NewTransitionLock()
+	body, _ := json.Marshal(map[string]string{"targetPhase": "invalid-phase"})
+	req := httptest.NewRequest("POST", "/api/changes/my-change/transition", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handleTransition(w, req, "my-change", ".", lock)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid phase, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestHandleTransition_ReturnsPreflightErrorWhenGuardMissing(t *testing.T) {
 	t.Setenv("COMET_GUARD", "")
 	t.Setenv("HOME", t.TempDir()) // no guard script anywhere

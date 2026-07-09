@@ -229,6 +229,18 @@ func handleTransition(w http.ResponseWriter, r *http.Request, changeName, worksp
 		return
 	}
 
+	// Validate changeName — mirror handleGetChange's own validation
+	if changeName == "" || changeName == "." || strings.Contains(changeName, "..") || strings.Contains(changeName, "/") {
+		writeJSONError(w, "invalid change name", 400)
+		return
+	}
+	// Validate targetPhase — constrain to known phases only
+	validPhases := map[string]bool{"open": true, "design": true, "build": true, "verify": true, "archive": true}
+	if !validPhases[body.TargetPhase] {
+		writeJSONError(w, "invalid targetPhase: must be one of open/design/build/verify/archive", 400)
+		return
+	}
+
 	// Pre-flight: fail fast if the guard script can't even be located,
 	// before opening an SSE stream or taking the lock.
 	if _, _, err := resolveCometGuard(); err != nil {
@@ -242,7 +254,7 @@ func handleTransition(w http.ResponseWriter, r *http.Request, changeName, worksp
 	}
 	defer lock.Release(changeName)
 
-	output, err := TriggerTransition(changeName, body.TargetPhase, workspaceDir)
+	output, err := TriggerTransition(r.Context(), changeName, body.TargetPhase, workspaceDir)
 	if err != nil {
 		writeJSONError(w, err.Error(), 500)
 		return
