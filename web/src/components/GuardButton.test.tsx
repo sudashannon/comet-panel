@@ -73,4 +73,19 @@ describe('GuardButton', () => {
     expect(onComplete).not.toHaveBeenCalled()
     expect(screen.getByTestId('guard-output').dataset.tone).toBe('danger')
   })
+
+  it('disables the trigger with an explanatory tooltip for an invalid (date-prefixed) change name', () => {
+    render(<GuardButton changeName="2026-06-17-foo" targetPhase="build" onComplete={vi.fn()} />)
+    const trigger = screen.getByTestId('guard-trigger') as HTMLButtonElement
+    expect(trigger.disabled).toBe(true)
+    expect(trigger.title).toBe('变更名不满足 guard 规则（需字母开头，小写 kebab-case），无法迁移')
+  })
+
+  it('keeps the trigger enabled and clickable for a valid kebab-case change name', () => {
+    render(<GuardButton changeName="rx101-x" targetPhase="build" onComplete={vi.fn()} />)
+    const trigger = screen.getByTestId('guard-trigger') as HTMLButtonElement
+    expect(trigger.disabled).toBe(false)
+    fireEvent.click(trigger)
+    expect(screen.getByTestId('guard-confirm-dialog')).toBeTruthy()
+  })
 })

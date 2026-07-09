@@ -6,6 +6,12 @@ const PHASE_LABELS: Record<string, string> = {
 
 const EXIT_MARKER_RE = /__GUARD_EXIT__:(\d)(?::(.*))?/
 
+const VALID_CHANGE_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+
+export function isValidChangeName(name: string): boolean {
+  return VALID_CHANGE_NAME_RE.test(name)
+}
+
 interface Props {
   changeName: string
   targetPhase: string
@@ -65,9 +71,16 @@ export function GuardButton({ changeName, targetPhase, onComplete }: Props) {
     }
   }
 
+  const nameValid = isValidChangeName(changeName)
+
   return (
     <>
-      <button data-testid="guard-trigger" onClick={() => setConfirming(true)} disabled={running}>
+      <button
+        data-testid="guard-trigger"
+        onClick={() => setConfirming(true)}
+        disabled={running || !nameValid}
+        title={nameValid ? undefined : '变更名不满足 guard 规则（需字母开头，小写 kebab-case），无法迁移'}
+      >
         → {PHASE_LABELS[targetPhase] ?? targetPhase}
       </button>
 
