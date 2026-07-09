@@ -13,6 +13,7 @@ import (
 
 type ChangeSummary struct {
 	Name           string          `json:"name"`
+	ComponentID    string          `json:"componentId,omitempty"`
 	Workspace      string          `json:"workspace,omitempty"`
 	Workflow       string          `json:"workflow"`
 	Phase          string          `json:"phase"`
@@ -321,6 +322,7 @@ func scanChange(parentDir, name string, archived bool, base string) ChangeSummar
 
 	return ChangeSummary{
 		Name:           name,
+		ComponentID:    filepath.Join(dir, ".comet.yaml"),
 		Workflow:       workflow,
 		Phase:          phase,
 		Archived:       archived,

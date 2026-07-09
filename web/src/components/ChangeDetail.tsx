@@ -28,7 +28,7 @@ export function ChangeDetail({ change }: { change: ChangeSummary }) {
           <TaskDonut completed={change.tasksCompleted} total={change.tasksTotal} />
         </div>
       </div>
-      <BacklinksPanel componentId={change.name} />
+      <BacklinksPanel componentId={change.componentId ?? change.name} />
     </div>
   )
 }

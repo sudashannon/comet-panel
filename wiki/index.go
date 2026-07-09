@@ -63,6 +63,26 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 				continue
 			}
 			changeDir := filepath.Join(changesDir, e.Name())
+
+			// A TypeChange component is created for every change directory
+			// that has a .comet.yaml, keyed by the .comet.yaml path itself.
+			// That path is exactly the From endpoint ExtractYAMLLinks uses
+			// for its edges (see links.go), so without this component the
+			// change directory has no graph node of its own — its outgoing
+			// edges dangle from an ID nothing resolves, and the frontend
+			// can never look up backlinks for a change (scanner.go's
+			// ChangeSummary.ComponentID points here for that lookup).
+			yamlPath := filepath.Join(changeDir, ".comet.yaml")
+			if _, err := os.Stat(yamlPath); err == nil {
+				allComponents = append(allComponents, Component{
+					ID:        yamlPath,
+					Type:      TypeChange,
+					Title:     e.Name(),
+					Path:      yamlPath,
+					Workspace: ws.Alias,
+				})
+			}
+
 			yamlEdges, _ := ExtractYAMLLinks(changeDir, projectRoot)
 			allEdges = append(allEdges, yamlEdges...)
 

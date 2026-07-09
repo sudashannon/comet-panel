@@ -42,6 +42,46 @@ func TestHandleWikiComponent_NotFoundReturns404(t *testing.T) {
 	}
 }
 
+// TestHandleWikiComponent_ZeroBacklinksReturnsEmptyArrayNotNull guards
+// against the same nil-vs-null bug already fixed for HandleLint (see
+// TestHandleLint_CleanGraphReturnsEmptyArrayNotNull below): a component
+// with zero backlinks — the common real-world case for a change's own
+// TypeChange node, since nothing currently links TO a .comet.yaml — hits a
+// map miss in (*Graph).Backlinks/Forward and gets back the unmodified nil
+// slice. encoding/json serializes that as the literal `null`, and
+// BacklinksPanel.tsx's useState<WikiEdge[] | null>(null) treats a `null`
+// backlinks value as "not yet fetched", so it would render nothing forever
+// instead of "暂无反向引用" for every well-formed but link-free change. We
+// assert on the raw response bytes for the same reason the Lint test does:
+// decoding `null` into a Go slice also yields nil/empty, which would mask
+// this exact bug.
+func TestHandleWikiComponent_ZeroBacklinksReturnsEmptyArrayNotNull(t *testing.T) {
+	root := Component{ID: "root", Title: "Root Change", Type: TypeChange}
+	linked := Component{ID: "linked", Title: "Linked", Type: TypeSpec}
+	g := BuildGraph(
+		[]Component{root, linked},
+		[]Edge{{From: "root", To: "linked", Kind: "references", Source: "yaml"}},
+	)
+	api := NewAPI(g)
+
+	// "root" has a forward edge but nothing points back to it — zero
+	// backlinks, the exact shape of a real change's own component.
+	req := httptest.NewRequest("GET", "/api/wiki/component/x?id=root", nil)
+	w := httptest.NewRecorder()
+	api.HandleComponent(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if strings.Contains(body, `"backlinks":null`) {
+		t.Fatalf("expected backlinks to serialize as [] not null, got %s", body)
+	}
+	if !strings.Contains(body, `"backlinks":[]`) {
+		t.Fatalf("expected raw response to contain the empty JSON array literal for backlinks, got %s", body)
+	}
+}
+
 func TestHandleLint_ReturnsIssues(t *testing.T) {
 	orphan := Component{ID: "orphan", Title: "Orphan", Type: TypeSpec}
 	g := BuildGraph([]Component{orphan}, nil)

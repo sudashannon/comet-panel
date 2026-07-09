@@ -18,6 +18,7 @@ export interface ChangeSummary {
   autoTransition: boolean
   stateWarning?: string
   workspace?: string // added in Phase②, optional until then
+  componentId?: string // wiki graph node ID (.comet.yaml path); optional until backend populates it
 }
 
 export interface ChangesResponse {

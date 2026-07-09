@@ -45,11 +45,28 @@ func (a *API) HandleComponent(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "component not found"})
 		return
 	}
+	// Forward/Backlinks normalize a nil edge slice to an empty one before
+	// encoding, same reason as HandleLint above: a component with zero
+	// backlinks is common (e.g. a change's own TypeChange node — nothing
+	// currently links TO a .comet.yaml) and (*Graph).Backlinks/Forward
+	// return the unmodified nil slice on a map miss. encoding/json would
+	// serialize that nil as `null`, and BacklinksPanel.tsx's
+	// useState<WikiEdge[] | null>(null) treats a `null` backlinks value as
+	// "not yet fetched" — so a real, legitimate zero-backlinks component
+	// would render nothing forever instead of "暂无反向引用".
+	forward := a.graph.Forward(id)
+	if forward == nil {
+		forward = []Edge{}
+	}
+	backlinks := a.graph.Backlinks(id)
+	if backlinks == nil {
+		backlinks = []Edge{}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(componentResponse{
 		Component: c,
-		Forward:   a.graph.Forward(id),
-		Backlinks: a.graph.Backlinks(id),
+		Forward:   forward,
+		Backlinks: backlinks,
 	})
 }
 
