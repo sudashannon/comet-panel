@@ -40,10 +40,16 @@ export async function fetchWikiComponent(id: string): Promise<WikiComponentRespo
   return res.json()
 }
 
-export async function fetchLintIssues(): Promise<LintIssue[]> {
+export async function fetchWikiLint(): Promise<LintIssue[]> {
   const res = await fetch('/api/wiki/lint')
-  if (!res.ok) throw new Error(`fetchLintIssues failed: ${res.status}`)
+  if (!res.ok) throw new Error(`fetchWikiLint failed: ${res.status}`)
   return res.json()
+}
+
+// Kept for LintPanel.tsx, which already consumes this name; delegates to
+// fetchWikiLint() to avoid duplicating the request logic.
+export async function fetchLintIssues(): Promise<LintIssue[]> {
+  return fetchWikiLint()
 }
 
 export async function fetchWikiIndex(): Promise<WikiComponent[]> {
@@ -62,4 +68,54 @@ export async function fetchArtifactContent(path: string): Promise<string> {
   const res = await fetch('/api/artifact?path=' + encodeURIComponent(path))
   if (!res.ok) throw new Error(`fetchArtifactContent failed: ${res.status}`)
   return res.text()
+}
+
+export interface ChatStreamEvent {
+  type: 'thinking' | 'delta' | 'done'
+  content?: string
+}
+
+// Mirrors V1's static/app.js fetch+reader loop (lines ~366-401): the backend
+// streams `data: {json}\n\n` SSE frames with {type, content} where type is
+// thinking/delta/done — there is NO in-stream error event. Auth/provider
+// errors (e.g. missing API key) are a pre-stream HTTP 4xx/5xx JSON body
+// ({"message": "..."}), so res.ok MUST be checked before touching
+// res.body.getReader().
+export async function streamChat(
+  change: string,
+  message: string,
+  contextFiles: string[],
+  onEvent: (event: ChatStreamEvent) => void,
+): Promise<void> {
+  const res = await fetch('/api/chat/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ change, message, context_files: contextFiles }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string; error?: string })
+    throw new Error(body.message || body.error || res.statusText)
+  }
+
+  const reader = res.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      try {
+        const event = JSON.parse(line.slice(6)) as ChatStreamEvent
+        onEvent(event)
+      } catch {
+        // malformed frame; skip it and keep streaming
+      }
+    }
+  }
 }

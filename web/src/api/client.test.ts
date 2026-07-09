@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fetchChanges, fetchWorkspaces, addWorkspace, fetchChangesWithMeta } from './client'
+import { fetchChanges, fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchWikiLint, streamChat } from './client'
+import type { ChatStreamEvent } from './client'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -142,5 +143,141 @@ describe('fetchChangesWithMeta', () => {
   it('throws on non-OK response', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
     await expect(fetchChangesWithMeta()).rejects.toThrow()
+  })
+})
+
+describe('fetchWikiIndex', () => {
+  it('GETs /api/wiki/index and returns the component array', async () => {
+    const mockResponse = [
+      { id: 'change:foo', type: 'change', title: 'Foo', path: 'openspec/changes/foo', workspace: 'miao' },
+    ]
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    } as Response)
+
+    const result = await fetchWikiIndex()
+    expect(fetchSpy).toHaveBeenCalledWith('/api/wiki/index')
+    expect(result).toEqual(mockResponse)
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchWikiIndex()).rejects.toThrow()
+  })
+})
+
+describe('fetchWikiLint', () => {
+  it('GETs /api/wiki/lint and returns the issue array', async () => {
+    const mockResponse = [{ rule: 'orphan-node', componentId: 'change:foo', detail: '无反向链接' }]
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    } as Response)
+
+    const result = await fetchWikiLint()
+    expect(fetchSpy).toHaveBeenCalledWith('/api/wiki/lint')
+    expect(result).toEqual(mockResponse)
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchWikiLint()).rejects.toThrow()
+  })
+})
+
+describe('streamChat', () => {
+  it('throws with the error-body message when res.ok is false, WITHOUT reading the body stream', async () => {
+    const getReader = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: async () => ({ message: '请先在设置中配置 API Key' }),
+      body: { getReader },
+    } as unknown as Response)
+
+    const onEvent = vi.fn()
+    await expect(streamChat('foo-change', 'hi', [], onEvent)).rejects.toThrow('请先在设置中配置 API Key')
+    expect(getReader).not.toHaveBeenCalled()
+    expect(onEvent).not.toHaveBeenCalled()
+  })
+
+  it('falls back to statusText when the error body has neither message nor error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: async () => ({}),
+    } as Response)
+
+    await expect(streamChat('foo-change', 'hi', [], vi.fn())).rejects.toThrow('Internal Server Error')
+  })
+
+  it('POSTs change/message/context_files and parses thinking/delta/done SSE frames into onEvent calls', async () => {
+    const frames = [
+      'data: {"type":"thinking","content":"分析中"}\n\n',
+      'data: {"type":"delta","content":"结论：A"}\n\n',
+      'data: {"type":"delta","content":"B"}\n\n',
+      'data: {"type":"done"}\n\n',
+    ]
+    const encoder = new TextEncoder()
+    let call = 0
+    const reader = {
+      read: vi.fn(async () => {
+        if (call < frames.length) {
+          const chunk = encoder.encode(frames[call])
+          call += 1
+          return { done: false, value: chunk }
+        }
+        return { done: true, value: undefined }
+      }),
+    }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    } as unknown as Response)
+
+    const events: ChatStreamEvent[] = []
+    await streamChat('foo-change', '你好', ['proposal.md'], (e) => events.push(e))
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/chat/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ change: 'foo-change', message: '你好', context_files: ['proposal.md'] }),
+    })
+    expect(events).toEqual([
+      { type: 'thinking', content: '分析中' },
+      { type: 'delta', content: '结论：A' },
+      { type: 'delta', content: 'B' },
+      { type: 'done', content: undefined },
+    ])
+  })
+
+  it('skips malformed SSE lines instead of throwing', async () => {
+    const encoder = new TextEncoder()
+    const chunks = [
+      encoder.encode('data: {not json}\n\n'),
+      encoder.encode('data: {"type":"delta","content":"ok"}\n\n'),
+    ]
+    let call = 0
+    const reader = {
+      read: vi.fn(async () => {
+        if (call < chunks.length) {
+          const value = chunks[call]
+          call += 1
+          return { done: false, value }
+        }
+        return { done: true, value: undefined }
+      }),
+    }
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    } as unknown as Response)
+
+    const events: ChatStreamEvent[] = []
+    await streamChat('foo-change', 'hi', [], (e) => events.push(e))
+    expect(events).toEqual([{ type: 'delta', content: 'ok' }])
   })
 })
