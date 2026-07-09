@@ -47,6 +47,27 @@ func TestExtractYAMLLinks_BareFilenameResolvesToChangeDir(t *testing.T) {
 	}
 }
 
+func TestExtractYAMLLinks_SkipsNonPathValues(t *testing.T) {
+	root := t.TempDir()
+	changeDir := filepath.Join(root, "openspec", "changes", "my-change")
+	os.MkdirAll(changeDir, 0755)
+	os.WriteFile(filepath.Join(changeDir, ".comet.yaml"), []byte(`
+plan: see tasks.md
+design_doc: docs/foo.md
+`), 0644)
+
+	edges, err := ExtractYAMLLinks(changeDir, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 edge (prose value skipped, real path kept), got %d: %+v", len(edges), edges)
+	}
+	if edges[0].To != filepath.Join(root, "docs", "foo.md") {
+		t.Fatalf("unexpected edge target: %+v", edges[0])
+	}
+}
+
 func TestExtractMarkdownLinks_ResolvesRelativeToFileDir(t *testing.T) {
 	root := t.TempDir()
 	specDir := filepath.Join(root, "docs", "superpowers", "specs")

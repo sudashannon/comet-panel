@@ -3,7 +3,9 @@ package wiki
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 type LintIssue struct {
@@ -13,13 +15,16 @@ type LintIssue struct {
 }
 
 // Lint runs the orphan, dead-link, and duplicate-title checks. Root-level
-// "change" components are excluded from orphan detection — they're
-// expected to be hubs with only outgoing edges in small workspaces.
+// "change" components and components under an "/archive/" path segment are
+// excluded from orphan detection — change nodes are expected to be hubs with
+// only outgoing edges in small workspaces, and archived artifacts are
+// expected to be disconnected from the active graph, so flagging either has
+// no actionable value for a working dashboard.
 func (g *Graph) Lint() []LintIssue {
 	var issues []LintIssue
 
 	for id, c := range g.components {
-		if c.Type == TypeChange {
+		if c.Type == TypeChange || strings.Contains(c.Path, "/archive/") {
 			continue
 		}
 		if len(g.forward[id]) == 0 && len(g.backward[id]) == 0 {
@@ -44,6 +49,18 @@ func (g *Graph) Lint() []LintIssue {
 	}
 	for title, ids := range byTitle {
 		if len(ids) > 1 {
+			// Skip groups where every component's title is just its filename fallback
+			allFallback := true
+			for _, id := range ids {
+				c := g.components[id]
+				if c.Title != strings.TrimSuffix(filepath.Base(c.Path), ".md") {
+					allFallback = false
+					break
+				}
+			}
+			if allFallback {
+				continue
+			}
 			for _, id := range ids {
 				issues = append(issues, LintIssue{Rule: "duplicate", ComponentID: id, Detail: title})
 			}

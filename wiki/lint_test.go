@@ -65,6 +65,36 @@ func TestLint_DuplicateTitleDetection(t *testing.T) {
 	}
 }
 
+func TestLint_ArchivePathExcludedFromOrphans(t *testing.T) {
+	archived := Component{
+		ID:    "archived",
+		Title: "Archived Doc",
+		Type:  TypeSpec,
+		Path:  "/repo/openspec/changes/archive/2025-01-old-change/spec.md",
+	}
+	g := BuildGraph([]Component{archived}, nil)
+
+	issues := g.Lint()
+	for _, i := range issues {
+		if i.Rule == "orphan" && i.ComponentID == "archived" {
+			t.Fatal("components whose Path contains /archive/ must be excluded from orphan detection")
+		}
+	}
+}
+
+func TestLint_FilenameFallbackDuplicatesExcluded(t *testing.T) {
+	a := Component{ID: "a", Title: "spec", Type: TypeSpec, Path: "/repo/changes/change-a/spec.md"}
+	b := Component{ID: "b", Title: "spec", Type: TypeSpec, Path: "/repo/changes/change-b/spec.md"}
+	g := BuildGraph([]Component{a, b}, nil)
+
+	issues := g.Lint()
+	for _, i := range issues {
+		if i.Rule == "duplicate" {
+			t.Fatalf("filename-fallback titles (Title == filename without .md) must not be flagged as duplicates, got %+v", i)
+		}
+	}
+}
+
 func TestLint_TaskArtifactMissing_CountsPerTaskNumberNotRawFileCount(t *testing.T) {
 	root := t.TempDir()
 	tasksPath := filepath.Join(root, "tasks.md")

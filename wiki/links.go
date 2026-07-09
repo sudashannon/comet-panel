@@ -43,6 +43,17 @@ func ExtractYAMLLinks(changeDir, root string) ([]Edge, error) {
 		if !ok || val == "" || val == "null" || val == "~" {
 			continue
 		}
+		// Skip values that don't look like file paths — prose like "see tasks.md"
+		// or "TBD" would create garbage edges. A valid ref is either a bare .md
+		// filename (a single token, no spaces) or a path containing "/". Note a
+		// plain HasSuffix(val, ".md") check is not enough: "see tasks.md" also
+		// ends in ".md" as a whole string, so the space check is required to
+		// reject that prose pattern while still accepting "design.md".
+		looksLikePath := strings.Contains(val, "/") ||
+			(!strings.Contains(val, " ") && strings.HasSuffix(val, ".md"))
+		if !looksLikePath {
+			continue
+		}
 		target := pathresolve.ResolveArtifactPath(val, root, changeDir)
 		edges = append(edges, Edge{
 			From:   yamlPath,
