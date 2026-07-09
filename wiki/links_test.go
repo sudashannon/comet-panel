@@ -95,3 +95,44 @@ func TestExtractMarkdownLinks_SkipsExternalAndAnchorLinks(t *testing.T) {
 		t.Fatalf("unexpected target: %q", edges[0].To)
 	}
 }
+
+func TestExtractArtifactConventionLinks_MatchesByTaskNumber(t *testing.T) {
+	root := t.TempDir()
+	tasksPath := filepath.Join(root, "tasks.md")
+	os.WriteFile(tasksPath, []byte("- [ ] Task 1\n- [ ] Task 2\n"), 0644)
+
+	artifactsDir := filepath.Join(root, "artifacts", "my-plan")
+	os.MkdirAll(artifactsDir, 0755)
+	os.WriteFile(filepath.Join(artifactsDir, "task-01-implementer.md"), []byte("x"), 0644)
+	os.WriteFile(filepath.Join(artifactsDir, "task-01-oracle-review.md"), []byte("x"), 0644)
+	os.WriteFile(filepath.Join(artifactsDir, "task-02-implementer.md"), []byte("x"), 0644)
+
+	tasksComp := Component{ID: tasksPath, Path: tasksPath, Type: TypeTasks, Workspace: "miao"}
+	edges, err := ExtractArtifactConventionLinks(tasksComp, artifactsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 edges (one per artifact file), got %d: %+v", len(edges), edges)
+	}
+	for _, e := range edges {
+		if e.Kind != "generates" || e.Source != "markdown-link" {
+			// Note: reuses "markdown-link" confidence tier — convention-derived,
+			// same high-confidence bucket as layer 2, distinct from "yaml".
+			t.Fatalf("unexpected edge shape: %+v", e)
+		}
+	}
+}
+
+func TestExtractArtifactConventionLinks_MissingDirReturnsNoEdges(t *testing.T) {
+	root := t.TempDir()
+	tasksPath := filepath.Join(root, "tasks.md")
+	tasksComp := Component{ID: tasksPath, Path: tasksPath, Type: TypeTasks, Workspace: "miao"}
+	edges, err := ExtractArtifactConventionLinks(tasksComp, filepath.Join(root, "nonexistent"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 0 {
+		t.Fatalf("expected 0 edges, got %d", len(edges))
+	}
+}

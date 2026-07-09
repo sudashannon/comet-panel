@@ -3,6 +3,7 @@ package wiki
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"comet-ui/internal/pathresolve"
@@ -106,5 +107,37 @@ func ExtractMarkdownLinks(component Component) ([]Edge, error) {
 		return ast.WalkContinue, nil
 	})
 
+	return edges, nil
+}
+
+var taskArtifactRe = regexp.MustCompile(`^task-(\d+)-`)
+
+// ExtractArtifactConventionLinks links every task-NN-*.md file in
+// artifactsDir back to tasksComponent, by filename convention alone (no
+// content parsing needed — the number in "task-NN-" is authoritative).
+func ExtractArtifactConventionLinks(tasksComponent Component, artifactsDir string) ([]Edge, error) {
+	entries, err := os.ReadDir(artifactsDir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var edges []Edge
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		if !taskArtifactRe.MatchString(e.Name()) {
+			continue
+		}
+		edges = append(edges, Edge{
+			From:   tasksComponent.Path,
+			To:     filepath.Join(artifactsDir, e.Name()),
+			Kind:   "generates",
+			Source: "markdown-link",
+		})
+	}
 	return edges, nil
 }
