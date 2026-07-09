@@ -31,3 +31,16 @@ export interface WorkspaceConfig {
   path: string
   color: string
 }
+
+export interface WikiEdge {
+  from: string
+  to: string
+  kind: string
+  source: string
+}
+
+export interface WikiComponentResponse {
+  component: { id: string; title: string }
+  forward: WikiEdge[]
+  backlinks: WikiEdge[]
+}

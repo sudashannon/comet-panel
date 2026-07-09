@@ -2,6 +2,7 @@ import type { ChangeSummary } from '../api/types'
 import { PhaseStepper } from './PhaseStepper'
 import { TaskDonut } from './TaskDonut'
 import { ReviewBadges } from './ReviewBadges'
+import { BacklinksPanel } from './BacklinksPanel'
 
 export function ChangeDetail({ change }: { change: ChangeSummary }) {
   return (
@@ -27,6 +28,7 @@ export function ChangeDetail({ change }: { change: ChangeSummary }) {
           <TaskDonut completed={change.tasksCompleted} total={change.tasksTotal} />
         </div>
       </div>
+      <BacklinksPanel componentId={change.name} />
     </div>
   )
 }
