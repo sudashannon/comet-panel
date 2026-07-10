@@ -32,8 +32,7 @@ function EdgeSection({
   return (
     <div>
       <div className="text-[#6e6e73] font-semibold mb-2">
-        {heading}
-        {edges.length > 0 ? `（${edges.length} 处引用）` : ''}
+        {heading}（{edges.length} 处引用）
       </div>
       {edges.length === 0 ? (
         <div className="flex items-center gap-2 text-[#6e6e73] bg-[#f5f5f7] rounded p-2">

@@ -72,4 +72,18 @@ describe('BacklinksPanel', () => {
     // backlinks direction is empty, but the panel is not blank
     expect(screen.getByText('暂无其他文档引用本文档')).toBeTruthy()
   })
+
+  it('shows a 0 count consistently for both directions when only one side has data', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        component: { id: '/x/design.md', title: 'Design Doc' },
+        forward: [{ from: '/x/design.md', to: '/x/tasks.md', kind: 'implements', source: 'yaml' }],
+        backlinks: [],
+      }),
+    } as Response)
+    render(<BacklinksPanel componentId="/x/design.md" />)
+    await waitFor(() => expect(screen.getByText(/引用（forward）（1 处引用）/)).toBeTruthy())
+    expect(screen.getByText(/反向引用（0 处引用）/)).toBeTruthy()
+  })
 })

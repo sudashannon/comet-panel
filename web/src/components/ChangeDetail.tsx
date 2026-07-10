@@ -94,7 +94,7 @@ export function ChangeDetail({
           <ArtifactList changeName={change.name} onSelectArtifact={onOpenArtifact} />
         </div>
         <div className="border border-[#e8e8ed] rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">反向引用</h4>
+          <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">文档关联</h4>
           <BacklinksPanel componentId={change.componentId ?? change.name} />
         </div>
       </div>
