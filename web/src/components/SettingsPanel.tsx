@@ -16,6 +16,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [temperature, setTemperature] = useState(0)
   const [maxTokens, setMaxTokens] = useState(0)
   const [thinking, setThinking] = useState('auto')
+  const [apiBase, setApiBase] = useState('')
 
   // 挂载时并发拉取可用 provider 列表与当前生效配置，用当前 active_provider
   // 对应的配置回填表单；provider 列表请求失败也不阻塞配置请求的结果展示
@@ -29,8 +30,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         const active = config.active_provider || providersResp.active
         const activeConfig = config.providers?.[active]
         setProviderName(active)
-        setModel(activeConfig?.model ?? '')
         setApiKeyPlaceholder(activeConfig?.api_key ?? '')
+        setApiBase(activeConfig?.api_base ?? '')
         setApiKeyInput('')
         setTemperature(activeConfig?.temperature ?? 0.7)
         setMaxTokens(activeConfig?.max_tokens ?? 4096)
@@ -59,6 +60,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         active_provider: providerName,
         providers: {
           [providerName]: {
+            api_base: apiBase,
             model,
             temperature,
             max_tokens: maxTokens,
@@ -110,6 +112,17 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium text-[#6e6e73] mb-1">API Base</span>
+            <input
+              data-testid="chat-settings-api-base"
+              type="text"
+              value={apiBase}
+              onChange={(e) => setApiBase(e.target.value)}
+              placeholder="https://api.minimaxi.com"
+              className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm font-mono"
+            />
           </label>
           <label className="block">
             <span className="block text-xs font-medium text-[#6e6e73] mb-1">API Key</span>

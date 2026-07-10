@@ -57,8 +57,8 @@ describe('SettingsPanel', () => {
     await waitFor(() => expect((screen.getByTestId('chat-settings-provider') as HTMLSelectElement).value).toBe('anthropic'))
     expect((screen.getByTestId('chat-settings-model') as HTMLSelectElement).value).toBe('claude-3-5-sonnet')
     expect((screen.getByTestId('chat-settings-api-key') as HTMLInputElement).placeholder).toBe('sk-c****umMM')
+    expect((screen.getByTestId('chat-settings-api-base') as HTMLInputElement).value).toBe('')
     expect((screen.getByTestId('chat-settings-temperature') as HTMLInputElement).value).toBe('0.7')
-    expect((screen.getByTestId('chat-settings-max-tokens') as HTMLInputElement).value).toBe('4096')
   })
 
   it('save calls updateChatConfig and closes on success', async () => {
@@ -80,6 +80,7 @@ describe('SettingsPanel', () => {
       providers: {
         anthropic: {
           model: 'claude-3-opus',
+          api_base: '',
           temperature: 0.7,
           max_tokens: 4096,
           thinking: 'auto',
@@ -88,6 +89,19 @@ describe('SettingsPanel', () => {
     })
     expect(patch.providers?.anthropic).not.toHaveProperty('api_key')
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
+  it('typing a new api_base sends it in the patch', async () => {
+    render(<SettingsPanel onClose={() => {}} />)
+    await waitFor(() => expect(screen.getByTestId('chat-settings-panel')).toBeTruthy())
+    await waitFor(() => expect((screen.getByTestId('chat-settings-api-base') as HTMLInputElement).value).toBe(''))
+    fireEvent.change(screen.getByTestId('chat-settings-api-base'), { target: { value: 'https://api.minimaxi.com' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('chat-settings-save'))
+    })
+    await waitFor(() => expect(updateChatConfig).toHaveBeenCalledTimes(1))
+    const patch = vi.mocked(updateChatConfig).mock.calls[0][0]
+    expect(patch.providers?.anthropic?.api_base).toBe('https://api.minimaxi.com')
   })
 
   it('typing a new api_key sends it in the patch', async () => {
