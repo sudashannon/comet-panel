@@ -86,21 +86,21 @@ export function KpiCards({
               }
             }}
             className={
-              'bg-white rounded-lg p-3 shadow-[0_4px_12px_rgba(0,0,0,0.06)] cursor-pointer' +
-              (c.warn ? ' border border-[#c47a06]' : '') +
-              (isFilterActive ? ' ring-2 ring-[#0063f8]' : '')
+              'bg-white rounded-lg px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.05)] cursor-pointer flex items-center justify-between gap-2' +
+              (c.warn ? ' border border-[#c47a06]' : ' border border-[#e8e8ed]') +
+              (isFilterActive ? ' ring-2 ring-[#0063f8] border-transparent' : '')
             }
           >
             <div
               className={
-                'text-[11px] ' + (c.warn ? 'text-[#c47a06] font-semibold' : 'text-[#6e6e73]')
+                'text-xs font-medium ' + (c.warn ? 'text-[#c47a06] font-semibold' : 'text-[#6e6e73]')
               }
             >
               {c.label}
             </div>
             <div
               className={
-                'text-[28px] font-bold ' +
+                'text-xl font-bold leading-none ' +
                 (c.warn ? 'text-[#c47a06]' : c.danger ? 'text-[#dc2626]' : 'text-[#1d1d1f]')
               }
             >
