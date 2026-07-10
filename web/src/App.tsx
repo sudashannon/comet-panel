@@ -9,6 +9,7 @@ import { WorkspaceChips } from './components/WorkspaceChips'
 import { MarkdownViewer } from './components/MarkdownViewer'
 import { WikiGraph } from './components/WikiGraph'
 import { LintPanel } from './components/LintPanel'
+import { SideRail } from './components/SideRail'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
 // internal counts and the KPI-filter classification below so the two can
@@ -89,39 +90,18 @@ export default function App() {
     : workspaceChanges
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f5f7] overflow-hidden">
-      <div className="xl:hidden flex items-center p-3 border-b border-[#e8e8ed] shrink-0">
-        <button
-          data-testid="hamburger-toggle"
-          onClick={() => setSidebarOpen((v) => !v)}
-          className="text-sm"
-        >
-          ☰ 工作区
-        </button>
-      </div>
-
-      <nav className="flex items-center gap-2 p-3 border-b border-[#e8e8ed] shrink-0" data-testid="view-switcher">
-        {(
-          [
-            ['changes', '变更列表'],
-            ['graph', '图谱'],
-            ['lint', 'Lint'],
-          ] as const
-        ).map(([key, label]) => (
+    <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden">
+      <SideRail view={view} onSelect={setView} />
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <div className="xl:hidden flex items-center p-3 shrink-0">
           <button
-            key={key}
-            type="button"
-            onClick={() => setView(key)}
-            aria-pressed={view === key}
-            className={
-              'text-sm px-3 py-1.5 rounded ' +
-              (view === key ? 'bg-[#0063f8] text-white' : 'text-[#1d1d1f] hover:bg-[#f0f5ff]')
-            }
+            data-testid="hamburger-toggle"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="text-sm"
           >
-            {label}
+            ☰ 工作区
           </button>
-        ))}
-      </nav>
+        </div>
 
       {failedWorkspaces.length > 0 && (
         <div data-testid="workspace-warning-banner" className="text-xs bg-[#fdeeee] text-[#dc2626] rounded p-2 m-3 shrink-0">
@@ -235,6 +215,7 @@ export default function App() {
           <LintPanel />
         </div>
       )}
+      </div>
     </div>
   )
 }
