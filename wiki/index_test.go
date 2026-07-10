@@ -26,8 +26,8 @@ func TestBuildIndex_EndToEnd(t *testing.T) {
 		t.Fatalf("expected design.md to be indexed as a component")
 	}
 	back := g.Backlinks(designPath)
-	if len(back) != 1 {
-		t.Fatalf("expected 1 backlink to design.md (from .comet.yaml), got %+v", back)
+	if len(back) != 2 {
+		t.Fatalf("expected 2 backlinks to design.md (.comet.yaml + proposal.md convention edge), got %+v", back)
 	}
 
 	// The change directory itself must be a TypeChange component keyed by

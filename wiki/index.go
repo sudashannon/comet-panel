@@ -87,6 +87,10 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 			yamlEdges, _ := ExtractYAMLLinks(changeDir, projectRoot)
 			allEdges = append(allEdges, yamlEdges...)
 
+			// Convention-internal edges (proposal→design→tasks→specs)
+			internalEdges := ExtractChangeInternalLinks(changeDir)
+			allEdges = append(allEdges, internalEdges...)
+
 			tasksPath := filepath.Join(changeDir, "tasks.md")
 			if _, err := os.Stat(tasksPath); err == nil {
 				tasksComp := Component{ID: tasksPath, Path: tasksPath, Type: TypeTasks, Workspace: ws.Alias}
