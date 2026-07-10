@@ -63,13 +63,13 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     const cy = cytoscape({
       container: containerRef.current,
       elements: sorted.map((c) => ({
-        data: { id: c.id, label: c.title },
-        style: { 'background-color': TYPE_COLORS[c.type] ?? '#6e6e73' },
+        data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73' },
       })),
       style: [
         {
           selector: 'node',
           style: {
+            'background-color': 'data(color)',
             label: 'data(label)',
             'font-size': 7,
             'min-zoomed-font-size': 9,

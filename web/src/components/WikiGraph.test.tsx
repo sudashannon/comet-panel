@@ -32,8 +32,8 @@ describe('WikiGraph', () => {
     expect(cytoscape).toHaveBeenCalledWith(
       expect.objectContaining({
         elements: [
-          { data: { id: '/x/a.md', label: 'A' }, style: { 'background-color': TYPE_COLORS.spec } },
-          { data: { id: '/x/b.md', label: 'B' }, style: { 'background-color': TYPE_COLORS.plan } },
+          { data: { id: '/x/a.md', label: 'A', color: TYPE_COLORS.spec } },
+          { data: { id: '/x/b.md', label: 'B', color: TYPE_COLORS.plan } },
         ],
         layout: expect.objectContaining({ name: 'grid' }),
       }),
