@@ -52,13 +52,29 @@ export function LintPanel() {
     return <div className="text-xs text-[#6e6e73]">未发现问题</div>
   }
 
+  const groups = new Map<string, LintIssue[]>()
+  for (const issue of issues) {
+    const list = groups.get(issue.rule)
+    if (list) list.push(issue)
+    else groups.set(issue.rule, [issue])
+  }
+
   return (
-    <div className="space-y-1 text-xs">
-      {issues.map((i, idx) => (
-        <div key={idx} className="flex gap-2">
-          <span className="text-[#c47a06] font-mono">{i.rule}</span>
-          <span className="text-[#6e6e73] truncate">{i.detail}</span>
-        </div>
+    <div className="space-y-4 text-xs">
+      {[...groups.entries()].map(([rule, items]) => (
+        <section key={rule}>
+          <div className="sticky top-0 flex items-center gap-2 bg-white/95 py-1 border-b border-[#e8e8ed] mb-1">
+            <span className="text-[#c47a06] font-mono font-semibold whitespace-nowrap">{rule}</span>
+            <span className="text-[#6e6e73]">({items.length})</span>
+          </div>
+          <div className="space-y-1">
+            {items.map((i, idx) => (
+              <div key={idx} className="text-[#6e6e73] truncate pl-1" title={i.detail}>
+                {i.detail}
+              </div>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   )

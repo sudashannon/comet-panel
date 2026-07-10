@@ -57,7 +57,7 @@ function ChangeCard({
       }
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium truncate">{change.name}</div>
+        <div className="text-sm font-medium truncate" title={change.name}>{change.name}</div>
         <div className="flex shrink-0 items-center gap-1">
           <Badge className={phaseStyle}>{change.phase}</Badge>
           <Badge className="bg-[#f0f0f0] text-[#6e6e73]">
@@ -116,11 +116,12 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
   const active = filtered.filter((c) => !c.archived)
   const archived = filtered.filter((c) => c.archived)
 
-  // Auto-expand the archived section whenever the currently selected change
-  // lives inside it, so the user can still see the selected highlight even
-  // though the section starts collapsed.
+  // Auto-expand the archived section when the selected change is archived OR
+  // when the user is actively searching/filtering — otherwise a search whose
+  // only matches are archived looks like "无匹配" behind a collapsed group.
+  const hasActiveQuery = search.trim() !== '' || status !== 'all' || workflow !== 'all' || phase !== 'all'
   const selectedIsArchived =
-    selected !== null && archived.some((c) => c.name === selected)
+    (selected !== null && archived.some((c) => c.name === selected)) || hasActiveQuery
 
   return (
     <div className="space-y-2">

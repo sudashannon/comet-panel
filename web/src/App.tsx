@@ -149,6 +149,7 @@ export default function App() {
                 onSelect={(name) => {
                   setViewerPath(null)
                   setSelected(name)
+                  setSidebarOpen(false)
                 }}
               />
             </aside>
