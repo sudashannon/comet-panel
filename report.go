@@ -479,7 +479,11 @@ func synthesizeMonthly(data *ReportData, start, end string, pcfg chat.ProviderCo
 
 // reportMeta is the list-view metadata for a persisted report file.
 type reportMeta struct {
-	Name, Type, Start, End, CreatedAt string
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Start     string `json:"start"`
+	End       string `json:"end"`
+	CreatedAt string `json:"createdAt"`
 }
 
 // handleListReports is GET /api/reports: lists persisted reports newest
