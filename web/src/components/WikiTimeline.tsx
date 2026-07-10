@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchWikiGraph } from '../api/client'
 import type { WikiComponent } from '../api/types'
 import { COMMUNITY_COLORS } from './WikiGraph'
+import { GraphFilters } from './GraphFilters'
 
 const ROW_HEIGHT = 28
 const BAR_HEIGHT = 16
@@ -17,6 +18,7 @@ interface TimelineItem {
   start: number // ms epoch
   end: number // ms epoch
   color: string
+  communityId: number | null
 }
 
 function frontmatterTime(value: unknown): Date | null {
@@ -47,14 +49,18 @@ function toTimelineItem(c: WikiComponent, communities: Record<string, number>): 
     start: start.getTime(),
     end: end.getTime(),
     color,
+    communityId: commId != null && commId >= 0 ? commId : null,
   }
 }
 
 export function WikiTimeline() {
   const [components, setComponents] = useState<WikiComponent[]>([])
   const [communities, setCommunities] = useState<Record<string, number>>({})
+  const [communityLabels, setCommunityLabels] = useState<Record<string, string>>({})
   const [loaded, setLoaded] = useState(false)
   const [hover, setHover] = useState<{ title: string; phase: string; x: number; y: number } | null>(null)
+  const [activeWorkspaces, setActiveWorkspaces] = useState<Set<string> | null>(null)
+  const [activeCommunity, setActiveCommunity] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -63,6 +69,7 @@ export function WikiTimeline() {
         if (cancelled) return
         setComponents(data.components)
         setCommunities(data.communities ?? {})
+        setCommunityLabels(data.communityLabels ?? {})
         setLoaded(true)
       })
       .catch(() => {
@@ -80,7 +87,9 @@ export function WikiTimeline() {
     [components, communities],
   )
 
-  const workspaces = useMemo(() => {
+  // Full workspace list (unfiltered) so chips stay available even after a
+  // filter empties every row for that workspace.
+  const allWorkspaces = useMemo(() => {
     const seen = new Set<string>()
     const order: string[] = []
     for (const item of items) {
@@ -91,6 +100,54 @@ export function WikiTimeline() {
     }
     return order.sort()
   }, [items])
+
+  // 后端提供了带语义的 communityLabels 时优先使用；否则退回 "#id" 占位符，
+  // 保持旧数据（无 communityLabels 字段）下图例仍可用。
+  const effectiveCommunityLabels = useMemo(() => {
+    if (Object.keys(communityLabels).length > 0) return communityLabels
+    const counts: Record<number, number> = {}
+    for (const item of items) {
+      if (item.communityId !== null) counts[item.communityId] = (counts[item.communityId] ?? 0) + 1
+    }
+    return Object.keys(counts)
+      .map(Number)
+      .sort((a, b) => counts[b] - counts[a])
+      .slice(0, 8)
+      .reduce<Record<string, string>>((acc, id) => {
+        acc[String(id)] = `#${id}`
+        return acc
+      }, {})
+  }, [communityLabels, items])
+
+  function toggleWorkspace(ws: string) {
+    setActiveWorkspaces((prev) => {
+      const base = prev ?? new Set(allWorkspaces)
+      const next = new Set(base)
+      if (next.has(ws)) next.delete(ws)
+      else next.add(ws)
+      return next
+    })
+  }
+
+  const filteredItems = useMemo(() => {
+    const wsFiltered =
+      activeWorkspaces === null ? items : items.filter((item) => activeWorkspaces.has(item.workspace))
+    return activeCommunity === null
+      ? wsFiltered
+      : wsFiltered.filter((item) => item.communityId === activeCommunity)
+  }, [items, activeWorkspaces, activeCommunity])
+
+  const workspaces = useMemo(() => {
+    const seen = new Set<string>()
+    const order: string[] = []
+    for (const item of filteredItems) {
+      if (!seen.has(item.workspace)) {
+        seen.add(item.workspace)
+        order.push(item.workspace)
+      }
+    }
+    return order.sort()
+  }, [filteredItems])
 
   const { minTime, maxTime } = useMemo(() => {
     if (items.length === 0) {
@@ -146,77 +203,93 @@ export function WikiTimeline() {
         </div>
       )}
       {loaded && items.length > 0 && (
-        <div data-testid="wiki-timeline" className="flex flex-1 overflow-auto rounded border border-[#e8e8ed] bg-white">
-          <div
-            className="sticky left-0 z-10 shrink-0 border-r border-[#e8e8ed] bg-white"
-            style={{ width: LEFT_LABEL_WIDTH }}
-          >
-            <div style={{ height: 24 }} />
-            {workspaces.map((ws) => (
+        <>
+          <GraphFilters
+            workspaces={allWorkspaces}
+            activeWorkspaces={activeWorkspaces ?? new Set(allWorkspaces)}
+            onToggleWorkspace={toggleWorkspace}
+            communityLabels={effectiveCommunityLabels}
+            activeCommunity={activeCommunity}
+            onSelectCommunity={setActiveCommunity}
+          />
+          {filteredItems.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center text-xs text-[#6e6e73]">
+              没有匹配当前筛选条件的变更
+            </div>
+          ) : (
+            <div data-testid="wiki-timeline" className="flex flex-1 overflow-auto rounded border border-[#e8e8ed] bg-white">
               <div
-                key={ws}
-                className="flex items-center truncate px-2 text-xs text-[#1d1d1f]"
-                style={{ height: ROW_HEIGHT }}
-                title={ws}
+                className="sticky left-0 z-10 shrink-0 border-r border-[#e8e8ed] bg-white"
+                style={{ width: LEFT_LABEL_WIDTH }}
               >
-                {ws}
+                <div style={{ height: 24 }} />
+                {workspaces.map((ws) => (
+                  <div
+                    key={ws}
+                    className="flex items-center truncate px-2 text-xs text-[#1d1d1f]"
+                    style={{ height: ROW_HEIGHT }}
+                    title={ws}
+                  >
+                    {ws}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="relative" style={{ width: chartWidth, minHeight: chartHeight + 24 }}>
-            <svg width={chartWidth} height={chartHeight + 24} data-testid="wiki-timeline-svg">
-              {monthTicks.map((tick) => (
-                <g key={tick.label}>
-                  <line x1={tick.x} y1={24} x2={tick.x} y2={chartHeight + 24} stroke="#e8e8ed" strokeWidth={1} />
-                  <text x={tick.x + 3} y={16} fontSize={10} fill="#6e6e73">
-                    {tick.label}
-                  </text>
-                </g>
-              ))}
-              {workspaces.map((ws, rowIndex) => {
-                const rowItems = items.filter((item) => item.workspace === ws)
-                const y = rowIndex * ROW_HEIGHT + 24 + (ROW_HEIGHT - BAR_HEIGHT) / 2
-                return (
-                  <g key={ws}>
-                    {rowItems.map((item) => {
-                      const x = xForTime(item.start)
-                      const width = Math.max(MIN_BAR_WIDTH, xForTime(item.end) - x)
-                      return (
-                        <rect
-                          key={item.id}
-                          data-testid="wiki-timeline-bar"
-                          x={x}
-                          y={y}
-                          width={width}
-                          height={BAR_HEIGHT}
-                          rx={3}
-                          fill={item.color}
-                          onMouseEnter={(e) =>
-                            setHover({
-                              title: item.title,
-                              phase: item.phase,
-                              x: e.clientX,
-                              y: e.clientY,
-                            })
-                          }
-                          onMouseMove={(e) =>
-                            setHover({
-                              title: item.title,
-                              phase: item.phase,
-                              x: e.clientX,
-                              y: e.clientY,
-                            })
-                          }
-                          onMouseLeave={() => setHover(null)}
-                        />
-                      )
-                    })}
-                  </g>
-                )
-              })}
-            </svg>
-          </div>
-        </div>
+              <div className="relative" style={{ width: chartWidth, minHeight: chartHeight + 24 }}>
+                <svg width={chartWidth} height={chartHeight + 24} data-testid="wiki-timeline-svg">
+                  {monthTicks.map((tick) => (
+                    <g key={tick.label}>
+                      <line x1={tick.x} y1={24} x2={tick.x} y2={chartHeight + 24} stroke="#e8e8ed" strokeWidth={1} />
+                      <text x={tick.x + 3} y={16} fontSize={10} fill="#6e6e73">
+                        {tick.label}
+                      </text>
+                    </g>
+                  ))}
+                  {workspaces.map((ws, rowIndex) => {
+                    const rowItems = filteredItems.filter((item) => item.workspace === ws)
+                    const y = rowIndex * ROW_HEIGHT + 24 + (ROW_HEIGHT - BAR_HEIGHT) / 2
+                    return (
+                      <g key={ws}>
+                        {rowItems.map((item) => {
+                          const x = xForTime(item.start)
+                          const width = Math.max(MIN_BAR_WIDTH, xForTime(item.end) - x)
+                          return (
+                            <rect
+                              key={item.id}
+                              data-testid="wiki-timeline-bar"
+                              x={x}
+                              y={y}
+                              width={width}
+                              height={BAR_HEIGHT}
+                              rx={3}
+                              fill={item.color}
+                              onMouseEnter={(e) =>
+                                setHover({
+                                  title: item.title,
+                                  phase: item.phase,
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                })
+                              }
+                              onMouseMove={(e) =>
+                                setHover({
+                                  title: item.title,
+                                  phase: item.phase,
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                })
+                              }
+                              onMouseLeave={() => setHover(null)}
+                            />
+                          )
+                        })}
+                      </g>
+                    )
+                  })}
+                </svg>
+              </div>
+            </div>
+          )}
+        </>
       )}
       {hover && (
         <div

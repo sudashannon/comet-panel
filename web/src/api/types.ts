@@ -69,6 +69,7 @@ export interface WikiGraphData {
   components: WikiComponent[]
   edges: WikiEdge[]
   communities?: Record<string, number>
+  communityLabels?: Record<string, string>
 }
 
 export interface ArtifactInfo {

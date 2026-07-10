@@ -263,4 +263,62 @@ describe('WikiGraph', () => {
     expect(getByTestId('wiki-graph-community-legend').textContent).toContain('#0')
     expect(getByTestId('wiki-graph-community-legend').textContent).toContain('#1')
   })
+
+  it('filters nodes to a single community when its legend entry is clicked, and clears on a second click', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse(
+        [
+          { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+          { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
+          { id: '/x/c.md', type: 'artifact', title: 'C', path: '/x/c.md', workspace: 'miao' },
+        ],
+        [{ from: '/x/a.md', to: '/x/b.md', kind: 'references', source: 'markdown-link' }],
+        { '/x/a.md': 0, '/x/b.md': 0, '/x/c.md': 1 },
+      ),
+    )
+    const { getByTestId, getAllByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(getByTestId('wiki-graph-community-legend')).toBeTruthy())
+    const legendItems = getAllByTestId('wiki-graph-community-legend-item')
+    const communityOneButton = legendItems.find((el) => el.textContent?.includes('#1'))!
+
+    act(() => communityOneButton.click())
+    await waitFor(() => {
+      const call = vi.mocked(cytoscape).mock.calls.at(-1)![0] as unknown as {
+        elements: Array<{ data: { id: string } }>
+      }
+      expect(call.elements.map((el) => el.data.id)).toEqual(['/x/c.md'])
+    })
+
+    act(() => communityOneButton.click())
+    await waitFor(() => {
+      const call = vi.mocked(cytoscape).mock.calls.at(-1)![0] as unknown as {
+        elements: Array<{ data: { id: string } }>
+      }
+      expect(call.elements.map((el) => el.data.id)).toEqual(
+        expect.arrayContaining(['/x/a.md', '/x/b.md']),
+      )
+    })
+  })
+
+  it('filters nodes by workspace chip toggle', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse([
+        { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'alpha' },
+        { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'beta' },
+      ]),
+    )
+    const { getAllByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(getAllByTestId('workspace-chip').length).toBe(2))
+    const alphaChip = getAllByTestId('workspace-chip').find((el) => el.textContent === 'alpha')!
+
+    act(() => alphaChip.click())
+    await waitFor(() => {
+      const call = vi.mocked(cytoscape).mock.calls.at(-1)![0] as unknown as {
+        elements: Array<{ data: { id: string } }>
+      }
+      expect(call.elements.map((el) => el.data.id)).toEqual(['/x/b.md'])
+    })
+  })
 })

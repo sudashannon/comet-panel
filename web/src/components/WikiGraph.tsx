@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
 import { fetchWikiGraph } from '../api/client'
 import type { WikiComponent, WikiEdge } from '../api/types'
+import { GraphFilters } from './GraphFilters'
 
 /**
  * Color legend for the 8 WikiComponent types shown in the WikiGraph force-directed view.
@@ -72,6 +73,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   const [components, setComponents] = useState<WikiComponent[]>([])
   const [edges, setEdges] = useState<WikiEdge[]>([])
   const [communities, setCommunities] = useState<Record<string, number>>({})
+  const [communityLabels, setCommunityLabels] = useState<Record<string, string>>({})
   const [gaveUp, setGaveUp] = useState(false)
   const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null)
   // 关系边只占 794 个节点里的一小部分（约 222 条边、189 个有关联节点），其余
@@ -79,6 +81,8 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   // 角落。默认只显示有关联的节点，把关系子图放到画面中心；没有边时该开关无意义
   // （筛选后会清空画布），因此仅显示全部节点。
   const [connectedOnly, setConnectedOnly] = useState(true)
+  const [activeWorkspaces, setActiveWorkspaces] = useState<Set<string> | null>(null)
+  const [activeCommunity, setActiveCommunity] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +97,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             setComponents(data.components)
             setEdges(data.edges)
             setCommunities(data.communities ?? {})
+            setCommunityLabels(data.communityLabels ?? {})
             return
           }
           setComponents([])
@@ -130,6 +135,32 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([id]) => Number(id))
+  // 后端提供了带语义的 communityLabels 时优先使用；否则退回 "#id" 占位符，
+  // 保持旧数据（无 communityLabels 字段）下图例仍可用。
+  const effectiveCommunityLabels = useMemo(() => {
+    if (Object.keys(communityLabels).length > 0) return communityLabels
+    return topCommunities.reduce<Record<string, string>>((acc, id) => {
+      acc[String(id)] = `#${id}`
+      return acc
+    }, {})
+  }, [communityLabels, topCommunities])
+  const workspaces = useMemo(() => {
+    const set = new Set<string>()
+    components.forEach((c) => set.add(c.workspace))
+    return [...set].sort()
+  }, [components])
+
+  function toggleWorkspace(ws: string) {
+    setActiveWorkspaces((prev) => {
+      // null means "all active"; materialize the full set minus the clicked
+      // one so a single click deselects it instead of selecting only it.
+      const base = prev ?? new Set(workspaces)
+      const next = new Set(base)
+      if (next.has(ws)) next.delete(ws)
+      else next.add(ws)
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!containerRef.current || components.length === 0) return
@@ -137,7 +168,12 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     const sorted = [...components].sort(
       (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type),
     )
-    const componentIds = new Set(sorted.map((c) => c.id))
+    // null 表示"未筛选，显示全部"（初始态或用户重新全选）。
+    const wsFiltered =
+      activeWorkspaces === null ? sorted : sorted.filter((c) => activeWorkspaces.has(c.workspace))
+    const filtered =
+      activeCommunity === null ? wsFiltered : wsFiltered.filter((c) => communities[c.id] === activeCommunity)
+    const componentIds = new Set(filtered.map((c) => c.id))
     // Edges may reference an endpoint the frontend never fetched a node for
     // (e.g. a markdown link target outside the scanned workspace) -- cytoscape
     // throws if an edge names a nonexistent node, so drop those defensively
@@ -151,7 +187,8 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     // 794 个节点里约 605 个是孤立节点（无任何关系边），全部铺开会把布局压成
     // 一整屏色点，把真正有价值的关系子图挤到角落。仅显示有关联的节点时把
     // 孤立节点滤掉，让关系子图占满画布；没有边时该过滤没有意义（会清空画布）。
-    const visible = connectedOnly && validEdges.length > 0 ? sorted.filter((c) => connectedIds.has(c.id)) : sorted
+    const visible =
+      connectedOnly && validEdges.length > 0 ? filtered.filter((c) => connectedIds.has(c.id)) : filtered
     const visibleIds = new Set(visible.map((c) => c.id))
     const visibleEdges = validEdges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to))
     const container = containerRef.current
@@ -264,91 +301,118 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       cy.destroy()
       cyRef.current = null
     }
-  }, [components, edges, communities, connectedOnly, onNodeClick])
+  }, [components, edges, communities, connectedOnly, activeWorkspaces, activeCommunity, onNodeClick])
 
   return (
-    <div className="relative flex h-[calc(100vh-160px)] min-h-[500px] w-full flex-col">
-      <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-full" />
-      {hover && (
-        <div
-          data-testid="wiki-graph-tooltip"
-          className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm"
-          style={{ left: hover.x, top: hover.y - 10 }}
-        >
-          {hover.title}
-        </div>
+    <div className="flex h-[calc(100vh-160px)] min-h-[500px] w-full flex-col">
+      {components.length > 0 && workspaces.length > 1 && (
+        <GraphFilters
+          workspaces={workspaces}
+          activeWorkspaces={activeWorkspaces ?? new Set(workspaces)}
+          onToggleWorkspace={toggleWorkspace}
+          communityLabels={{}}
+          activeCommunity={activeCommunity}
+          onSelectCommunity={setActiveCommunity}
+        />
       )}
-      {components.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6e6e73]">
-          {gaveUp ? (
-            <span>索引为空，请先注册工作区并重建（POST /api/wiki/rebuild）</span>
-          ) : (
-            <span className="animate-pulse">索引构建中…</span>
-          )}
-        </div>
-      )}
-      {components.length > 0 && (
-        <>
-          <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => cyRef.current?.fit(undefined, 30)}
-              className="rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm hover:bg-[#f5f5f7]"
-            >
-              适应窗口
-            </button>
-            {hasEdges && (
-              <label className="flex items-center gap-1 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm">
-                <input
-                  type="checkbox"
-                  checked={connectedOnly}
-                  onChange={(e) => setConnectedOnly(e.target.checked)}
-                />
-                仅显示有关联的节点
-              </label>
+      <div className="relative flex-1">
+        <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-full" />
+        {hover && (
+          <div
+            data-testid="wiki-graph-tooltip"
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm"
+            style={{ left: hover.x, top: hover.y - 10 }}
+          >
+            {hover.title}
+          </div>
+        )}
+        {components.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6e6e73]">
+            {gaveUp ? (
+              <span>索引为空，请先注册工作区并重建（POST /api/wiki/rebuild）</span>
+            ) : (
+              <span className="animate-pulse">索引构建中…</span>
             )}
           </div>
-          <div
-            data-testid="wiki-graph-legend"
-            className="absolute right-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
-          >
-            <div className="mb-1 font-medium text-[#6e6e73]">类型图例</div>
-            <div className="mb-1 text-[10px] text-[#8e8e93]">
-              节点按类型着色；连线为组件间关系（implements / references / generates）
-            </div>
-            <ul className="space-y-0.5">
-              {Object.entries(TYPE_COLORS).map(([type, color]) => (
-                <li key={type} className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ backgroundColor: color }}
+        )}
+        {components.length > 0 && (
+          <>
+            <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => cyRef.current?.fit(undefined, 30)}
+                className="rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm hover:bg-[#f5f5f7]"
+              >
+                适应窗口
+              </button>
+              {hasEdges && (
+                <label className="flex items-center gap-1 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={connectedOnly}
+                    onChange={(e) => setConnectedOnly(e.target.checked)}
                   />
-                  <span>{type}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          {topCommunities.length > 0 && (
+                  仅显示有关联的节点
+                </label>
+              )}
+            </div>
             <div
-              data-testid="wiki-graph-community-legend"
-              className="absolute right-2 top-24 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+              data-testid="wiki-graph-legend"
+              className="absolute right-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
             >
-              <div className="mb-1 font-medium text-[#6e6e73]">社区图例</div>
-              <ul className="flex flex-wrap gap-1.5">
-                {topCommunities.map((id) => (
-                  <li key={id} className="flex items-center gap-1">
+              <div className="mb-1 font-medium text-[#6e6e73]">类型图例</div>
+              <div className="mb-1 text-[10px] text-[#8e8e93]">
+                节点按类型着色；连线为组件间关系（implements / references / generates）
+              </div>
+              <ul className="space-y-0.5">
+                {Object.entries(TYPE_COLORS).map(([type, color]) => (
+                  <li key={type} className="flex items-center gap-1.5">
                     <span
-                      className="inline-block h-2 w-2 rounded-full border border-[#1d1d1f]/10"
-                      style={{ backgroundColor: COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] }}
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: color }}
                     />
-                    <span>#{id}</span>
+                    <span>{type}</span>
                   </li>
                 ))}
               </ul>
             </div>
-          )}
-        </>
-      )}
+            {topCommunities.length > 0 && (
+              <div
+                data-testid="wiki-graph-community-legend"
+                className="absolute right-2 top-24 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+              >
+                <div className="mb-1 font-medium text-[#6e6e73]">社区图例</div>
+                <ul className="flex flex-wrap gap-1.5">
+                  {topCommunities.map((id) => {
+                    const active = activeCommunity === id
+                    return (
+                      <li key={id}>
+                        <button
+                          type="button"
+                          data-testid="wiki-graph-community-legend-item"
+                          aria-pressed={active}
+                          onClick={() => setActiveCommunity(active ? null : id)}
+                          className={
+                            active
+                              ? 'flex items-center gap-1 rounded bg-[#1d1d1f]/10 px-1'
+                              : 'flex items-center gap-1 rounded px-1 hover:bg-[#f5f5f7]'
+                          }
+                        >
+                          <span
+                            className="inline-block h-2 w-2 rounded-full border border-[#1d1d1f]/10"
+                            style={{ backgroundColor: COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] }}
+                          />
+                          <span>{effectiveCommunityLabels[String(id)] ?? `#${id}`}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
