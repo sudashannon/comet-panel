@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -241,4 +242,46 @@ func (a *API) HandleSummarize(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"summary": summary})
+}
+
+// HandleOverview returns an opt-in LLM-generated overview for a community
+// of 3+ members, cached under a single centralized directory
+// (~/.comet-panel/wiki/overviews) keyed by membership hash — mirroring the
+// HandleSummarize/Summarize convention above, but at the community rather
+// than the single-component granularity.
+func (a *API) HandleOverview(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("community")
+	communityID, err := strconv.Atoi(idStr)
+	if idStr == "" || err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	a.mu.RLock()
+	communities := a.graph.Communities()
+	components := a.graph.Components()
+	a.mu.RUnlock()
+
+	var members []Component
+	for id, commID := range communities {
+		if commID == communityID {
+			if c, ok := components[id]; ok {
+				members = append(members, c)
+			}
+		}
+	}
+	if len(members) < 3 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	cacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki", "overviews")
+	body, err := GenerateOverview(r.Context(), communityID, members, cacheDir)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"body": body})
 }
