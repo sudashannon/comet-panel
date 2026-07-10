@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import App from './App'
-import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession } from './api/client'
+import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession, fetchChangeDetail } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
 
 // WikiGraph mounts a real cytoscape instance with a cose layout and
@@ -32,6 +32,7 @@ vi.mock('./api/client', () => ({
     name: '', workflow: '', phase: '', archived: false, tasksCompleted: 0, tasksTotal: 0,
     verifyResult: '', createdAt: '', phases: [],
   }),
+  fetchArtifactContent: vi.fn().mockResolvedValue(''),
   fetchWikiComponent: vi.fn().mockResolvedValue({ component: { id: '', title: '' }, forward: [], backlinks: [] }),
   fetchChatSession: vi.fn().mockResolvedValue({
     change: '', messages: [], context_files: [], usage: { total_input: 0, total_output: 0 }, created_at: '', updated_at: '',
@@ -129,6 +130,42 @@ describe('App', () => {
     // reset), and once opened must NOT show alpha's leaked history.
     fireEvent.click(screen.getByTestId('chat-bubble-button'))
     expect(screen.getByTestId('chat-messages').textContent).not.toContain('alpha 的历史消息')
+  })
+
+  it('opening an artifact keeps the change list visible and mounted (persistent 2-pane, not a fullscreen overlay)', async () => {
+    const changes = [makeChange({ name: 'alpha' }), makeChange({ name: 'beta' })]
+    vi.mocked(fetchWorkspaces).mockResolvedValueOnce([])
+    vi.mocked(fetchChangesWithMeta).mockResolvedValueOnce({ changes, failedWorkspaces: [] })
+    vi.mocked(fetchChangeDetail).mockResolvedValue({
+      name: 'alpha', workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 0, tasksTotal: 0, verifyResult: 'pending', createdAt: '',
+      phases: [
+        {
+          key: 'design',
+          label: '设计',
+          status: 'done',
+          artifacts: [{ file: 'design.md', label: '设计文档', exists: true, path: '/x/alpha/design.md' }],
+        },
+      ],
+    })
+
+    render(<App />)
+    await screen.findByText('alpha')
+
+    fireEvent.click(screen.getByText('alpha'))
+    const artifactButton = await screen.findByText('设计文档')
+    fireEvent.click(artifactButton)
+
+    // The MarkdownViewer panel is showing (its close button is present)...
+    await screen.findByText('✕ 关闭')
+    // ...but the change list is still mounted and visible alongside it, not
+    // hidden behind a fullscreen overlay.
+    expect(screen.getByText('alpha')).toBeTruthy()
+    expect(screen.getByText('beta')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('✕ 关闭'))
+    expect(screen.queryByText('✕ 关闭')).toBeNull()
+    await waitFor(() => {})
   })
 })
 

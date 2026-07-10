@@ -1,20 +1,24 @@
-import { useState } from 'react'
 import type { ChangeSummary } from '../api/types'
 import { PhaseStepper } from './PhaseStepper'
 import { TaskDonut } from './TaskDonut'
 import { ReviewBadges } from './ReviewBadges'
 import { BacklinksPanel } from './BacklinksPanel'
 import { ArtifactList } from './ArtifactList'
-import { MarkdownViewer } from './MarkdownViewer'
 import { GuardButton } from './GuardButton'
 
 // PHASES order matches PhaseStepper's own list — the "next phase" is
 // simply the one after change.phase in that fixed sequence.
 const PHASE_ORDER = ['open', 'design', 'build', 'verify', 'archive']
 
-export function ChangeDetail({ change, onChangeUpdated }: { change: ChangeSummary; onChangeUpdated: () => void }) {
-  const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null)
-
+export function ChangeDetail({
+  change,
+  onChangeUpdated,
+  onOpenArtifact,
+}: {
+  change: ChangeSummary
+  onChangeUpdated: () => void
+  onOpenArtifact: (path: string) => void
+}) {
   return (
     <div className="bg-white rounded-lg p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] space-y-4">
       <div className="flex items-center justify-between">
@@ -57,19 +61,16 @@ export function ChangeDetail({ change, onChangeUpdated }: { change: ChangeSummar
           />
         )
       })()}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border border-[#e8e8ed] rounded-lg p-3">
           <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">产出物</h4>
-          <ArtifactList changeName={change.name} onSelectArtifact={setSelectedArtifact} />
+          <ArtifactList changeName={change.name} onSelectArtifact={onOpenArtifact} />
         </div>
         <div className="border border-[#e8e8ed] rounded-lg p-3">
           <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">反向引用</h4>
           <BacklinksPanel componentId={change.componentId ?? change.name} />
         </div>
       </div>
-      {selectedArtifact && (
-        <MarkdownViewer path={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
-      )}
     </div>
   )
 }

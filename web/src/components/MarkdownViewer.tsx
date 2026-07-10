@@ -111,9 +111,8 @@ export function MarkdownViewer({ path, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-white flex flex-col"
-      role="dialog"
-      aria-modal="true"
+      className="h-full min-h-0 flex flex-col bg-white rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+      role="region"
       aria-label={filename}
     >
       <header className="sticky top-0 z-10 bg-white border-b border-[#e8e8ed] px-6 py-3 flex items-center justify-between gap-4">

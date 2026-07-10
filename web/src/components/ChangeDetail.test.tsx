@@ -33,7 +33,7 @@ describe('ChangeDetail', () => {
       artifacts: {}, visualized: true, designReviewed: true, verifyReviewed: false,
       verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
     }
-    render(<ChangeDetail change={change} onChangeUpdated={() => {}} />)
+    render(<ChangeDetail change={change} onChangeUpdated={() => {}} onOpenArtifact={() => {}} />)
     expect(screen.getByTestId('step-build').dataset.state).toBe('current')
     expect(screen.getByTestId('donut-fraction').textContent).toBe('19/31 任务完成')
     expect(screen.getByTestId('badge-visualized').dataset.tone).toBe('ok')
@@ -58,10 +58,50 @@ describe('ChangeDetail', () => {
       artifacts: {}, visualized: true, designReviewed: true, verifyReviewed: false,
       verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
     }
-    render(<ChangeDetail change={change} onChangeUpdated={() => {}} />)
+    render(<ChangeDetail change={change} onChangeUpdated={() => {}} onOpenArtifact={() => {}} />)
     const trigger = screen.getByTestId('guard-trigger') as HTMLButtonElement
     expect(trigger.disabled).toBe(true)
     expect(trigger.title).toBe('任务未全部完成 (9/72)，无法进入验证')
+
+    await waitFor(() => {})
+  })
+
+  it('calls onOpenArtifact (not its own viewer) when an artifact button is clicked', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      if (url.includes('/api/changes/')) {
+        return {
+          ok: true,
+          json: async () => ({
+            name: 'rx101-x',
+            phases: [
+              {
+                key: 'design',
+                label: '设计',
+                artifacts: [{ file: 'design.md', label: '设计文档', exists: true, path: '/x/rx101-x/design.md' }],
+              },
+            ],
+          }),
+        } as Response
+      }
+      return { ok: true, json: async () => ({ component: {}, forward: [], backlinks: [] }) } as Response
+    })
+
+    const change: ChangeSummary = {
+      name: 'rx101-x', workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 19, tasksTotal: 31, verifyResult: 'pending', createdAt: '2026-05-29',
+      artifacts: {}, visualized: true, designReviewed: true, verifyReviewed: false,
+      verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
+    }
+    const onOpenArtifact = vi.fn()
+    render(<ChangeDetail change={change} onChangeUpdated={() => {}} onOpenArtifact={onOpenArtifact} />)
+
+    const artifactButton = await screen.findByText('设计文档')
+    artifactButton.click()
+
+    expect(onOpenArtifact).toHaveBeenCalledWith('/x/rx101-x/design.md')
+    // ChangeDetail no longer owns a viewer of its own.
+    expect(screen.queryByRole('region', { name: 'design.md' })).toBeNull()
 
     await waitFor(() => {})
   })
