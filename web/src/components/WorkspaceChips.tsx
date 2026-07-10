@@ -47,8 +47,8 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
       <button
         onClick={() => onSelect(null)}
         className={
-          'px-3 py-1 rounded-full text-xs ' +
-          (active === null ? 'bg-[#0063f8] text-white' : 'bg-[#f5f5f7] text-[#6e6e73]')
+          'rounded-full px-3 py-1.5 text-xs ' +
+          (active === null ? 'bg-[#0063f8] text-white' : 'bg-[#f2f3f7] text-[#6e6e73]')
         }
       >
         全部
@@ -58,18 +58,18 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
           key={w.alias}
           onClick={() => onSelect(w.alias)}
           className={
-            'px-3 py-1 rounded-full text-xs ' +
-            (active === w.alias ? 'bg-[#0063f8] text-white' : 'bg-[#f5f5f7] text-[#6e6e73]')
+            'rounded-full px-3 py-1.5 text-xs ' +
+            (active === w.alias ? 'bg-[#0063f8] text-white' : 'bg-[#f2f3f7] text-[#6e6e73]')
           }
         >
           {w.alias}
         </button>
       ))}
-      <button onClick={() => setAdding(true)} className="px-3 py-1 rounded-full text-xs border border-dashed border-[#d2d2d7]">
+      <button onClick={() => setAdding(true)} className="rounded-full px-3 py-1.5 text-xs bg-white border border-dashed border-[#d5d7e0] text-[#6e6e73]">
         + 添加
       </button>
       {adding && (
-        <div className="absolute top-full left-0 mt-2 z-10 w-64 rounded-lg border border-[#e8e8ed] bg-white p-3 shadow-lg flex flex-col gap-2">
+        <div className="absolute top-full left-0 mt-2 z-10 w-64 rounded-xl border border-[#e8e8ed] bg-white p-3 shadow-lg flex flex-col gap-2">
           <input
             data-testid="add-ws-alias"
             placeholder="alias"

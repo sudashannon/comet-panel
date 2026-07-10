@@ -12,6 +12,17 @@ type StatusFilter = 'all' | 'active' | 'archived'
 type WorkflowFilter = 'all' | 'full' | 'hotfix' | 'tweak'
 type PhaseFilter = 'all' | 'open' | 'design' | 'build' | 'verify' | 'archive'
 
+function barColor(phase: string, pct: number): string {
+  if (pct >= 100) return '#16a34a'
+  switch (phase) {
+    case 'design': return '#0063f8'
+    case 'verify': return '#7c3aed'
+    case 'archive': return '#16a34a'
+    case 'build': return '#d97706'
+    default: return '#c7cad4'
+  }
+}
+
 const PHASE_STYLES: Record<string, string> = {
   open: 'bg-[#f0f0f0] text-[#6e6e73]',
   design: 'bg-[#e6f0ff] text-[#0063f8]',
@@ -28,7 +39,7 @@ const WORKFLOW_LABELS: Record<string, string> = {
 
 function Badge({ className, children }: { className: string; children: ReactNode }) {
   return (
-    <span className={'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ' + className}>
+    <span className={'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ' + className}>
       {children}
     </span>
   )
@@ -52,8 +63,10 @@ function ChangeCard({
     <div
       onClick={() => onSelect(change.name)}
       className={
-        'rounded-xl border p-3 cursor-pointer ' +
-        (selected ? 'border-[#0063f8] bg-[#f0f5ff]' : 'border-[#e8e8ed]')
+        'rounded-xl px-2.5 py-2.5 border cursor-pointer ' +
+        (selected
+          ? 'border-transparent bg-[#eef4ff] shadow-[inset_0_0_0_1px_#cfe0ff]'
+          : 'border-[#e8e8ed] hover:bg-[#f7f8fc]')
       }
     >
       <div className="flex items-center justify-between gap-2">
@@ -77,10 +90,10 @@ function ChangeCard({
         </div>
       </div>
       <div className="mt-1.5 flex items-center gap-2">
-        <div className="h-1 flex-1 rounded-full bg-[#e8e8ed]">
+        <div className="h-[5px] flex-1 rounded-full bg-[#eef0f5]">
           <div
-            className="h-1 rounded-full bg-[#0063f8]"
-            style={{ width: `${Math.round(progress * 100)}%` }}
+            className="h-[5px] rounded-full"
+            style={{ width: `${Math.round(progress * 100)}%`, backgroundColor: barColor(change.phase, progress * 100) }}
           />
         </div>
         <div className="text-xs text-[#6e6e73] shrink-0">
