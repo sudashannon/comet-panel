@@ -65,6 +65,11 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   const [edges, setEdges] = useState<WikiEdge[]>([])
   const [gaveUp, setGaveUp] = useState(false)
   const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null)
+  // 关系边只占 794 个节点里的一小部分（约 222 条边、189 个有关联节点），其余
+  // 605 个孤立节点会被 cose/grid 布局铺成一整屏色点，反而把真正的关系子图挤到
+  // 角落。默认只显示有关联的节点，把关系子图放到画面中心；没有边时该开关无意义
+  // （筛选后会清空画布），因此仅显示全部节点。
+  const [connectedOnly, setConnectedOnly] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -105,6 +110,8 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     }
   }, [])
 
+  const hasEdges = edges.length > 0
+
   useEffect(() => {
     if (!containerRef.current || components.length === 0) return
     const typeOrder = Object.keys(TYPE_COLORS)
@@ -117,14 +124,25 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     // throws if an edge names a nonexistent node, so drop those defensively
     // rather than let one bad edge blank the whole graph.
     const validEdges = edges.filter((e) => componentIds.has(e.from) && componentIds.has(e.to))
+    const connectedIds = new Set<string>()
+    validEdges.forEach((e) => {
+      connectedIds.add(e.from)
+      connectedIds.add(e.to)
+    })
+    // 794 个节点里约 605 个是孤立节点（无任何关系边），全部铺开会把布局压成
+    // 一整屏色点，把真正有价值的关系子图挤到角落。仅显示有关联的节点时把
+    // 孤立节点滤掉，让关系子图占满画布；没有边时该过滤没有意义（会清空画布）。
+    const visible = connectedOnly && validEdges.length > 0 ? sorted.filter((c) => connectedIds.has(c.id)) : sorted
+    const visibleIds = new Set(visible.map((c) => c.id))
+    const visibleEdges = validEdges.filter((e) => visibleIds.has(e.from) && visibleIds.has(e.to))
     const container = containerRef.current
     const cy = cytoscape({
       container,
       elements: [
-        ...sorted.map((c) => ({
+        ...visible.map((c) => ({
           data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73' },
         })),
-        ...validEdges.map((e, i) => ({
+        ...visibleEdges.map((e, i) => ({
           data: {
             id: `e${i}`,
             source: e.from,
@@ -184,7 +202,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       // references/generates）；极少数没有任何关系边的情况下退回固定网格布局，
       // 保证 fit() 之后所有节点仍在可视区域内、大小一致、按类型分组。
       layout:
-        validEdges.length > 0
+        visibleEdges.length > 0
           ? { name: 'cose', animate: false, padding: 30, nodeRepulsion: 8000 }
           : { name: 'grid', avoidOverlap: true, avoidOverlapPadding: 8, condense: false },
       userZoomingEnabled: true,
@@ -213,10 +231,10 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       cy.destroy()
       cyRef.current = null
     }
-  }, [components, edges, onNodeClick])
+  }, [components, edges, connectedOnly, onNodeClick])
 
   return (
-    <div className="relative w-full h-[500px]">
+    <div className="relative flex h-[calc(100vh-160px)] min-h-[500px] w-full flex-col">
       <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-full" />
       {hover && (
         <div
@@ -238,13 +256,25 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       )}
       {components.length > 0 && (
         <>
-          <button
-            type="button"
-            onClick={() => cyRef.current?.fit(undefined, 30)}
-            className="absolute left-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm hover:bg-[#f5f5f7]"
-          >
-            适应窗口
-          </button>
+          <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => cyRef.current?.fit(undefined, 30)}
+              className="rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm hover:bg-[#f5f5f7]"
+            >
+              适应窗口
+            </button>
+            {hasEdges && (
+              <label className="flex items-center gap-1 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={connectedOnly}
+                  onChange={(e) => setConnectedOnly(e.target.checked)}
+                />
+                仅显示有关联的节点
+              </label>
+            )}
+          </div>
           <div
             data-testid="wiki-graph-legend"
             className="absolute right-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"

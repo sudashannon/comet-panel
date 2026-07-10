@@ -94,6 +94,38 @@ describe('WikiGraph', () => {
     expect(call.layout.name).toBe('grid')
   })
 
+  it('defaults to connected-only view and lets the user toggle back to all nodes', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse(
+        [
+          { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+          { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
+          { id: '/x/isolated.md', type: 'artifact', title: 'Isolated', path: '/x/isolated.md', workspace: 'miao' },
+        ],
+        [{ from: '/x/a.md', to: '/x/b.md', kind: 'references', source: 'markdown-link' }],
+      ),
+    )
+    const { getByLabelText } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalledTimes(1))
+    const firstCall = vi.mocked(cytoscape).mock.calls[0][0] as unknown as {
+      elements: Array<{ data: { id: string } }>
+    }
+    // Default view excludes the isolated node so the relationship subgraph is front-and-center.
+    expect(firstCall.elements.map((el) => el.data.id)).toEqual(['/x/a.md', '/x/b.md', 'e0'])
+
+    const toggle = getByLabelText('仅显示有关联的节点') as HTMLInputElement
+    expect(toggle.checked).toBe(true)
+    act(() => toggle.click())
+
+    await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalledTimes(2))
+    const secondCall = vi.mocked(cytoscape).mock.calls[1][0] as unknown as {
+      elements: Array<{ data: { id: string } }>
+    }
+    // Toggled off -> isolated node reappears alongside the connected pair.
+    expect(secondCall.elements.map((el) => el.data.id)).toEqual(['/x/a.md', '/x/b.md', '/x/isolated.md', 'e0'])
+  })
+
   it('shows a hover tooltip with the node title and connected-edge highlight on mouseover', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockGraphResponse(
