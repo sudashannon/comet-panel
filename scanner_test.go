@@ -137,3 +137,55 @@ func TestScanAllWorkspaces_AggregatesAndSkipsUnreadable(t *testing.T) {
 		t.Fatalf("expected failedAliases=['broken'], got %+v", failed)
 	}
 }
+
+func TestScanAllChanges_ToleratesRepoRootPath(t *testing.T) {
+	// A workspace registered as the repo ROOT (no changes/ directly under
+	// it) but with an openspec/changes/ subtree must still be scanned by
+	// descending into openspec/ — this is the tolerance behavior under test.
+	repoRoot := t.TempDir()
+	changeDir := filepath.Join(repoRoot, "openspec", "changes", "add-thing")
+	os.MkdirAll(changeDir, 0755)
+	writeYAML(t, changeDir, "phase: build\n")
+	os.WriteFile(filepath.Join(changeDir, "tasks.md"), []byte("- [x] one\n- [ ] two\n"), 0644)
+
+	summaries, err := scanAllChanges(repoRoot)
+	if err != nil {
+		t.Fatalf("expected repo-root path to be tolerated, got error: %v", err)
+	}
+	if len(summaries) != 1 || summaries[0].Name != "add-thing" {
+		t.Fatalf("expected 1 change named 'add-thing' found via openspec/changes descent, got %+v", summaries)
+	}
+	if summaries[0].TasksCompleted != 1 || summaries[0].TasksTotal != 2 {
+		t.Fatalf("expected tasks 1/2 (proves tasks.md was read from the descended dir), got %d/%d",
+			summaries[0].TasksCompleted, summaries[0].TasksTotal)
+	}
+}
+
+func TestScanAllChanges_OpenspecDirPathUnchanged(t *testing.T) {
+	// Regression: when baseDir already IS the openspec dir (has changes/
+	// directly), the pre-existing behavior must be unaffected by the new
+	// descend logic — it must not accidentally look for baseDir/openspec.
+	openspecDir := t.TempDir()
+	changeDir := filepath.Join(openspecDir, "changes", "my-change")
+	os.MkdirAll(changeDir, 0755)
+	writeYAML(t, changeDir, "phase: design\n")
+
+	summaries, err := scanAllChanges(openspecDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summaries) != 1 || summaries[0].Name != "my-change" {
+		t.Fatalf("expected 1 change 'my-change' unaffected by descend logic, got %+v", summaries)
+	}
+}
+
+func TestScanAllChanges_NeitherDirExists_ReturnsErrorNoPanic(t *testing.T) {
+	// Neither baseDir/changes nor baseDir/openspec/changes exists: must
+	// surface the original os.ReadDir error rather than panic or silently
+	// succeed with an empty result.
+	dir := t.TempDir()
+	summaries, err := scanAllChanges(dir)
+	if err == nil {
+		t.Fatalf("expected an error when neither changes/ nor openspec/changes/ exists, got summaries=%+v", summaries)
+	}
+}

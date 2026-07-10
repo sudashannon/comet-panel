@@ -53,3 +53,35 @@ func TestBuildIndex_EndToEnd(t *testing.T) {
 		t.Fatalf("expected 1 forward edge from change component to design.md, got %+v", fwd)
 	}
 }
+
+func TestBuildIndex_ToleratesRepoRootPath(t *testing.T) {
+	// A workspace registered as the repo ROOT (Path has no changes/ but
+	// does have openspec/changes/) must still yield a change component and
+	// its edges by descending into openspec/ — mirrors scanAllChanges.
+	root := t.TempDir()
+	changeDir := filepath.Join(root, "openspec", "changes", "my-change")
+	os.MkdirAll(changeDir, 0755)
+	os.WriteFile(filepath.Join(changeDir, ".comet.yaml"), []byte("design_doc: design.md\n"), 0644)
+	os.WriteFile(filepath.Join(changeDir, "design.md"), []byte("# Design\n"), 0644)
+
+	ws := []WorkspaceConfig{{Alias: "miao", Path: root, Color: "#0063f8"}}
+	g, err := BuildIndex(ws, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	yamlPath := filepath.Join(changeDir, ".comet.yaml")
+	changeComp, ok := g.Component(yamlPath)
+	if !ok {
+		t.Fatalf("expected a change component keyed by %s when workspace Path is the repo root", yamlPath)
+	}
+	if changeComp.Type != TypeChange || changeComp.Title != "my-change" {
+		t.Fatalf("expected TypeChange component titled 'my-change', got %+v", changeComp)
+	}
+
+	designPath := filepath.Join(changeDir, "design.md")
+	fwd := g.Forward(yamlPath)
+	if len(fwd) != 1 || fwd[0].To != designPath {
+		t.Fatalf("expected 1 forward edge from change component to design.md, got %+v", fwd)
+	}
+}

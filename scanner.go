@@ -156,6 +156,11 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
 func phaseStatus(actualPhase, targetPhase string) string {
 	phases := []string{"open", "design", "build", "verify", "archive"}
 	actualIdx := -1
@@ -201,6 +206,14 @@ func extractDate(dirName string) string {
 }
 
 func scanAllChanges(baseDir string) ([]ChangeSummary, error) {
+	// Tolerate a workspace path registered as the repo ROOT (e.g.
+	// /home/shanl/workspace/rx101) instead of its openspec dir: if there's no
+	// changes/ directly under baseDir but there is an openspec/changes/, descend
+	// into openspec/. This lets users register the natural repo root without the
+	// scan silently finding nothing.
+	if !isDir(filepath.Join(baseDir, "changes")) && isDir(filepath.Join(baseDir, "openspec", "changes")) {
+		baseDir = filepath.Join(baseDir, "openspec")
+	}
 	changesDir := filepath.Join(baseDir, "changes")
 	projectRoot := filepath.Join(baseDir, "..")
 	var results []ChangeSummary

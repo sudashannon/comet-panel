@@ -45,7 +45,15 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 	var allEdges []Edge
 
 	for _, ws := range workspaces {
-		projectRoot := filepath.Dir(ws.Path)
+		// Tolerate a workspace path registered as the repo ROOT instead of its
+		// openspec dir (mirrors scanner.go scanAllChanges): if <path>/changes is
+		// absent but <path>/openspec/changes exists, treat <path>/openspec as the
+		// openspec dir so the changes graph nodes/edges are still indexed.
+		openspecPath := ws.Path
+		if !dirExists(filepath.Join(openspecPath, "changes")) && dirExists(filepath.Join(openspecPath, "openspec", "changes")) {
+			openspecPath = filepath.Join(openspecPath, "openspec")
+		}
+		projectRoot := filepath.Dir(openspecPath)
 
 		components, err := ScanComponents(projectRoot, ws.Alias)
 		if err != nil {
@@ -53,7 +61,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		}
 		allComponents = append(allComponents, components...)
 
-		changesDir := filepath.Join(ws.Path, "changes")
+		changesDir := filepath.Join(openspecPath, "changes")
 		entries, err := os.ReadDir(changesDir)
 		if err != nil {
 			continue
@@ -130,4 +138,9 @@ func persistIndexCache(dir string, components []Component, edges []Edge) {
 	if data, err := json.MarshalIndent(edges, "", "  "); err == nil {
 		os.WriteFile(filepath.Join(dir, "graph.json"), data, 0644)
 	}
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
