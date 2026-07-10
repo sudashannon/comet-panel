@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
-import { fetchWikiIndex } from '../api/client'
-import type { WikiComponent } from '../api/types'
+import { fetchWikiGraph } from '../api/client'
+import type { WikiComponent, WikiEdge } from '../api/types'
 
 /**
  * Color legend for the 8 WikiComponent types shown in the WikiGraph force-directed view.
@@ -41,6 +41,20 @@ export const TYPE_COLORS: Record<string, string> = {
   diagram: '#dc2626',
 }
 
+// EDGE_COLORS distinguishes the three edge kinds the wiki index actually
+// computes (see wiki/links.go): implements (design_doc/plan), references
+// (verification_report/markdown links), generates (artifact convention).
+// Unlike TYPE_COLORS above, these reuse the app's existing 4-color palette
+// directly (accent/success/warn) since edges are a separate visual channel
+// (line color, not fill) from node type colors and don't need to avoid
+// collision with them.
+const EDGE_COLORS: Record<string, string> = {
+  implements: '#0063f8',
+  references: '#16a34a',
+  generates: '#c47a06',
+}
+const EDGE_FALLBACK_COLOR = '#8e8e93'
+
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 20
 
@@ -48,7 +62,9 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   const containerRef = useRef<HTMLDivElement>(null)
   const cyRef = useRef<cytoscape.Core | null>(null)
   const [components, setComponents] = useState<WikiComponent[]>([])
+  const [edges, setEdges] = useState<WikiEdge[]>([])
   const [gaveUp, setGaveUp] = useState(false)
+  const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -56,14 +72,16 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     let timer: number | undefined
 
     const poll = () => {
-      fetchWikiIndex()
+      fetchWikiGraph()
         .then((data) => {
           if (cancelled) return
-          if (data.length > 0) {
-            setComponents(data)
+          if (data.components.length > 0) {
+            setComponents(data.components)
+            setEdges(data.edges)
             return
           }
           setComponents([])
+          setEdges([])
           attempts += 1
           if (attempts >= MAX_POLL_ATTEMPTS) {
             setGaveUp(true)
@@ -74,6 +92,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
         .catch(() => {
           if (cancelled) return
           setComponents([])
+          setEdges([])
           setGaveUp(true)
         })
     }
@@ -92,11 +111,29 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     const sorted = [...components].sort(
       (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type),
     )
+    const componentIds = new Set(sorted.map((c) => c.id))
+    // Edges may reference an endpoint the frontend never fetched a node for
+    // (e.g. a markdown link target outside the scanned workspace) -- cytoscape
+    // throws if an edge names a nonexistent node, so drop those defensively
+    // rather than let one bad edge blank the whole graph.
+    const validEdges = edges.filter((e) => componentIds.has(e.from) && componentIds.has(e.to))
+    const container = containerRef.current
     const cy = cytoscape({
-      container: containerRef.current,
-      elements: sorted.map((c) => ({
-        data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73' },
-      })),
+      container,
+      elements: [
+        ...sorted.map((c) => ({
+          data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73' },
+        })),
+        ...validEdges.map((e, i) => ({
+          data: {
+            id: `e${i}`,
+            source: e.from,
+            target: e.to,
+            kind: e.kind,
+            color: EDGE_COLORS[e.kind] ?? EDGE_FALLBACK_COLOR,
+          },
+        })),
+      ],
       style: [
         {
           selector: 'node',
@@ -117,23 +154,39 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           },
         },
         {
+          selector: 'node.hovered',
+          style: {
+            'border-width': 2.5,
+            'border-color': '#0063f8',
+          },
+        },
+        {
           selector: 'edge',
           style: {
-            width: 0.5,
-            'line-color': '#e8e8ed',
+            width: 0.75,
+            'line-color': 'data(color)',
+            'target-arrow-color': 'data(color)',
+            'target-arrow-shape': 'triangle',
+            'arrow-scale': 0.6,
             'curve-style': 'bezier',
-            opacity: 0.5,
+            opacity: 0.55,
+          },
+        },
+        {
+          selector: 'edge.highlighted',
+          style: {
+            width: 1.75,
+            opacity: 1,
           },
         },
       ],
-      // 索引数据当前只有节点没有关系边，force-directed 布局会把无边节点甩到视野外；
-      // 改用固定网格布局，保证 fit() 之后所有节点都在可视区域内、大小一致、按类型分组。
-      layout: {
-        name: 'grid',
-        avoidOverlap: true,
-        avoidOverlapPadding: 8,
-        condense: false,
-      },
+      // 只要索引提供了关系边，就用 cose 力导向布局把结构关系可视化出来（implements/
+      // references/generates）；极少数没有任何关系边的情况下退回固定网格布局，
+      // 保证 fit() 之后所有节点仍在可视区域内、大小一致、按类型分组。
+      layout:
+        validEdges.length > 0
+          ? { name: 'cose', animate: false, padding: 30, nodeRepulsion: 8000 }
+          : { name: 'grid', avoidOverlap: true, avoidOverlapPadding: 8, condense: false },
       userZoomingEnabled: true,
       userPanningEnabled: true,
       wheelSensitivity: 0.2,
@@ -141,15 +194,39 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     cyRef.current = cy
     cy.one('layoutstop', () => cy.fit(undefined, 30))
     cy.on('tap', 'node', (evt) => onNodeClick(evt.target.id()))
+    cy.on('mouseover', 'node', (evt) => {
+      const node = evt.target
+      node.addClass('hovered')
+      node.connectedEdges().addClass('highlighted')
+      container.style.cursor = 'pointer'
+      const pos = node.renderedPosition()
+      setHover({ title: node.data('label') as string, x: pos.x, y: pos.y })
+    })
+    cy.on('mouseout', 'node', (evt) => {
+      const node = evt.target
+      node.removeClass('hovered')
+      node.connectedEdges().removeClass('highlighted')
+      container.style.cursor = 'default'
+      setHover(null)
+    })
     return () => {
       cy.destroy()
       cyRef.current = null
     }
-  }, [components, onNodeClick])
+  }, [components, edges, onNodeClick])
 
   return (
     <div className="relative w-full h-[500px]">
       <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-full" />
+      {hover && (
+        <div
+          data-testid="wiki-graph-tooltip"
+          className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm"
+          style={{ left: hover.x, top: hover.y - 10 }}
+        >
+          {hover.title}
+        </div>
+      )}
       {components.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6e6e73]">
           {gaveUp ? (
@@ -173,7 +250,9 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             className="absolute right-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
           >
             <div className="mb-1 font-medium text-[#6e6e73]">类型图例</div>
-            <div className="mb-1 text-[10px] text-[#8e8e93]">按类型着色的组件目录（索引暂无关系边）</div>
+            <div className="mb-1 text-[10px] text-[#8e8e93]">
+              节点按类型着色；连线为组件间关系（implements / references / generates）
+            </div>
             <ul className="space-y-0.5">
               {Object.entries(TYPE_COLORS).map(([type, color]) => (
                 <li key={type} className="flex items-center gap-1.5">

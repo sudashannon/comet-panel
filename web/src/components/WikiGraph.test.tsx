@@ -18,32 +18,42 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+function mockGraphResponse(components: unknown[], edges: unknown[] = []) {
+  return { ok: true, json: async () => ({ components, edges }) } as Response
+}
+
 describe('WikiGraph', () => {
-  it('fetches components, initializes cytoscape with mapped elements, wires tap-to-click, and destroys on unmount', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => [
-        { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
-        { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
-      ],
-    } as Response)
+  it('fetches components+edges, initializes cytoscape with mapped elements, wires tap-to-click, and destroys on unmount', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse(
+        [
+          { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+          { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
+        ],
+        [{ from: '/x/a.md', to: '/x/b.md', kind: 'references', source: 'markdown-link' }],
+      ),
+    )
     const onNodeClick = vi.fn()
     const { container, unmount } = render(<WikiGraph onNodeClick={onNodeClick} />)
     await waitFor(() => expect(container.querySelector('[data-testid="wiki-graph-canvas"]')).toBeTruthy())
 
     await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalled())
-    expect(cytoscape).toHaveBeenCalledWith(
-      expect.objectContaining({
-        elements: [
-          { data: { id: '/x/a.md', label: 'A', color: TYPE_COLORS.spec } },
-          { data: { id: '/x/b.md', label: 'B', color: TYPE_COLORS.plan } },
-        ],
-        layout: expect.objectContaining({ name: 'grid' }),
-      }),
-    )
+    const call = vi.mocked(cytoscape).mock.calls[0][0] as unknown as {
+      elements: Array<{ data: { id: string; source?: string; target?: string; kind?: string } }>
+      layout: { name: string }
+    }
+    expect(call.elements).toEqual([
+      { data: { id: '/x/a.md', label: 'A', color: TYPE_COLORS.spec } },
+      { data: { id: '/x/b.md', label: 'B', color: TYPE_COLORS.plan } },
+      { data: { id: 'e0', source: '/x/a.md', target: '/x/b.md', kind: 'references', color: '#16a34a' } },
+    ])
+    // Edges present -> force-directed layout reveals structure instead of the flat grid.
+    expect(call.layout.name).toBe('cose')
 
     expect(mockCy.on).toHaveBeenCalledWith('tap', 'node', expect.any(Function))
-    const tapHandler = mockCy.on.mock.calls[0][2] as (evt: { target: { id: () => string } }) => void
+    const tapHandler = mockCy.on.mock.calls.find((c) => c[0] === 'tap')![2] as (evt: {
+      target: { id: () => string }
+    }) => void
     tapHandler({ target: { id: () => '/x/a.md' } })
     expect(onNodeClick).toHaveBeenCalledWith('/x/a.md')
 
@@ -52,13 +62,12 @@ describe('WikiGraph', () => {
   })
 
   it('renders a type legend once components load', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => [
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse([
         { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
         { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
-      ],
-    } as Response)
+      ]),
+    )
     const { getByTestId, getByText } = render(<WikiGraph onNodeClick={vi.fn()} />)
 
     await waitFor(() => expect(getByTestId('wiki-graph-legend')).toBeTruthy())
@@ -66,30 +75,68 @@ describe('WikiGraph', () => {
     expect(getByText('plan')).toBeTruthy()
   })
 
-  it('sorts edgeless nodes by type so grid layout clusters same-color nodes together', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => [
+  it('sorts edgeless nodes by type and falls back to grid layout when there are zero edges', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse([
         { id: '/x/diagram.md', type: 'diagram', title: 'D', path: '/x/diagram.md', workspace: 'miao' },
         { id: '/x/change.md', type: 'change', title: 'C', path: '/x/change.md', workspace: 'miao' },
         { id: '/x/plan.md', type: 'plan', title: 'P', path: '/x/plan.md', workspace: 'miao' },
-      ],
-    } as Response)
+      ]),
+    )
     render(<WikiGraph onNodeClick={vi.fn()} />)
 
     await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalled())
     const call = vi.mocked(cytoscape).mock.calls[0][0] as unknown as {
       elements: Array<{ data: { id: string } }>
+      layout: { name: string }
     }
     expect(call.elements.map((el) => el.data.id)).toEqual(['/x/change.md', '/x/plan.md', '/x/diagram.md'])
+    expect(call.layout.name).toBe('grid')
+  })
+
+  it('shows a hover tooltip with the node title and connected-edge highlight on mouseover', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse(
+        [
+          { id: '/x/a.md', type: 'spec', title: 'A标题', path: '/x/a.md', workspace: 'miao' },
+          { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
+        ],
+        [{ from: '/x/a.md', to: '/x/b.md', kind: 'references', source: 'markdown-link' }],
+      ),
+    )
+    const { getByTestId, queryByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
+    await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalled())
+
+    expect(queryByTestId('wiki-graph-tooltip')).toBeNull()
+
+    const connectedEdges = { addClass: vi.fn(), removeClass: vi.fn() }
+    const fakeNode = {
+      addClass: vi.fn(),
+      removeClass: vi.fn(),
+      connectedEdges: vi.fn(() => connectedEdges),
+      renderedPosition: vi.fn(() => ({ x: 42, y: 24 })),
+      data: vi.fn(() => 'A标题'),
+    }
+    const mouseoverHandler = mockCy.on.mock.calls.find((c) => c[0] === 'mouseover')![2] as (evt: {
+      target: typeof fakeNode
+    }) => void
+    const mouseoutHandler = mockCy.on.mock.calls.find((c) => c[0] === 'mouseout')![2] as (evt: {
+      target: typeof fakeNode
+    }) => void
+
+    act(() => mouseoverHandler({ target: fakeNode }))
+    await waitFor(() => expect(getByTestId('wiki-graph-tooltip').textContent).toBe('A标题'))
+    expect(fakeNode.addClass).toHaveBeenCalledWith('hovered')
+    expect(connectedEdges.addClass).toHaveBeenCalledWith('highlighted')
+
+    act(() => mouseoutHandler({ target: fakeNode }))
+    await waitFor(() => expect(queryByTestId('wiki-graph-tooltip')).toBeNull())
+    expect(connectedEdges.removeClass).toHaveBeenCalledWith('highlighted')
   })
 
   it('shows an indexing message while polling, then a genuine empty-state message once polling gives up', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => [],
-    } as Response)
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockGraphResponse([]))
     const onNodeClick = vi.fn()
     const { getByText } = render(<WikiGraph onNodeClick={onNodeClick} />)
 
@@ -112,14 +159,11 @@ describe('WikiGraph', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
-      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
-      .mockResolvedValue({
-        ok: true,
-        json: async () => [
-          { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
-        ],
-      } as Response)
+      .mockResolvedValueOnce(mockGraphResponse([]))
+      .mockResolvedValueOnce(mockGraphResponse([]))
+      .mockResolvedValue(
+        mockGraphResponse([{ id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' }]),
+      )
     const { getByText, getByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
 
     await act(async () => {
@@ -141,7 +185,7 @@ describe('WikiGraph', () => {
 
   it('stops polling and does not update state after unmount', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => [] } as Response)
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockGraphResponse([]))
     const { unmount } = render(<WikiGraph onNodeClick={vi.fn()} />)
 
     await act(async () => {

@@ -60,6 +60,14 @@ export interface WikiComponent {
   workspace: string
 }
 
+// WikiGraphData is the full graph view for the relationship visualization
+// (GET /api/wiki/graph): every component alongside every edge, unlike
+// fetchWikiIndex()'s nodes-only WikiComponent[].
+export interface WikiGraphData {
+  components: WikiComponent[]
+  edges: WikiEdge[]
+}
+
 export interface ArtifactInfo {
   file: string
   label: string

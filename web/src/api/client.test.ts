@@ -5,6 +5,7 @@ import {
   addWorkspace,
   fetchChangesWithMeta,
   fetchWikiIndex,
+  fetchWikiGraph,
   fetchWikiLint,
   streamChat,
   fetchChatSession,
@@ -176,6 +177,30 @@ describe('fetchWikiIndex', () => {
   it('throws on non-OK response', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
     await expect(fetchWikiIndex()).rejects.toThrow()
+  })
+})
+
+describe('fetchWikiGraph', () => {
+  it('GETs /api/wiki/graph and returns components + edges', async () => {
+    const mockResponse = {
+      components: [
+        { id: 'change:foo', type: 'change', title: 'Foo', path: 'openspec/changes/foo', workspace: 'miao' },
+      ],
+      edges: [{ from: 'change:foo', to: 'design:foo', kind: 'implements', source: 'yaml' }],
+    }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    } as Response)
+
+    const result = await fetchWikiGraph()
+    expect(fetchSpy).toHaveBeenCalledWith('/api/wiki/graph')
+    expect(result).toEqual(mockResponse)
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchWikiGraph()).rejects.toThrow()
   })
 })
 

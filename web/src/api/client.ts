@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -55,6 +55,18 @@ export async function fetchLintIssues(): Promise<LintIssue[]> {
 export async function fetchWikiIndex(): Promise<WikiComponent[]> {
   const res = await fetch('/api/wiki/index')
   if (!res.ok) throw new Error(`fetchWikiIndex failed: ${res.status}`)
+  return res.json()
+}
+
+// fetchWikiGraph is the relationship-graph counterpart to fetchWikiIndex()
+// above: it returns components AND edges from GET /api/wiki/graph so
+// WikiGraph.tsx can render actual relationships instead of a nodes-only
+// grid. Deliberately separate from fetchWikiIndex() -- that function's
+// Promise<WikiComponent[]> signature is depended on by App.tsx and must
+// not change.
+export async function fetchWikiGraph(): Promise<WikiGraphData> {
+  const res = await fetch('/api/wiki/graph')
+  if (!res.ok) throw new Error(`fetchWikiGraph failed: ${res.status}`)
   return res.json()
 }
 

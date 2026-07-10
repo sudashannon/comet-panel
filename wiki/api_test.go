@@ -252,3 +252,50 @@ func TestHandleRebuild_NilListerFallsBackToConstructionWorkspaces(t *testing.T) 
 		t.Errorf("expected rebuild-from-a.ws fallback to keep component %q, got %+v", wantID, components)
 	}
 }
+
+// TestHandleGraph_ReturnsComponentsAndEdges guards against /api/wiki/graph
+// regressing to a nodes-only response (the original HandleIndex gap this
+// endpoint exists to fix): a change with a design_doc produces at least
+// one "implements" edge (yaml-sourced, .comet.yaml -> design.md), so a
+// correct HandleGraph must return non-empty components AND non-empty
+// edges with that kind present.
+func TestHandleGraph_ReturnsComponentsAndEdges(t *testing.T) {
+	root := t.TempDir()
+	openspecDir := filepath.Join(root, "openspec")
+	changeDir := filepath.Join(openspecDir, "changes", "my-change")
+	os.MkdirAll(changeDir, 0755)
+	os.WriteFile(filepath.Join(changeDir, ".comet.yaml"), []byte("design_doc: design.md\n"), 0644)
+	os.WriteFile(filepath.Join(changeDir, "design.md"), []byte("# Design\n"), 0644)
+
+	g, _ := BuildIndex([]WorkspaceConfig{{Alias: "miao", Path: openspecDir}}, "")
+	api := NewAPI(g)
+
+	req := httptest.NewRequest("GET", "/api/wiki/graph", nil)
+	w := httptest.NewRecorder()
+	api.HandleGraph(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp graphResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Components) == 0 {
+		t.Fatalf("expected non-empty components, got 0")
+	}
+	if len(resp.Edges) == 0 {
+		t.Fatalf("expected non-empty edges, got 0")
+	}
+	foundImplements := false
+	for _, e := range resp.Edges {
+		if e.Kind == "implements" {
+			foundImplements = true
+			break
+		}
+	}
+	if !foundImplements {
+		t.Fatalf("expected an 'implements' edge among %+v", resp.Edges)
+	}
+}

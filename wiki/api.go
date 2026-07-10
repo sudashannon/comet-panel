@@ -110,6 +110,37 @@ func (a *API) HandleIndex(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(all)
 }
 
+// graphResponse mirrors index.json+graph.json's on-disk shape (see
+// persistIndexCache in index.go) but served live over HTTP so the frontend
+// graph view can render actual relationship edges instead of only nodes.
+type graphResponse struct {
+	Components []Component `json:"components"`
+	Edges      []Edge      `json:"edges"`
+}
+
+// HandleGraph returns every component alongside every edge in the graph.
+// Edges are enumerated by flattening a.graph.forward's values: BuildGraph
+// (graph.go) appends each edge to forward[e.From] exactly once, so summing
+// those slices yields every edge in the graph with no duplication — the
+// same enumeration persistIndexCache's allEdges slice captures at build
+// time, just read back from the live *Graph instead of threaded through
+// as a second return value.
+func (a *API) HandleGraph(w http.ResponseWriter, r *http.Request) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	components := make([]Component, 0, len(a.graph.components))
+	for id := range a.graph.components {
+		c, _ := a.graph.Component(id)
+		components = append(components, c)
+	}
+	edges := make([]Edge, 0)
+	for _, es := range a.graph.forward {
+		edges = append(edges, es...)
+	}
+	json.NewEncoder(w).Encode(graphResponse{Components: components, Edges: edges})
+}
+
 func (a *API) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
