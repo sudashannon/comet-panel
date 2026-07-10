@@ -6,15 +6,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type LintIssue struct {
-	Rule        string `json:"rule"` // orphan | dead-link | duplicate | task-artifact-missing
+	Rule        string `json:"rule"` // orphan | dead-link | duplicate | task-artifact-missing | design-no-plan | stale-active
 	ComponentID string `json:"componentId"`
 	Detail      string `json:"detail"`
 }
 
-// Lint runs the orphan, dead-link, and duplicate-title checks. Root-level
+// Lint runs the orphan, dead-link, duplicate-title, and lifecycle-gap
+// (design-no-plan, stale-active — see lintLifecycleGaps) checks. Root-level
 // "change" components and components under an "/archive/" path segment are
 // excluded from orphan detection — change nodes are expected to be hubs with
 // only outgoing edges in small workspaces, and archived artifacts are
@@ -67,6 +69,90 @@ func (g *Graph) Lint() []LintIssue {
 		}
 	}
 
+	issues = append(issues, g.lintLifecycleGaps()...)
+	return issues
+}
+
+// frontmatterTime reads a frontmatter value as time.Time. yaml.Unmarshal
+// parses bare "YYYY-MM-DD" scalars into time.Time directly when the field
+// comes from a real .comet.yaml; test fixtures instead set the field as a
+// plain string, so both representations must be accepted.
+func frontmatterTime(v any) (time.Time, bool) {
+	switch t := v.(type) {
+	case time.Time:
+		return t, true
+	case string:
+		if parsed, err := time.Parse("2006-01-02", t); err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// lintLifecycleGaps flags workflow-lifecycle gaps that the link-based checks
+// above cannot see:
+//   - design-no-plan: a design.md exists (>3 days old, by its change's
+//     created_at) but the change's .comet.yaml has no outgoing edge whose
+//     target path contains "plans" — i.e. no plan has been written yet.
+//   - stale-active: a change is not archived (phase != "archive"/"") and its
+//     created_at is >14 days old — it has been sitting active too long.
+//
+// Both skip anything under an "/archive/" path segment, since archived
+// changes are expected to be old and done.
+func (g *Graph) lintLifecycleGaps() []LintIssue {
+	var issues []LintIssue
+	now := time.Now()
+
+	for id, c := range g.components {
+		if strings.Contains(id, "/archive/") {
+			continue
+		}
+
+		if c.Type == TypeChange {
+			createdAt, ok := frontmatterTime(c.Frontmatter["created_at"])
+			if !ok {
+				continue
+			}
+			phase, _ := c.Frontmatter["phase"].(string)
+			age := now.Sub(createdAt)
+
+			if phase != "archive" && phase != "" && age > 14*24*time.Hour {
+				issues = append(issues, LintIssue{
+					Rule:        "stale-active",
+					ComponentID: id,
+					Detail:      fmt.Sprintf("phase=%s, created %s (%d days ago)", phase, createdAt.Format("2006-01-02"), int(age.Hours()/24)),
+				})
+			}
+		}
+
+		if c.Type == TypeDesign {
+			changeDir := filepath.Dir(id)
+			yamlID := filepath.Join(changeDir, ".comet.yaml")
+			changeComp, ok := g.components[yamlID]
+			if !ok {
+				continue
+			}
+			createdAt, ok := frontmatterTime(changeComp.Frontmatter["created_at"])
+			if !ok || now.Sub(createdAt) <= 3*24*time.Hour {
+				continue
+			}
+
+			hasPlan := false
+			for _, e := range g.Forward(yamlID) {
+				if strings.Contains(e.To, "plans") {
+					hasPlan = true
+					break
+				}
+			}
+			if !hasPlan {
+				issues = append(issues, LintIssue{
+					Rule:        "design-no-plan",
+					ComponentID: id,
+					Detail:      fmt.Sprintf("design exists since %s but no plan reference found", createdAt.Format("2006-01-02")),
+				})
+			}
+		}
+	}
 	return issues
 }
 

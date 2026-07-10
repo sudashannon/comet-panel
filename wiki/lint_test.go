@@ -120,3 +120,48 @@ func TestLint_TaskArtifactMissing_CountsPerTaskNumberNotRawFileCount(t *testing.
 		t.Fatalf("expected the missing task to be identified as 'task 2', got %+v", issues[0])
 	}
 }
+
+func TestLint_DesignNoPlan(t *testing.T) {
+	// A design component in a change with no plan edge outgoing
+	design := Component{ID: "/test/changes/x/design.md", Type: TypeDesign, Path: "/test/changes/x/design.md"}
+	// Change node older than 3 days
+	change := Component{
+		ID: "/test/changes/x/.comet.yaml", Type: TypeChange,
+		Path: "/test/changes/x/.comet.yaml",
+		Frontmatter: map[string]any{"created_at": "2026-06-01"},
+	}
+	g := BuildGraph([]Component{design, change}, nil)
+	issues := g.Lint()
+
+	found := false
+	for _, i := range issues {
+		if i.Rule == "design-no-plan" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected design-no-plan lint issue")
+	}
+}
+
+func TestLint_StaleActive(t *testing.T) {
+	change := Component{
+		ID: "/test/changes/stale/.comet.yaml", Type: TypeChange,
+		Path: "/test/changes/stale/.comet.yaml",
+		Frontmatter: map[string]any{"created_at": "2026-06-01", "phase": "build"},
+	}
+	g := BuildGraph([]Component{change}, nil)
+	issues := g.Lint()
+
+	found := false
+	for _, i := range issues {
+		if i.Rule == "stale-active" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected stale-active lint issue")
+	}
+}

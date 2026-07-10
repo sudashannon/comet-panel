@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // WorkspaceConfig mirrors the root package's WorkspaceConfig (workspace.go:
@@ -74,13 +76,19 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 			// can never look up backlinks for a change (scanner.go's
 			// ChangeSummary.ComponentID points here for that lookup).
 			yamlPath := filepath.Join(changeDir, ".comet.yaml")
-			if _, err := os.Stat(yamlPath); err == nil {
+			if data, err := os.ReadFile(yamlPath); err == nil {
+				fm := map[string]any{}
+				if err := yaml.Unmarshal(data, &fm); err != nil {
+					log.Printf("wiki index: %s: failed to parse .comet.yaml frontmatter: %v", yamlPath, err)
+					fm = nil
+				}
 				allComponents = append(allComponents, Component{
-					ID:        yamlPath,
-					Type:      TypeChange,
-					Title:     filepath.Base(changeDir),
-					Path:      yamlPath,
-					Workspace: ws.Alias,
+					ID:          yamlPath,
+					Type:        TypeChange,
+					Title:       filepath.Base(changeDir),
+					Path:        yamlPath,
+					Workspace:   ws.Alias,
+					Frontmatter: fm,
 				})
 			}
 
