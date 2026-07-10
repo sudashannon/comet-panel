@@ -28,6 +28,19 @@ export function GraphFilters({
 
   return (
     <div data-testid="graph-filters" className="flex flex-wrap items-center gap-3 border-b border-[#e8e8ed] px-2 py-1.5">
+      {(activeCommunity !== null || activeWorkspaces.size < workspaces.length) && (
+        <button
+          type="button"
+          data-testid="filter-reset"
+          onClick={() => {
+            onSelectCommunity(null)
+            workspaces.forEach((ws) => { if (!activeWorkspaces.has(ws)) onToggleWorkspace(ws) })
+          }}
+          className="rounded-full border border-[#dc2626] bg-[#fef2f2] px-2 py-0.5 text-[11px] text-[#dc2626]"
+        >
+          ✕ 重置筛选
+        </button>
+      )}
       {workspaces.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-[10px] font-medium text-[#6e6e73]">工作区</span>
