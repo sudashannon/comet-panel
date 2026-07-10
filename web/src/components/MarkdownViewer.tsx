@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { fetchArtifactContent } from '../api/client'
 import { DiagramBlock } from './DiagramBlock'
 
@@ -26,13 +27,33 @@ function stripFrontmatter(text: string): string {
 }
 
 const markdownComponents: Components = {
-  h1: ({ node, ...rest }) => <h1 className="text-xl font-bold mt-4 mb-2" {...rest} />,
-  h2: ({ node, ...rest }) => <h2 className="text-lg font-semibold mt-4 mb-2" {...rest} />,
-  h3: ({ node, ...rest }) => <h3 className="text-base font-semibold mt-3 mb-1" {...rest} />,
-  p: ({ node, ...rest }) => <p className="mb-2 leading-relaxed" {...rest} />,
-  ul: ({ node, ...rest }) => <ul className="list-disc pl-5 mb-2" {...rest} />,
-  ol: ({ node, ...rest }) => <ol className="list-decimal pl-5 mb-2" {...rest} />,
-  li: ({ node, ...rest }) => <li className="mb-0.5" {...rest} />,
+  h1: ({ node, ...rest }) => <h1 className="text-2xl font-bold mt-5 mb-3" {...rest} />,
+  h2: ({ node, ...rest }) => <h2 className="text-xl font-semibold mt-5 mb-2" {...rest} />,
+  h3: ({ node, ...rest }) => <h3 className="text-lg font-semibold mt-4 mb-2" {...rest} />,
+  p: ({ node, ...rest }) => <p className="mb-3 leading-7" {...rest} />,
+  ul: ({ node, ...rest }) => <ul className="list-disc pl-6 mb-3" {...rest} />,
+  ol: ({ node, ...rest }) => <ol className="list-decimal pl-6 mb-3" {...rest} />,
+  li: ({ node, ...rest }) => <li className="mb-1" {...rest} />,
+  blockquote: ({ node, ...rest }) => (
+    <blockquote
+      className="border-l-4 border-[#e8e8ed] pl-4 py-1 mb-3 text-[#6e6e73] italic"
+      {...rest}
+    />
+  ),
+  hr: ({ node, ...rest }) => <hr className="my-6 border-[#e8e8ed]" {...rest} />,
+  img: ({ node, ...rest }) => <img className="max-w-full rounded-lg" {...rest} />,
+  table: ({ node, ...rest }) => (
+    <div className="overflow-x-auto mb-4">
+      <table className="border-collapse w-full text-left" {...rest} />
+    </div>
+  ),
+  thead: ({ node, ...rest }) => <thead className="bg-[#f5f5f7]" {...rest} />,
+  tbody: ({ node, ...rest }) => <tbody {...rest} />,
+  tr: ({ node, ...rest }) => <tr className="border-b border-[#e8e8ed]" {...rest} />,
+  th: ({ node, ...rest }) => (
+    <th className="border border-[#e8e8ed] px-3 py-2 font-semibold whitespace-nowrap" {...rest} />
+  ),
+  td: ({ node, ...rest }) => <td className="border border-[#e8e8ed] px-3 py-2 align-top" {...rest} />,
   // Inline `code` is different from block code; react-markdown nests the
   // inline case inside <code> only, and the block case inside <pre><code>.
   code: ({ node, className, children, ...rest }) => {
@@ -41,13 +62,16 @@ const markdownComponents: Components = {
       return <DiagramBlock language={language} code={String(children).replace(/\n$/, '')} />
     }
     return (
-      <code className="bg-[#f5f5f7] rounded px-1 py-0.5 font-mono text-sm" {...rest}>
+      <code className="bg-[#f5f5f7] rounded px-1 py-0.5 font-mono text-sm break-words" {...rest}>
         {children}
       </code>
     )
   },
   pre: ({ node, ...rest }) => (
-    <pre className="bg-[#f5f5f7] rounded-lg p-4 overflow-x-auto font-mono text-sm mb-3" {...rest} />
+    <pre
+      className="bg-[#f5f5f7] rounded-lg p-4 overflow-x-auto font-mono text-sm mb-3 whitespace-pre-wrap break-words"
+      {...rest}
+    />
   ),
   a: ({ node, ...rest }) => <a className="text-[#0063f8] underline" {...rest} />,
 }
@@ -105,11 +129,13 @@ export function MarkdownViewer({ path, onClose }: Props) {
         </button>
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-6 text-sm">
+        <div className="max-w-5xl mx-auto px-6 py-8 text-base leading-relaxed">
           {error && <div className="text-[#dc2626]">加载失败</div>}
           {!error && content === null && <div className="text-[#6e6e73]">加载中…</div>}
           {!error && content !== null && (
-            <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {content}
+            </ReactMarkdown>
           )}
         </div>
       </div>

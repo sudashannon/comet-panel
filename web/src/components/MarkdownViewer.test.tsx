@@ -52,6 +52,22 @@ describe('MarkdownViewer', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('renders a GFM table as real table markup, not raw pipe text', async () => {
+    const table = '| A | B |\n| --- | --- |\n| 1 | 2 |'
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => table,
+    } as Response)
+
+    const { container } = render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText('A')).toBeTruthy())
+    expect(container.querySelector('table')).not.toBeNull()
+    expect(container.querySelectorAll('td').length).toBe(2)
+    expect(screen.getByText('1')).toBeTruthy()
+    expect(screen.getByText('2')).toBeTruthy()
+  })
+
   it('calls onClose when Escape is pressed', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
