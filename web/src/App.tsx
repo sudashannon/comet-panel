@@ -8,6 +8,7 @@ import { ChatBubble } from './components/ChatBubble'
 import { WorkspaceChips } from './components/WorkspaceChips'
 import { MarkdownViewer } from './components/MarkdownViewer'
 import { WikiGraph } from './components/WikiGraph'
+import { WikiTimeline } from './components/WikiTimeline'
 import { LintPanel } from './components/LintPanel'
 import { SideRail } from './components/SideRail'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -30,7 +31,7 @@ export default function App() {
   // App-level view switch: 变更列表 (default) is the existing per-change
   // dashboard; 图谱/Lint are GLOBAL cross-change views over the whole wiki
   // index, so they live as siblings here rather than nested under a change.
-  const [view, setView] = useState<'changes' | 'graph' | 'lint' | 'report'>('changes')
+  const [view, setView] = useState<'changes' | 'graph' | 'timeline' | 'lint' | 'report'>('changes')
   // Wiki components (id -> path) so a WikiGraph node tap can open the right
   // artifact in MarkdownViewer; fetched independently of the graph view
   // itself since node ids alone don't carry a file path.
@@ -46,7 +47,7 @@ export default function App() {
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
   // reading changeArtifacts/wikiComponents state from the view being left)
   // after switching to a sibling view, e.g. lingering into 报告 or Lint.
-  function handleViewChange(v: 'changes' | 'graph' | 'lint' | 'report') {
+  function handleViewChange(v: 'changes' | 'graph' | 'timeline' | 'lint' | 'report') {
     setViewerPath(null)
     setView(v)
   }
@@ -219,6 +220,12 @@ export default function App() {
               }}
             />
           )}
+        </div>
+      )}
+
+      {view === 'timeline' && (
+        <div className="flex-1 min-h-0 p-4">
+          <WikiTimeline />
         </div>
       )}
 

@@ -57,7 +57,7 @@ const EDGE_FALLBACK_COLOR = '#8e8e93'
 
 // COMMUNITY_COLORS gives each detected community (see wiki graph community
 // detection) a distinct border color, independent of TYPE_COLORS' node fill.
-const COMMUNITY_COLORS = [
+export const COMMUNITY_COLORS = [
   '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
   '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
   '#dcbeff', '#9a6324',

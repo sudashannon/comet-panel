@@ -58,6 +58,8 @@ export interface WikiComponent {
   title: string
   path: string
   workspace: string
+  frontmatter?: Record<string, unknown>
+  updatedAt?: string
 }
 
 // WikiGraphData is the full graph view for the relationship visualization
