@@ -42,6 +42,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("workspace registry: %v", err)
 	}
+	workspaceRegistryAliasSnapshot = reg.List
 
 	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -98,6 +99,10 @@ func main() {
 	mux.HandleFunc("/api/chat/session", chat.HandleSession)
 	mux.HandleFunc("/api/chat/config", chat.HandleConfig)
 	mux.HandleFunc("/api/chat/providers", chat.HandleProviders)
+
+	mux.HandleFunc("/api/report", func(w http.ResponseWriter, r *http.Request) { handleReport(w, r, reg) })
+	mux.HandleFunc("/api/reports", handleListReports)
+	mux.HandleFunc("/api/reports/get", handleGetReport)
 
 	mux.Handle("/", staticHandler())
 

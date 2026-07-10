@@ -28,7 +28,7 @@ func configPath() (string, error) {
 	return filepath.Join(home, ".comet-ui", "config.json"), nil
 }
 
-func LoadConfig() (*Config, error) {
+var LoadConfig = func() (*Config, error) {
 	path, err := configPath()
 	if err != nil {
 		return nil, err
