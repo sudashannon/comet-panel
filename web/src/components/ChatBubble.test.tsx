@@ -1,15 +1,12 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ChatBubble } from './ChatBubble'
-import { streamChat, fetchChatSession, fetchChangeDetail, fetchChatConfig, updateChatConfig, fetchChatProviders } from '../api/client'
+import { streamChat, fetchChatSession, fetchChangeDetail } from '../api/client'
 
 vi.mock('../api/client', () => ({
   streamChat: vi.fn(),
   fetchChatSession: vi.fn(),
   fetchChangeDetail: vi.fn(),
-  fetchChatConfig: vi.fn(),
-  updateChatConfig: vi.fn(),
-  fetchChatProviders: vi.fn(),
 }))
 
 describe('ChatBubble', () => {
@@ -17,9 +14,6 @@ describe('ChatBubble', () => {
     vi.mocked(streamChat).mockReset()
     vi.mocked(fetchChatSession).mockReset()
     vi.mocked(fetchChangeDetail).mockReset()
-    vi.mocked(fetchChatConfig).mockReset()
-    vi.mocked(updateChatConfig).mockReset()
-    vi.mocked(fetchChatProviders).mockReset()
     // Default: no persisted history, so pre-existing tests (which never set
     // up fetchChatSession themselves) still start from an empty transcript.
     vi.mocked(fetchChatSession).mockResolvedValue({
@@ -42,38 +36,6 @@ describe('ChatBubble', () => {
       verifyResult: '',
       createdAt: '',
       phases: [],
-    })
-    // Default: single-provider config/provider list, so pre-existing tests
-    // don't need to mock these themselves (settings panel is lazy-loaded).
-    vi.mocked(fetchChatProviders).mockResolvedValue({
-      active: 'anthropic',
-      providers: [{ name: 'anthropic', models: ['claude-3-5-sonnet', 'claude-3-opus'], supports_images: true }],
-    })
-    vi.mocked(fetchChatConfig).mockResolvedValue({
-      active_provider: 'anthropic',
-      providers: {
-        anthropic: {
-          api_key: 'sk-c****umMM',
-          api_base: '',
-          model: 'claude-3-5-sonnet',
-          temperature: 0.7,
-          max_tokens: 4096,
-          thinking: 'auto',
-        },
-      },
-    })
-    vi.mocked(updateChatConfig).mockResolvedValue({
-      active_provider: 'anthropic',
-      providers: {
-        anthropic: {
-          api_key: 'sk-c****umMM',
-          api_base: '',
-          model: 'claude-3-opus',
-          temperature: 0.7,
-          max_tokens: 4096,
-          thinking: 'auto',
-        },
-      },
     })
   })
 
@@ -262,79 +224,6 @@ describe('ChatBubble', () => {
 
     fireEvent.click(screen.getByTestId('context-panel-toggle'))
     expect(screen.getByTestId('context-file-list')).toBeTruthy()
-  })
-
-  it('⚙ opens the config panel with provider/model/key/temperature/tokens loaded', async () => {
-    render(<ChatBubble changeName="rx101-x" />)
-    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('rx101-x'))
-    fireEvent.click(screen.getByTestId('chat-bubble-button'))
-
-    expect(screen.queryByTestId('chat-settings-panel')).toBeNull()
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('chat-settings-toggle'))
-    })
-
-    await waitFor(() => expect(fetchChatProviders).toHaveBeenCalledTimes(1))
-    await waitFor(() => expect(fetchChatConfig).toHaveBeenCalledTimes(1))
-    expect(screen.getByTestId('chat-settings-panel')).toBeTruthy()
-    expect((screen.getByTestId('chat-settings-provider') as HTMLSelectElement).value).toBe('anthropic')
-    expect((screen.getByTestId('chat-settings-model') as HTMLSelectElement).value).toBe('claude-3-5-sonnet')
-    expect((screen.getByTestId('chat-settings-api-key') as HTMLInputElement).placeholder).toBe('sk-c****umMM')
-    expect((screen.getByTestId('chat-settings-temperature') as HTMLInputElement).value).toBe('0.7')
-    expect((screen.getByTestId('chat-settings-max-tokens') as HTMLInputElement).value).toBe('4096')
-  })
-
-  it('changing the model and saving calls updateChatConfig with the new model, omitting an unchanged api_key', async () => {
-    render(<ChatBubble changeName="rx101-x" />)
-    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('rx101-x'))
-    fireEvent.click(screen.getByTestId('chat-bubble-button'))
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('chat-settings-toggle'))
-    })
-    await waitFor(() => expect(screen.getByTestId('chat-settings-panel')).toBeTruthy())
-
-    fireEvent.change(screen.getByTestId('chat-settings-model'), { target: { value: 'claude-3-opus' } })
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('chat-settings-save'))
-    })
-
-    await waitFor(() => expect(updateChatConfig).toHaveBeenCalledTimes(1))
-    const patch = vi.mocked(updateChatConfig).mock.calls[0][0]
-    expect(patch).toEqual({
-      active_provider: 'anthropic',
-      providers: {
-        anthropic: {
-          model: 'claude-3-opus',
-          temperature: 0.7,
-          max_tokens: 4096,
-          thinking: 'auto',
-        },
-      },
-    })
-    expect(patch.providers?.anthropic).not.toHaveProperty('api_key')
-    expect(screen.queryByTestId('chat-settings-panel')).toBeNull()
-    expect(screen.getByTestId('chat-settings-saved')).toBeTruthy()
-  })
-
-  it('typing a new api_key sends it in the patch', async () => {
-    render(<ChatBubble changeName="rx101-x" />)
-    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('rx101-x'))
-    fireEvent.click(screen.getByTestId('chat-bubble-button'))
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('chat-settings-toggle'))
-    })
-    await waitFor(() => expect(screen.getByTestId('chat-settings-panel')).toBeTruthy())
-
-    fireEvent.change(screen.getByTestId('chat-settings-api-key'), { target: { value: 'sk-newkey123' } })
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('chat-settings-save'))
-    })
-
-    await waitFor(() => expect(updateChatConfig).toHaveBeenCalledTimes(1))
-    const patch = vi.mocked(updateChatConfig).mock.calls[0][0]
-    expect(patch.providers?.anthropic?.api_key).toBe('sk-newkey123')
   })
 })
 

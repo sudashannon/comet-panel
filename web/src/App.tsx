@@ -10,6 +10,8 @@ import { MarkdownViewer } from './components/MarkdownViewer'
 import { WikiGraph } from './components/WikiGraph'
 import { LintPanel } from './components/LintPanel'
 import { SideRail } from './components/SideRail'
+import { SettingsPanel } from './components/SettingsPanel'
+import { ReportView } from './components/ReportView'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
 // internal counts and the KPI-filter classification below so the two can
@@ -20,6 +22,7 @@ export default function App() {
   const [changes, setChanges] = useState<ChangeSummary[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState<WorkspaceConfig[]>([])
   const [activeWorkspace, setActiveWorkspace] = useState<string | null>(null)
   const [failedWorkspaces, setFailedWorkspaces] = useState<string[]>([])
@@ -27,7 +30,7 @@ export default function App() {
   // App-level view switch: 变更列表 (default) is the existing per-change
   // dashboard; 图谱/Lint are GLOBAL cross-change views over the whole wiki
   // index, so they live as siblings here rather than nested under a change.
-  const [view, setView] = useState<'changes' | 'graph' | 'lint'>('changes')
+  const [view, setView] = useState<'changes' | 'graph' | 'lint' | 'report'>('changes')
   // Wiki components (id -> path) so a WikiGraph node tap can open the right
   // artifact in MarkdownViewer; fetched independently of the graph view
   // itself since node ids alone don't carry a file path.
@@ -38,6 +41,15 @@ export default function App() {
   // sibling data) and consumed by MarkdownViewer's in-viewer switcher, so a
   // user reading one artifact can hop to another without closing the viewer.
   const [changeArtifacts, setChangeArtifacts] = useState<{ path: string; label: string }[]>([])
+
+  // Every SideRail view switch must close any open MarkdownViewer first —
+  // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
+  // reading changeArtifacts/wikiComponents state from the view being left)
+  // after switching to a sibling view, e.g. lingering into 报告 or Lint.
+  function handleViewChange(v: 'changes' | 'graph' | 'lint' | 'report') {
+    setViewerPath(null)
+    setView(v)
+  }
 
   useEffect(() => {
     fetchWorkspaces()
@@ -91,7 +103,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden">
-      <SideRail view={view} onSelect={setView} />
+      <SideRail view={view} onSelect={handleViewChange} onOpenSettings={() => setSettingsOpen(true)} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <div className="xl:hidden flex items-center p-3 shrink-0">
           <button
@@ -210,12 +222,25 @@ export default function App() {
         </div>
       )}
 
+      {view === 'report' && (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+          <ReportView workspace={activeWorkspace} workspaces={workspaces} onOpenSettings={() => setSettingsOpen(true)} />
+        </div>
+      )}
+
       {view === 'lint' && (
         <div className="flex-1 min-h-0 overflow-y-auto p-4">
           <LintPanel />
         </div>
       )}
       </div>
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+            <SettingsPanel onClose={() => setSettingsOpen(false)} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

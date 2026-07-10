@@ -1,17 +1,19 @@
-type View = 'changes' | 'graph' | 'lint'
+type View = 'changes' | 'graph' | 'lint' | 'report'
 
 interface SideRailProps {
   view: View
   onSelect: (v: View) => void
+  onOpenSettings?: () => void
 }
 
 const ITEMS: { key: View; label: string; icon: string }[] = [
   { key: 'changes', label: '变更列表', icon: '🚀' },
   { key: 'graph', label: '图谱', icon: '🗺️' },
   { key: 'lint', label: 'Lint', icon: '✓' },
+  { key: 'report', label: '报告', icon: '📊' },
 ]
 
-export function SideRail({ view, onSelect }: SideRailProps) {
+export function SideRail({ view, onSelect, onOpenSettings }: SideRailProps) {
   return (
     <nav
       data-testid="view-switcher"
@@ -41,10 +43,13 @@ export function SideRail({ view, onSelect }: SideRailProps) {
       <button
         type="button"
         aria-label="设置"
-        aria-disabled="true"
-        disabled
-        title="即将推出"
-        className="w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] text-[#c7cad4] cursor-not-allowed"
+        onClick={onOpenSettings}
+        disabled={!onOpenSettings}
+        title={onOpenSettings ? '设置' : '即将推出'}
+        className={
+          'w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] ' +
+          (onOpenSettings ? 'text-[#6e6e73] hover:bg-[#f0f5ff]' : 'text-[#c7cad4] cursor-not-allowed')
+        }
       >
         <span aria-hidden="true">⚙️</span>
       </button>
