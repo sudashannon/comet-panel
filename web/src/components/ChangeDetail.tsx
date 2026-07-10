@@ -41,10 +41,32 @@ export function ChangeDetail({ change, onChangeUpdated }: { change: ChangeSummar
       {(() => {
         const idx = PHASE_ORDER.indexOf(change.phase)
         const next = idx >= 0 && idx < PHASE_ORDER.length - 1 ? PHASE_ORDER[idx + 1] : null
-        return next && <GuardButton changeName={change.name} targetPhase={next} onComplete={onChangeUpdated} />
+        if (!next) return null
+        // build→verify requires every task to be checked off; other transitions
+        // have no extra precondition beyond the guard's own name check.
+        const blockedReason =
+          change.phase === 'build' && next === 'verify' && !(change.tasksCompleted === change.tasksTotal && change.tasksTotal > 0)
+            ? `任务未全部完成 (${change.tasksCompleted}/${change.tasksTotal})，无法进入验证`
+            : undefined
+        return (
+          <GuardButton
+            changeName={change.name}
+            targetPhase={next}
+            onComplete={onChangeUpdated}
+            blockedReason={blockedReason}
+          />
+        )
       })()}
-      <BacklinksPanel componentId={change.componentId ?? change.name} />
-      <ArtifactList changeName={change.name} onSelectArtifact={setSelectedArtifact} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl">
+        <div className="border border-[#e8e8ed] rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">产出物</h4>
+          <ArtifactList changeName={change.name} onSelectArtifact={setSelectedArtifact} />
+        </div>
+        <div className="border border-[#e8e8ed] rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">反向引用</h4>
+          <BacklinksPanel componentId={change.componentId ?? change.name} />
+        </div>
+      </div>
       {selectedArtifact && (
         <MarkdownViewer path={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
       )}

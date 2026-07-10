@@ -88,4 +88,26 @@ describe('GuardButton', () => {
     fireEvent.click(trigger)
     expect(screen.getByTestId('guard-confirm-dialog')).toBeTruthy()
   })
+
+  it('disables the trigger with an explanatory tooltip when the precondition is not met (build 9/72)', () => {
+    render(
+      <GuardButton
+        changeName="rx101-x"
+        targetPhase="verify"
+        onComplete={vi.fn()}
+        blockedReason="任务未全部完成 (9/72)，无法进入验证"
+      />,
+    )
+    const trigger = screen.getByTestId('guard-trigger') as HTMLButtonElement
+    expect(trigger.disabled).toBe(true)
+    expect(trigger.title).toBe('任务未全部完成 (9/72)，无法进入验证')
+  })
+
+  it('keeps the trigger enabled when the precondition is met (tasksCompleted === tasksTotal)', () => {
+    render(<GuardButton changeName="rx101-x" targetPhase="verify" onComplete={vi.fn()} />)
+    const trigger = screen.getByTestId('guard-trigger') as HTMLButtonElement
+    expect(trigger.title).toBe('')
+    fireEvent.click(trigger)
+    expect(screen.getByTestId('guard-confirm-dialog')).toBeTruthy()
+  })
 })

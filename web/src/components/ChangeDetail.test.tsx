@@ -42,4 +42,27 @@ describe('ChangeDetail', () => {
     // before the test (and RTL's auto-cleanup/unmount) completes.
     await waitFor(() => {})
   })
+
+  it('disables the guard button when tasks are incomplete at build phase', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      if (url.includes('/api/changes/')) {
+        return { ok: true, json: async () => ({ name: 'rx101-x', phases: [] }) } as Response
+      }
+      return { ok: true, json: async () => ({ component: {}, forward: [], backlinks: [] }) } as Response
+    })
+
+    const change: ChangeSummary = {
+      name: 'rx101-x', workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 9, tasksTotal: 72, verifyResult: 'pending', createdAt: '2026-05-29',
+      artifacts: {}, visualized: true, designReviewed: true, verifyReviewed: false,
+      verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
+    }
+    render(<ChangeDetail change={change} onChangeUpdated={() => {}} />)
+    const trigger = screen.getByTestId('guard-trigger') as HTMLButtonElement
+    expect(trigger.disabled).toBe(true)
+    expect(trigger.title).toBe('任务未全部完成 (9/72)，无法进入验证')
+
+    await waitFor(() => {})
+  })
 })

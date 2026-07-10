@@ -16,9 +16,10 @@ interface Props {
   changeName: string
   targetPhase: string
   onComplete: () => void
+  blockedReason?: string
 }
 
-export function GuardButton({ changeName, targetPhase, onComplete }: Props) {
+export function GuardButton({ changeName, targetPhase, onComplete, blockedReason }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [output, setOutput] = useState<string[]>([])
   const [running, setRunning] = useState(false)
@@ -72,14 +73,16 @@ export function GuardButton({ changeName, targetPhase, onComplete }: Props) {
   }
 
   const nameValid = isValidChangeName(changeName)
+  const nameInvalidMsg = '变更名不满足 guard 规则（需字母开头，小写 kebab-case），无法迁移'
+  const disabledReason = !nameValid ? nameInvalidMsg : blockedReason
 
   return (
     <>
       <button
         data-testid="guard-trigger"
         onClick={() => setConfirming(true)}
-        disabled={running || !nameValid}
-        title={nameValid ? undefined : '变更名不满足 guard 规则（需字母开头，小写 kebab-case），无法迁移'}
+        disabled={running || !nameValid || !!blockedReason}
+        title={disabledReason}
       >
         → {PHASE_LABELS[targetPhase] ?? targetPhase}
       </button>
