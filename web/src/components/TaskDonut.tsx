@@ -6,11 +6,11 @@ export function TaskDonut({ completed, total }: { completed: number; total: numb
     <div className="flex flex-col items-center justify-center">
       <div
         data-testid="donut-ring"
-        className="w-[88px] h-[88px] rounded-full flex items-center justify-center"
+        className="w-[120px] h-[120px] rounded-full flex items-center justify-center"
         style={{ background: `conic-gradient(${color} 0% ${pct}%, #e8e8ed ${pct}% 100%)` }}
       >
-        <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-          <div data-testid="donut-percent" className="text-lg font-bold">
+        <div className="w-[88px] h-[88px] rounded-full bg-white flex items-center justify-center">
+          <div data-testid="donut-percent" className="text-2xl font-bold">
             {pct}%
           </div>
         </div>

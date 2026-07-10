@@ -41,9 +41,9 @@ export function PhaseStepper({ currentPhase }: { currentPhase: string }) {
                   className={
                     'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ' +
                     (state === 'done'
-                      ? 'bg-[#0063f8] text-white'
+                      ? 'bg-[#16a34a] text-white'
                       : state === 'current'
-                        ? 'bg-white border-2 border-[#0063f8] text-[#0063f8]'
+                        ? 'bg-[#0063f8] text-white shadow-[0_0_0_4px_rgba(0,99,248,0.15)]'
                         : state === 'unknown'
                           ? 'bg-white border-2 border-[#c47a06] text-[#c47a06]'
                           : 'bg-white border-2 border-[#d2d2d7] text-[#6e6e73]')
@@ -68,7 +68,7 @@ export function PhaseStepper({ currentPhase }: { currentPhase: string }) {
                 <div
                   className={
                     'hidden md:block flex-1 h-[2px] ' +
-                    (i < currentIndex ? 'bg-[#0063f8]' : 'bg-[#d2d2d7]')
+                    (i < currentIndex ? 'bg-[#16a34a]' : 'bg-[#d2d2d7]')
                   }
                 />
               )}

@@ -47,7 +47,7 @@ export function ChangeDetail({
   }, [change.name, onArtifactsChanged])
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] space-y-4">
+    <div className="bg-white rounded-2xl p-5 shadow-[0_8px_26px_rgba(30,32,60,0.06),0_1px_2px_rgba(0,0,0,0.03)] space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">{change.name}</h3>
         <ReviewBadges
