@@ -1,9 +1,10 @@
 package wiki
 
 type Graph struct {
-	components map[string]Component
-	forward    map[string][]Edge
-	backward   map[string][]Edge
+	components  map[string]Component
+	forward     map[string][]Edge
+	backward    map[string][]Edge
+	communities map[string]int
 }
 
 func BuildGraph(components []Component, edges []Edge) *Graph {
@@ -29,6 +30,14 @@ func (g *Graph) Component(id string) (Component, bool) {
 
 func (g *Graph) Components() map[string]Component {
 	return g.components
+}
+
+func (g *Graph) Communities() map[string]int {
+	return g.communities
+}
+
+func (g *Graph) SetCommunities(c map[string]int) {
+	g.communities = c
 }
 
 func (g *Graph) Forward(id string) []Edge {

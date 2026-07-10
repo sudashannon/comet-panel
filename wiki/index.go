@@ -125,7 +125,12 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		}
 	}
 
+	// BM25 similarity edges
+	simEdges := ComputeSimilarityEdges(allComponents, 3, 0.3)
+	allEdges = append(allEdges, simEdges...)
+
 	g := BuildGraph(allComponents, allEdges)
+	g.SetCommunities(DetectCommunities(g))
 	if indexCacheDir != "" {
 		persistIndexCache(indexCacheDir, allComponents, allEdges) // best-effort, errors logged not returned
 	}
