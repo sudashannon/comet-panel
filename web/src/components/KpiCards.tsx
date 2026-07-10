@@ -52,17 +52,11 @@ export function KpiCards({
   )
 
   const cards = [
-    { key: 'active', label: '活跃变更', value: classification.active.length, testId: 'kpi-active' },
-    { key: 'archived', label: '已归档', value: classification.archived.length, testId: 'kpi-archived' },
-    {
-      key: 'stuck', label: '⚠ 卡死预警', value: classification.stuck.length, testId: 'kpi-stuck',
-      warn: classification.stuck.length > 0,
-    },
-    {
-      key: 'verify-failed', label: 'Verify 失败', value: classification.verifyFailed.length,
-      testId: 'kpi-verify-failed', danger: classification.verifyFailed.length > 0,
-    },
-    { key: 'incomplete-tasks', label: '未完成任务', value: incompleteTasks, testId: 'kpi-incomplete-tasks' },
+    { key: 'active', label: '活跃变更', value: classification.active.length, testId: 'kpi-active', icon: '◔', chip: 'bg-[#eaf1ff] text-[#0063f8]' },
+    { key: 'archived', label: '已归档', value: classification.archived.length, testId: 'kpi-archived', icon: '✓', chip: 'bg-[#eafaf0] text-[#16a34a]' },
+    { key: 'stuck', label: '卡死预警', value: classification.stuck.length, testId: 'kpi-stuck', warn: classification.stuck.length > 0, icon: '⚠', chip: 'bg-[#fff3e0] text-[#d97706]' },
+    { key: 'verify-failed', label: 'Verify 失败', value: classification.verifyFailed.length, testId: 'kpi-verify-failed', danger: classification.verifyFailed.length > 0, icon: '◎', chip: 'bg-[#f3eeff] text-[#7c3aed]' },
+    { key: 'incomplete-tasks', label: '未完成任务', value: incompleteTasks, testId: 'kpi-incomplete-tasks', icon: '▤', chip: 'bg-[#f3f4f8] text-[#6e6e73]' },
   ]
 
   return (
@@ -86,24 +80,20 @@ export function KpiCards({
               }
             }}
             className={
-              'bg-white rounded-lg px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.05)] cursor-pointer flex items-center justify-between gap-2' +
-              (c.warn ? ' border border-[#c47a06]' : ' border border-[#e8e8ed]') +
-              (isFilterActive ? ' ring-2 ring-[#0063f8] border-transparent' : '')
+              'bg-white rounded-2xl px-4 py-4 shadow-[0_6px_20px_rgba(30,32,60,0.05),0_1px_2px_rgba(0,0,0,0.03)] cursor-pointer flex flex-col gap-2.5' +
+              (c.warn ? ' outline outline-[1.5px] outline-[#f0cf9a] bg-[#fffdf8]' : '') +
+              (isFilterActive ? ' ring-2 ring-[#0063f8]' : '')
             }
           >
-            <div
-              className={
-                'text-xs font-medium ' + (c.warn ? 'text-[#c47a06] font-semibold' : 'text-[#6e6e73]')
-              }
-            >
-              {c.label}
+            <div className="flex items-center gap-2.5">
+              <div className={'w-[34px] h-[34px] rounded-[10px] grid place-items-center text-base ' + c.chip}>
+                <span aria-hidden="true">{c.icon}</span>
+              </div>
+              <div className={'text-[13px] ' + (c.warn ? 'text-[#d97706] font-semibold' : 'text-[#6e6e73]')}>
+                {c.label}
+              </div>
             </div>
-            <div
-              className={
-                'text-xl font-bold leading-none ' +
-                (c.warn ? 'text-[#c47a06]' : c.danger ? 'text-[#dc2626]' : 'text-[#1d1d1f]')
-              }
-            >
+            <div className={'text-[27px] font-bold leading-none tracking-tight ' + (c.warn ? 'text-[#d97706]' : c.danger ? 'text-[#dc2626]' : 'text-[#1d1d1f]')}>
               {c.value}
             </div>
           </div>
