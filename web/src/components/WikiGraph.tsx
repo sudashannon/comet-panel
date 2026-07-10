@@ -138,9 +138,9 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   // 后端提供了带语义的 communityLabels 时优先使用；否则退回 "#id" 占位符，
   // 保持旧数据（无 communityLabels 字段）下图例仍可用。
   const effectiveCommunityLabels = useMemo(() => {
-    if (Object.keys(communityLabels).length > 0) return communityLabels
+    const hasLabels = Object.keys(communityLabels).length > 0
     return topCommunities.reduce<Record<string, string>>((acc, id) => {
-      acc[String(id)] = `#${id}`
+      acc[String(id)] = hasLabels ? (communityLabels[String(id)] ?? `#${id}`) : `#${id}`
       return acc
     }, {})
   }, [communityLabels, topCommunities])

@@ -35,8 +35,11 @@ function frontmatterTime(value: unknown): Date | null {
 function toTimelineItem(c: WikiComponent, communities: Record<string, number>): TimelineItem {
   const created = frontmatterTime(c.frontmatter?.created_at)
   const updated = c.updatedAt ? new Date(c.updatedAt) : null
-  const start = created ?? updated ?? new Date()
-  const end = updated && updated.getTime() > start.getTime() ? updated : new Date()
+  const validUpdated = updated && updated.getFullYear() > 2000 ? updated : null
+  const start = created ?? validUpdated ?? new Date()
+  // If no valid updatedAt, show a 1-day bar instead of stretching to "now"
+  const defaultEnd = new Date(start.getTime() + 86400000)
+  const end = validUpdated && validUpdated.getTime() > start.getTime() ? validUpdated : defaultEnd
   const phase = typeof c.frontmatter?.phase === 'string' ? (c.frontmatter.phase as string) : ''
   const commId = communities[c.id]
   const color =
@@ -104,19 +107,21 @@ export function WikiTimeline() {
   // 后端提供了带语义的 communityLabels 时优先使用；否则退回 "#id" 占位符，
   // 保持旧数据（无 communityLabels 字段）下图例仍可用。
   const effectiveCommunityLabels = useMemo(() => {
-    if (Object.keys(communityLabels).length > 0) return communityLabels
+    // Count how many items belong to each community (for ranking)
     const counts: Record<number, number> = {}
     for (const item of items) {
       if (item.communityId !== null) counts[item.communityId] = (counts[item.communityId] ?? 0) + 1
     }
-    return Object.keys(counts)
+    const topIds = Object.keys(counts)
       .map(Number)
       .sort((a, b) => counts[b] - counts[a])
       .slice(0, 8)
-      .reduce<Record<string, string>>((acc, id) => {
-        acc[String(id)] = `#${id}`
-        return acc
-      }, {})
+    // Use backend labels if available, otherwise fallback to "#id"
+    const hasLabels = Object.keys(communityLabels).length > 0
+    return topIds.reduce<Record<string, string>>((acc, id) => {
+      acc[String(id)] = hasLabels ? (communityLabels[String(id)] ?? `#${id}`) : `#${id}`
+      return acc
+    }, {})
   }, [communityLabels, items])
 
   function toggleWorkspace(ws: string) {
