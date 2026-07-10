@@ -19,18 +19,18 @@ describe('BacklinksPanel', () => {
     await waitFor(() => expect(screen.getByText(/1 处引用/)).toBeTruthy())
   })
 
-  it('shows a framed empty state with heading and explanatory text', async () => {
+  it('shows framed empty states for both directions when there is no data', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ component: { id: '/x', title: 'X' }, forward: [], backlinks: [] }),
     } as Response)
     render(<BacklinksPanel componentId="/x" />)
-    await waitFor(() => expect(screen.getByText('反向引用')).toBeTruthy())
-    expect(screen.getByText('该变更暂无其他文档引用')).toBeTruthy()
-    expect(screen.getByText('—')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('本文档未引用其他文档')).toBeTruthy())
+    expect(screen.getByText('暂无其他文档引用本文档')).toBeTruthy()
+    expect(screen.getAllByText('—')).toHaveLength(2)
   })
 
-  it('renders backlink entries with source and kind when present', async () => {
+  it('renders backlink entries with kind badges when present', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -45,7 +45,31 @@ describe('BacklinksPanel', () => {
     render(<BacklinksPanel componentId="/x/design.md" />)
     await waitFor(() => expect(screen.getByText('/x/.comet.yaml')).toBeTruthy())
     expect(screen.getByText('/y/tasks.md')).toBeTruthy()
-    expect(screen.getByText('(implements)')).toBeTruthy()
-    expect(screen.getByText('(references)')).toBeTruthy()
+    expect(screen.getAllByText('implements')).toHaveLength(1)
+    expect(screen.getAllByText('references')).toHaveLength(1)
+  })
+
+  it('renders forward edges — the key case: a change with only forward links is no longer blank', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        component: { id: '/changes/foo', title: 'Foo Change' },
+        forward: [
+          { from: '/changes/foo', to: '/changes/foo/design.md', kind: 'implements', source: 'yaml' },
+          { from: '/changes/foo', to: '/changes/foo/tasks.md', kind: 'implements', source: 'yaml' },
+          { from: '/changes/foo', to: '/reports/verify.md', kind: 'references', source: 'md' },
+        ],
+        backlinks: [],
+      }),
+    } as Response)
+    render(<BacklinksPanel componentId="/changes/foo" />)
+    await waitFor(() => expect(screen.getByText(/3 处引用/)).toBeTruthy())
+    expect(screen.getByText('/changes/foo/design.md')).toBeTruthy()
+    expect(screen.getByText('/changes/foo/tasks.md')).toBeTruthy()
+    expect(screen.getByText('/reports/verify.md')).toBeTruthy()
+    expect(screen.getAllByText('implements')).toHaveLength(2)
+    expect(screen.getAllByText('references')).toHaveLength(1)
+    // backlinks direction is empty, but the panel is not blank
+    expect(screen.getByText('暂无其他文档引用本文档')).toBeTruthy()
   })
 })
