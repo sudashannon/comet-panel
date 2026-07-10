@@ -96,7 +96,7 @@ func main() {
 		handleGetArtifact(w, r, *baseDir, reg)
 	})
 
-	mux.HandleFunc("/api/chat/message", chat.HandleMessage(*baseDir, *baseDir))
+	mux.HandleFunc("/api/chat/message", chat.HandleMessage(*baseDir, *baseDir, wikiAPI))
 	mux.HandleFunc("/api/chat/session", chat.HandleSession)
 	mux.HandleFunc("/api/chat/config", chat.HandleConfig)
 	mux.HandleFunc("/api/chat/providers", chat.HandleProviders)

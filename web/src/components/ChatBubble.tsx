@@ -36,6 +36,7 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
   const [contextFiles, setContextFiles] = useState<string[]>([])
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [contextPanelOpen, setContextPanelOpen] = useState(true)
+  const [graphMode, setGraphMode] = useState(true)
   const messagesRef = useRef<HTMLDivElement>(null)
   // Guards against the history load resolving AFTER the user has already
   // sent a message (e.g. slow /api/chat/session, fast first keystroke):
@@ -108,19 +109,25 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
     setMessages((prev) => [...prev, { role: 'assistant', text: '', thinking: '' }])
 
     try {
-      await streamChat(changeName, text, filesToSend, (event) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last?.role !== 'assistant') return prev
-          if (event.type === 'thinking') {
-            next[next.length - 1] = { ...last, thinking: (last.thinking ?? '') + (event.content ?? '') }
-          } else if (event.type === 'delta') {
-            next[next.length - 1] = { ...last, text: last.text + (event.content ?? '') }
-          }
-          return next
-        })
-      })
+      await streamChat(
+        changeName,
+        text,
+        filesToSend,
+        (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last?.role !== 'assistant') return prev
+            if (event.type === 'thinking') {
+              next[next.length - 1] = { ...last, thinking: (last.thinking ?? '') + (event.content ?? '') }
+            } else if (event.type === 'delta') {
+              next[next.length - 1] = { ...last, text: last.text + (event.content ?? '') }
+            }
+            return next
+          })
+        },
+        graphMode,
+      )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setMessages((prev) => [...prev, { role: 'error', text: message }])
@@ -152,9 +159,25 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
         >
           <div className="flex items-center justify-between p-3 border-b border-[#e8e8ed]">
             <span className="text-sm font-semibold">Chat · {changeName}</span>
-            <button data-testid="chat-overlay-close" onClick={() => setOpen(false)}>
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="chat-graph-mode-toggle"
+                aria-pressed={graphMode}
+                onClick={() => setGraphMode((v) => !v)}
+                title="图谱模式：将当前变更在知识图谱中的关联上下文注入对话"
+                className={
+                  graphMode
+                    ? 'text-xs rounded-full px-2 py-0.5 bg-[#0063f8] text-white font-medium'
+                    : 'text-xs rounded-full px-2 py-0.5 bg-[#f5f5f7] text-[#6e6e73] border border-[#e8e8ed]'
+                }
+              >
+                📊 图谱模式
+              </button>
+              <button data-testid="chat-overlay-close" onClick={() => setOpen(false)}>
+                ✕
+              </button>
+            </div>
           </div>
           <div
             data-testid="chat-messages"

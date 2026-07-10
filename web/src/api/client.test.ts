@@ -356,7 +356,12 @@ describe('streamChat', () => {
     expect(fetchSpy).toHaveBeenCalledWith('/api/chat/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ change: 'foo-change', message: '你好', context_files: ['proposal.md'] }),
+      body: JSON.stringify({
+        change: 'foo-change',
+        message: '你好',
+        context_files: ['proposal.md'],
+        includeGraph: false,
+      }),
     })
     expect(events).toEqual([
       { type: 'thinking', content: '分析中' },

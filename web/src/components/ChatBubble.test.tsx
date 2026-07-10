@@ -80,6 +80,49 @@ describe('ChatBubble', () => {
     expect(screen.getByTestId('chat-messages').textContent).toContain('hello there')
   })
 
+  it('defaults graph mode on and passes includeGraph=true to streamChat', async () => {
+    vi.mocked(streamChat).mockImplementation(async (_change, _message, _contextFiles, onEvent, includeGraph) => {
+      expect(includeGraph).toBe(true)
+      onEvent({ type: 'done' })
+    })
+
+    render(<ChatBubble changeName="rx101-x" />)
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+
+    const toggle = screen.getByTestId('chat-graph-mode-toggle')
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'hi' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('chat-send'))
+    })
+
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1))
+  })
+
+  it('toggling graph mode off passes includeGraph=false to streamChat', async () => {
+    vi.mocked(streamChat).mockImplementation(async (_change, _message, _contextFiles, onEvent, includeGraph) => {
+      expect(includeGraph).toBe(false)
+      onEvent({ type: 'done' })
+    })
+
+    render(<ChatBubble changeName="rx101-x" />)
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+
+    const toggle = screen.getByTestId('chat-graph-mode-toggle')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'hi' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('chat-send'))
+    })
+
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1))
+  })
+
   it('shows an error message instead of hanging when streamChat rejects', async () => {
     vi.mocked(streamChat).mockRejectedValue(new Error('Anthropic API key not configured'))
 

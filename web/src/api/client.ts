@@ -146,11 +146,12 @@ export async function streamChat(
   message: string,
   contextFiles: string[],
   onEvent: (event: ChatStreamEvent) => void,
+  includeGraph?: boolean,
 ): Promise<void> {
   const res = await fetch('/api/chat/message', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ change, message, context_files: contextFiles }),
+    body: JSON.stringify({ change, message, context_files: contextFiles, includeGraph: !!includeGraph }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}) as { message?: string; error?: string })

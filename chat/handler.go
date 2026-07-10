@@ -14,7 +14,24 @@ import (
 
 const defaultSystemPrompt = "你是 Comet Change 产物分析助手。请基于提供的文档内容回答问题。\n若答案不在文档中，请诚实告知。如果用户要求画架构图、流程图，请使用 mermaid 语法。\n用中文回答。"
 
-func HandleMessage(baseDir, openspecDir string) http.HandlerFunc {
+// WikiGraphAccessor provides read access to the wiki knowledge graph
+// for context injection into chat prompts.
+type WikiGraphAccessor interface {
+	// Neighborhood returns the 2-hop neighborhood of a change:
+	// direct neighbors' IDs+titles, and 2nd-hop titles.
+	Neighborhood(changeID string) (direct []NeighborInfo, secondHop []string)
+	// CommunityOverview returns the cached overview for a change's community, or "".
+	CommunityOverview(changeID string) string
+}
+
+// NeighborInfo describes one direct (1-hop) graph neighbor of a change.
+type NeighborInfo struct {
+	ID    string
+	Title string
+	Kind  string // edge kind
+}
+
+func HandleMessage(baseDir, openspecDir string, wikiGraph WikiGraphAccessor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			writeJSON(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -26,6 +43,7 @@ func HandleMessage(baseDir, openspecDir string) http.HandlerFunc {
 			Message      string   `json:"message"`
 			ContextFiles []string `json:"context_files"`
 			Images       []string `json:"images"`
+			IncludeGraph bool     `json:"includeGraph"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSON(w, 400, "invalid request")
@@ -51,6 +69,8 @@ func HandleMessage(baseDir, openspecDir string) http.HandlerFunc {
 		sess := GetSession(req.Change)
 
 		systemPrompt := buildSystemPrompt(baseDir, openspecDir, req.Change, req.ContextFiles)
+
+		systemPrompt += buildGraphContext(openspecDir, req.Change, req.IncludeGraph, wikiGraph)
 
 		content := []provider.ContentBlock{{Type: "text", Text: req.Message}}
 		for _, img := range req.Images {
@@ -218,6 +238,44 @@ func buildSystemPrompt(baseDir, openspecDir, change string, contextFiles []strin
 			b.Write(content)
 		}
 		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// buildGraphContext returns the graph-context section to append to the
+// system prompt when includeGraph is set: the change's 1-hop neighbors
+// (forward + backlinks) with titles/edge kinds, 2nd-hop neighbor titles,
+// and any cached community overview. Returns "" when disabled, no
+// accessor is wired, the change has no .comet.yaml, or the graph has
+// nothing to report — so callers can unconditionally append the result.
+func buildGraphContext(openspecDir, change string, includeGraph bool, wikiGraph WikiGraphAccessor) string {
+	if !includeGraph || wikiGraph == nil {
+		return ""
+	}
+	changeDir := findChangeDir(openspecDir, change)
+	if changeDir == "" {
+		return ""
+	}
+	yamlID := filepath.Join(changeDir, ".comet.yaml")
+
+	var b strings.Builder
+	direct, secondHop := wikiGraph.Neighborhood(yamlID)
+	if len(direct) > 0 || len(secondHop) > 0 {
+		b.WriteString("\n\n---\n\n## 图谱上下文\n\n")
+		b.WriteString("当前 change 的直接关联：\n")
+		for _, n := range direct {
+			fmt.Fprintf(&b, "- [%s] %s\n", n.Kind, n.Title)
+		}
+		if len(secondHop) > 0 {
+			b.WriteString("\n间接关联(2-hop)：\n")
+			for _, title := range secondHop {
+				fmt.Fprintf(&b, "- %s\n", title)
+			}
+		}
+	}
+	if overview := wikiGraph.CommunityOverview(yamlID); overview != "" {
+		b.WriteString("\n\n## 所属主题综述\n\n")
+		b.WriteString(overview)
 	}
 	return b.String()
 }

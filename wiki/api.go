@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"comet-ui/chat"
 )
 
 type API struct {
@@ -284,4 +286,85 @@ func (a *API) HandleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"body": body})
+}
+
+// Neighborhood implements chat.WikiGraphAccessor: it returns changeID's
+// direct (1-hop) neighbors — both forward edges and backlinks, so a change
+// that is referenced-by another component shows up alongside one it
+// references itself — plus the titles of their neighbors (2-hop), capped
+// at 20 to keep the injected prompt section bounded.
+func (a *API) Neighborhood(changeID string) ([]chat.NeighborInfo, []string) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	var direct []chat.NeighborInfo
+	seen := map[string]bool{changeID: true}
+	for _, e := range a.graph.Forward(changeID) {
+		if c, ok := a.graph.Component(e.To); ok && !seen[e.To] {
+			direct = append(direct, chat.NeighborInfo{ID: e.To, Title: c.Title, Kind: e.Kind})
+			seen[e.To] = true
+		}
+	}
+	for _, e := range a.graph.Backlinks(changeID) {
+		if c, ok := a.graph.Component(e.From); ok && !seen[e.From] {
+			direct = append(direct, chat.NeighborInfo{ID: e.From, Title: c.Title, Kind: e.Kind})
+			seen[e.From] = true
+		}
+	}
+
+	var secondHop []string
+outer:
+	for _, n := range direct {
+		for _, e := range a.graph.Forward(n.ID) {
+			if seen[e.To] {
+				continue
+			}
+			if c, ok := a.graph.Component(e.To); ok {
+				secondHop = append(secondHop, c.Title)
+				seen[e.To] = true
+				if len(secondHop) >= 20 {
+					break outer
+				}
+			}
+		}
+	}
+	return direct, secondHop
+}
+
+// CommunityOverview implements chat.WikiGraphAccessor: it returns the
+// cached LLM overview for changeID's community, or "" when the change has
+// no community, the community is too small to have one, or no overview has
+// been generated yet. It never triggers generation itself (unlike
+// HandleOverview) — this is a read-only cache lookup so injecting graph
+// context into a chat request never blocks on an LLM call.
+func (a *API) CommunityOverview(changeID string) string {
+	a.mu.RLock()
+	communities := a.graph.Communities()
+	components := a.graph.Components()
+	a.mu.RUnlock()
+
+	communityID, ok := communities[changeID]
+	if !ok {
+		return ""
+	}
+
+	var members []Component
+	for id, commID := range communities {
+		if commID == communityID {
+			if c, ok := components[id]; ok {
+				members = append(members, c)
+			}
+		}
+	}
+	if len(members) < 3 {
+		return ""
+	}
+
+	cacheDir := filepath.Join(a.indexCacheDir, "overviews")
+	key := overviewCacheKey(members)
+	data, err := os.ReadFile(overviewCachePath(cacheDir, communityID, key))
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
