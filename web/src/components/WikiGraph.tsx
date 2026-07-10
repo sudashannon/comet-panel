@@ -56,9 +56,13 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
 
   useEffect(() => {
     if (!containerRef.current || components.length === 0) return
+    const typeOrder = Object.keys(TYPE_COLORS)
+    const sorted = [...components].sort(
+      (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type),
+    )
     const cy = cytoscape({
       container: containerRef.current,
-      elements: components.map((c) => ({
+      elements: sorted.map((c) => ({
         data: { id: c.id, label: c.title },
         style: { 'background-color': TYPE_COLORS[c.type] ?? '#6e6e73' },
       })),
@@ -67,15 +71,15 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           selector: 'node',
           style: {
             label: 'data(label)',
-            'font-size': 6,
-            'min-zoomed-font-size': 8,
+            'font-size': 7,
+            'min-zoomed-font-size': 9,
             color: '#1d1d1f',
             'text-valign': 'bottom',
             'text-margin-y': 3,
             'text-wrap': 'ellipsis',
             'text-max-width': '80px',
-            width: 10,
-            height: 10,
+            width: 14,
+            height: 14,
             'border-width': 1,
             'border-color': '#ffffff',
           },
@@ -90,15 +94,13 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           },
         },
       ],
+      // 索引数据当前只有节点没有关系边，force-directed 布局会把无边节点甩到视野外；
+      // 改用固定网格布局，保证 fit() 之后所有节点都在可视区域内、大小一致、按类型分组。
       layout: {
-        name: 'cose',
-        animate: false,
-        nodeRepulsion: 450000,
-        idealEdgeLength: 120,
-        gravity: 40,
-        numIter: 1000,
-        nodeOverlap: 20,
-        componentSpacing: 150,
+        name: 'grid',
+        avoidOverlap: true,
+        avoidOverlapPadding: 8,
+        condense: false,
       },
       userZoomingEnabled: true,
       userPanningEnabled: true,
@@ -138,6 +140,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             className="absolute right-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
           >
             <div className="mb-1 font-medium text-[#6e6e73]">类型图例</div>
+            <div className="mb-1 text-[10px] text-[#8e8e93]">按类型着色的组件目录（索引暂无关系边）</div>
             <ul className="space-y-0.5">
               {Object.entries(TYPE_COLORS).map(([type, color]) => (
                 <li key={type} className="flex items-center gap-1.5">

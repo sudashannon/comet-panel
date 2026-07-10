@@ -35,6 +35,7 @@ describe('WikiGraph', () => {
           { data: { id: '/x/a.md', label: 'A' }, style: { 'background-color': TYPE_COLORS.spec } },
           { data: { id: '/x/b.md', label: 'B' }, style: { 'background-color': TYPE_COLORS.plan } },
         ],
+        layout: expect.objectContaining({ name: 'grid' }),
       }),
     )
 
@@ -60,6 +61,24 @@ describe('WikiGraph', () => {
     await waitFor(() => expect(getByTestId('wiki-graph-legend')).toBeTruthy())
     expect(getByText('spec')).toBeTruthy()
     expect(getByText('plan')).toBeTruthy()
+  })
+
+  it('sorts edgeless nodes by type so grid layout clusters same-color nodes together', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { id: '/x/diagram.md', type: 'diagram', title: 'D', path: '/x/diagram.md', workspace: 'miao' },
+        { id: '/x/change.md', type: 'change', title: 'C', path: '/x/change.md', workspace: 'miao' },
+        { id: '/x/plan.md', type: 'plan', title: 'P', path: '/x/plan.md', workspace: 'miao' },
+      ],
+    } as Response)
+    render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalled())
+    const call = vi.mocked(cytoscape).mock.calls[0][0] as unknown as {
+      elements: Array<{ data: { id: string } }>
+    }
+    expect(call.elements.map((el) => el.data.id)).toEqual(['/x/change.md', '/x/plan.md', '/x/diagram.md'])
   })
 
   it('shows an empty-state message when the wiki index is empty', async () => {
