@@ -131,7 +131,7 @@ export default function App() {
               data-testid="sidebar"
               className={
                 (sidebarOpen ? 'block' : 'hidden') +
-                ' xl:block w-full xl:w-[280px] border-r border-[#e8e8ed] p-3'
+                ' xl:block w-full xl:w-[340px] shrink-0 border-r border-[#e8e8ed] p-3'
               }
             >
               <WorkspaceChips
@@ -146,27 +146,42 @@ export default function App() {
               <ChangeExplorer changes={visibleChanges} selected={selected} onSelect={setSelected} />
             </aside>
 
-            <main className="flex-1 p-4 space-y-4">
-              <KpiCards
-                changes={workspaceChanges}
-                stuckThresholdDays={STUCK_THRESHOLD_DAYS}
-                now={now}
-                activeFilter={activeKpiFilter}
-                onFilterSelect={setActiveKpiFilter}
-              />
-              {selectedChange && (
-                <ChangeDetail
-                  change={selectedChange}
-                  onChangeUpdated={() =>
-                    fetchChangesWithMeta()
-                      .then((r) => {
-                        setChanges(r.changes ?? [])
-                        setFailedWorkspaces(r.failedWorkspaces ?? [])
-                      })
-                      .catch(() => {})
-                  }
+            <main className="flex-1 p-4">
+              <div className="max-w-4xl 2xl:max-w-5xl mx-auto space-y-4">
+                <KpiCards
+                  changes={workspaceChanges}
+                  stuckThresholdDays={STUCK_THRESHOLD_DAYS}
+                  now={now}
+                  activeFilter={activeKpiFilter}
+                  onFilterSelect={setActiveKpiFilter}
                 />
-              )}
+                {selectedChange ? (
+                  <ChangeDetail
+                    change={selectedChange}
+                    onChangeUpdated={() =>
+                      fetchChangesWithMeta()
+                        .then((r) => {
+                          setChanges(r.changes ?? [])
+                          setFailedWorkspaces(r.failedWorkspaces ?? [])
+                        })
+                        .catch(() => {})
+                    }
+                  />
+                ) : (
+                  <div
+                    data-testid="change-empty-state"
+                    className="flex flex-col items-center justify-center gap-2 text-center rounded-lg border border-dashed border-[#e8e8ed] bg-white py-24 px-6"
+                  >
+                    <span className="text-4xl text-[#a1a1a6]" aria-hidden="true">
+                      ◇
+                    </span>
+                    <p className="text-sm font-medium text-[#1d1d1f]">从左侧选择一个变更查看详情</p>
+                    <p className="text-xs text-[#6e6e73]">
+                      可通过上方 KPI 卡片筛选，或在左侧工作区与搜索中定位目标变更
+                    </p>
+                  </div>
+                )}
+              </div>
             </main>
           </div>
 

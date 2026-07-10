@@ -4,12 +4,13 @@ import App from './App'
 import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
 
-// WikiGraph renders a cytoscape canvas; mock it out the same way
-// WikiGraph.test.tsx does so App-level tests stay isolated from the real
-// graph-layout engine.
-const mockCy = { on: vi.fn(), destroy: vi.fn() }
-vi.mock('cytoscape', () => ({
-  default: vi.fn(() => mockCy),
+// WikiGraph mounts a real cytoscape instance with a cose layout and
+// `cy.fit()` on 'layoutstop'; that layout engine doesn't run correctly in
+// jsdom (WikiGraph.test.tsx mocks cytoscape directly to cover that). At the
+// App level we only care that switching to 图谱 mounts WikiGraph and wires
+// its onNodeClick — so mock the component itself rather than cytoscape.
+vi.mock('./components/WikiGraph', () => ({
+  WikiGraph: () => <div data-testid="wiki-graph-canvas" />,
 }))
 
 // Regression test for the Critical finding in Task 17 review: the Go backend
@@ -137,6 +138,13 @@ describe('App view switcher', () => {
     await screen.findByTestId('workspace-warning-banner')
     expect(screen.getByTestId('kpi-grid')).toBeTruthy()
     expect(screen.queryByTestId('wiki-graph-canvas')).toBeNull()
+  })
+
+  it('shows a friendly empty-state guiding the user to pick a change when none is selected', async () => {
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+    expect(screen.getByTestId('change-empty-state')).toBeTruthy()
+    expect(screen.getByText('从左侧选择一个变更查看详情')).toBeTruthy()
   })
 
   it('switches to the 图谱 view and mounts WikiGraph', async () => {
