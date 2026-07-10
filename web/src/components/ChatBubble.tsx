@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { streamChat, fetchChatSession, fetchChangeDetail, type ChatSessionMessage } from '../api/client'
+import {
+  streamChat,
+  fetchChatSession,
+  fetchChangeDetail,
+  fetchChatConfig,
+  updateChatConfig,
+  fetchChatProviders,
+  type ChatSessionMessage,
+} from '../api/client'
+import type { ChatProviderInfo } from '../api/types'
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'error'
@@ -31,6 +40,20 @@ export function ChatBubble({ changeName }: { changeName: string }) {
   const [contextFiles, setContextFiles] = useState<string[]>([])
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [contextPanelOpen, setContextPanelOpen] = useState(true)
+  // 配置面板：懒加载 provider 列表与当前配置，仅在用户点击 ⚙ 时才请求，
+  // 避免每次打开聊天窗口都多打两个后端请求。
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
+  const [settingsSaved, setSettingsSaved] = useState(false)
+  const [providers, setProviders] = useState<ChatProviderInfo[]>([])
+  const [providerName, setProviderName] = useState('')
+  const [model, setModel] = useState('')
+  const [apiKeyPlaceholder, setApiKeyPlaceholder] = useState('')
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [temperature, setTemperature] = useState(0)
+  const [maxTokens, setMaxTokens] = useState(0)
+  const [thinking, setThinking] = useState('auto')
   const messagesRef = useRef<HTMLDivElement>(null)
   // Guards against the history load resolving AFTER the user has already
   // sent a message (e.g. slow /api/chat/session, fast first keystroke):
@@ -79,6 +102,67 @@ export function ChatBubble({ changeName }: { changeName: string }) {
 
   function toggleContextFile(path: string) {
     setSelectedFiles((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]))
+  }
+
+  // 配置面板懒加载：打开时并发拉取可用 provider 列表与当前生效配置，
+  // 用当前 active_provider 对应的配置回填表单；provider 列表请求失败也
+  // 不阻塞配置请求的结果展示（各自独立捕获错误）。
+  function openSettings() {
+    setSettingsOpen(true)
+    setSettingsSaved(false)
+    setSettingsError('')
+    setSettingsLoading(true)
+    Promise.all([fetchChatProviders(), fetchChatConfig()])
+      .then(([providersResp, config]) => {
+        setProviders(providersResp.providers ?? [])
+        const active = config.active_provider || providersResp.active
+        const activeConfig = config.providers?.[active]
+        setProviderName(active)
+        setModel(activeConfig?.model ?? '')
+        setApiKeyPlaceholder(activeConfig?.api_key ?? '')
+        setApiKeyInput('')
+        setTemperature(activeConfig?.temperature ?? 0.7)
+        setMaxTokens(activeConfig?.max_tokens ?? 4096)
+        setThinking(activeConfig?.thinking || 'auto')
+      })
+      .catch((err) => {
+        setSettingsError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => setSettingsLoading(false))
+  }
+
+  function handleProviderChange(name: string) {
+    setProviderName(name)
+    const info = providers.find((p) => p.name === name)
+    setModel(info?.models?.[0] ?? '')
+    // 切换 provider 后原有的已配置 key 提示不再适用；密码框留空，
+    // 保存时若用户没填新 key 就不下发 api_key，交给后端保留原值。
+    setApiKeyPlaceholder('')
+    setApiKeyInput('')
+  }
+
+  async function handleSaveSettings() {
+    setSettingsError('')
+    try {
+      const patch: Parameters<typeof updateChatConfig>[0] = {
+        active_provider: providerName,
+        providers: {
+          [providerName]: {
+            model,
+            temperature,
+            max_tokens: maxTokens,
+            thinking,
+            // 留空/未改动则不下发 api_key，PUT 端点按合并语义保留原值。
+            ...(apiKeyInput.trim() ? { api_key: apiKeyInput.trim() } : {}),
+          },
+        },
+      }
+      await updateChatConfig(patch)
+      setSettingsSaved(true)
+      setSettingsOpen(false)
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   useEffect(() => {
@@ -143,14 +227,144 @@ export function ChatBubble({ changeName }: { changeName: string }) {
       {open && (
         <div
           data-testid="chat-overlay"
-          className="fixed bottom-20 right-4 w-96 h-[500px] bg-white rounded-lg shadow-2xl border border-[#e8e8ed] flex flex-col"
+          className="fixed bottom-20 right-4 w-[440px] h-[min(80vh,720px)] bg-white rounded-lg shadow-2xl border border-[#e8e8ed] flex flex-col"
         >
           <div className="flex items-center justify-between p-3 border-b border-[#e8e8ed]">
             <span className="text-sm font-semibold">Chat · {changeName}</span>
-            <button data-testid="chat-overlay-close" onClick={() => setOpen(false)}>
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="chat-settings-toggle"
+                onClick={() => (settingsOpen ? setSettingsOpen(false) : openSettings())}
+                title="AI 配置"
+                aria-label="AI 配置"
+                className="text-[#6e6e73] hover:text-[#1d1d1f]"
+              >
+                ⚙
+              </button>
+              <button data-testid="chat-overlay-close" onClick={() => setOpen(false)}>
+                ✕
+              </button>
+            </div>
           </div>
+          {settingsOpen ? (
+            <div data-testid="chat-settings-panel" className="flex-1 overflow-y-auto p-3 text-sm space-y-3">
+              {settingsLoading ? (
+                <div className="text-[#6e6e73]">加载中…</div>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="block text-xs font-medium text-[#6e6e73] mb-1">Provider</span>
+                    <select
+                      data-testid="chat-settings-provider"
+                      value={providerName}
+                      onChange={(e) => handleProviderChange(e.target.value)}
+                      className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                    >
+                      {providers.map((p) => (
+                        <option key={p.name} value={p.name}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="block text-xs font-medium text-[#6e6e73] mb-1">Model</span>
+                    <select
+                      data-testid="chat-settings-model"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                    >
+                      {(providers.find((p) => p.name === providerName)?.models ?? []).map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="block text-xs font-medium text-[#6e6e73] mb-1">API Key</span>
+                    <input
+                      data-testid="chat-settings-api-key"
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder={apiKeyPlaceholder || '未配置'}
+                      className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <label className="block flex-1">
+                      <span className="block text-xs font-medium text-[#6e6e73] mb-1">Temperature</span>
+                      <input
+                        data-testid="chat-settings-temperature"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="2"
+                        value={temperature}
+                        onChange={(e) => setTemperature(Number(e.target.value))}
+                        className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                      />
+                    </label>
+                    <label className="block flex-1">
+                      <span className="block text-xs font-medium text-[#6e6e73] mb-1">Max Tokens</span>
+                      <input
+                        data-testid="chat-settings-max-tokens"
+                        type="number"
+                        min="1"
+                        value={maxTokens}
+                        onChange={(e) => setMaxTokens(Number(e.target.value))}
+                        className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="block text-xs font-medium text-[#6e6e73] mb-1">Thinking</span>
+                    <select
+                      data-testid="chat-settings-thinking"
+                      value={thinking}
+                      onChange={(e) => setThinking(e.target.value)}
+                      className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                    >
+                      <option value="auto">auto</option>
+                      <option value="disabled">disabled</option>
+                    </select>
+                  </label>
+                  {settingsError && (
+                    <div data-testid="chat-settings-error" className="text-red-600 text-xs">
+                      {settingsError}
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      data-testid="chat-settings-cancel"
+                      onClick={() => setSettingsOpen(false)}
+                      className="text-sm text-[#6e6e73] px-3 py-1.5 rounded-md hover:bg-[#f5f5f7]"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="chat-settings-save"
+                      onClick={handleSaveSettings}
+                      className="bg-[#0063f8] text-white rounded-md px-3 py-1.5 text-sm"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              {settingsSaved && (
+                <div data-testid="chat-settings-saved" className="px-3 py-1 text-xs text-green-700 bg-green-50 border-b border-[#e8e8ed]">
+                  配置已保存
+                </div>
+              )}
           <div
             data-testid="chat-messages"
             ref={messagesRef}
@@ -245,6 +459,8 @@ export function ChatBubble({ changeName }: { changeName: string }) {
               发送
             </button>
           </div>
+            </>
+          )}
         </div>
       )}
     </>

@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fetchChanges, fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchWikiLint, streamChat, fetchChatSession } from './client'
+import {
+  fetchChanges,
+  fetchWorkspaces,
+  addWorkspace,
+  fetchChangesWithMeta,
+  fetchWikiIndex,
+  fetchWikiLint,
+  streamChat,
+  fetchChatSession,
+  fetchChatConfig,
+  updateChatConfig,
+  fetchChatProviders,
+} from './client'
 import type { ChatStreamEvent } from './client'
 
 afterEach(() => {
@@ -320,5 +332,85 @@ describe('fetchChatSession', () => {
   it('throws on non-OK response', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
     await expect(fetchChatSession('rx101-x')).rejects.toThrow()
+  })
+})
+
+describe('fetchChatConfig', () => {
+  it('GETs /api/chat/config and returns the parsed config', async () => {
+    const mockConfig = {
+      active_provider: 'anthropic',
+      providers: {
+        anthropic: {
+          api_key: 'sk-c****umMM',
+          api_base: '',
+          model: 'claude-3-5-sonnet',
+          temperature: 0.7,
+          max_tokens: 4096,
+          thinking: 'auto',
+        },
+      },
+    }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockConfig,
+    } as Response)
+
+    const result = await fetchChatConfig()
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/chat/config')
+    expect(result).toEqual(mockConfig)
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchChatConfig()).rejects.toThrow()
+  })
+})
+
+describe('updateChatConfig', () => {
+  it('PUTs the partial config patch as JSON and returns the merged config', async () => {
+    const patch = { active_provider: 'anthropic', providers: { anthropic: { model: 'claude-3-opus' } } }
+    const mockConfig = { active_provider: 'anthropic', providers: { anthropic: { api_key: '', api_base: '', model: 'claude-3-opus', temperature: 0.7, max_tokens: 4096, thinking: 'auto' } } }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockConfig,
+    } as Response)
+
+    const result = await updateChatConfig(patch)
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/chat/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    expect(result).toEqual(mockConfig)
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(updateChatConfig({})).rejects.toThrow()
+  })
+})
+
+describe('fetchChatProviders', () => {
+  it('GETs /api/chat/providers and returns the parsed list', async () => {
+    const mockProviders = {
+      active: 'anthropic',
+      providers: [{ name: 'anthropic', models: ['claude-3-5-sonnet', 'claude-3-opus'], supports_images: true }],
+    }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockProviders,
+    } as Response)
+
+    const result = await fetchChatProviders()
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/chat/providers')
+    expect(result).toEqual(mockProviders)
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchChatProviders()).rejects.toThrow()
   })
 })

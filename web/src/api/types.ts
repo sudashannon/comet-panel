@@ -87,3 +87,37 @@ export interface ChangeDetail {
   createdAt: string
   phases: PhaseInfo[]
 }
+
+export interface ChatProviderConfig {
+  api_key: string
+  api_base: string
+  model: string
+  temperature: number
+  max_tokens: number
+  thinking: string
+}
+
+export interface ChatConfig {
+  active_provider: string
+  providers: Record<string, ChatProviderConfig>
+}
+
+// Partial update shape for PUT /api/chat/config: the backend merges any
+// provided fields into the existing provider config, so callers omit
+// unchanged fields (notably api_key when the user left it blank) rather
+// than sending a full ChatProviderConfig.
+export interface ChatConfigPatch {
+  active_provider?: string
+  providers?: Record<string, Partial<ChatProviderConfig>>
+}
+
+export interface ChatProviderInfo {
+  name: string
+  models: string[]
+  supports_images: boolean
+}
+
+export interface ChatProviders {
+  active: string
+  providers: ChatProviderInfo[]
+}

@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, ChangeDetail } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -92,6 +92,28 @@ export interface ChatSession {
 export async function fetchChatSession(change: string): Promise<ChatSession> {
   const res = await fetch('/api/chat/session?change=' + encodeURIComponent(change))
   if (!res.ok) throw new Error(`fetchChatSession failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchChatConfig(): Promise<ChatConfig> {
+  const res = await fetch('/api/chat/config')
+  if (!res.ok) throw new Error(`fetchChatConfig failed: ${res.status}`)
+  return res.json()
+}
+
+export async function updateChatConfig(patch: ChatConfigPatch): Promise<ChatConfig> {
+  const res = await fetch('/api/chat/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`updateChatConfig failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchChatProviders(): Promise<ChatProviders> {
+  const res = await fetch('/api/chat/providers')
+  if (!res.ok) throw new Error(`fetchChatProviders failed: ${res.status}`)
   return res.json()
 }
 
