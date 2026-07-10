@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeSlug from 'rehype-slug'
+import GithubSlugger from 'github-slugger'
 import { fetchArtifactContent } from '../api/client'
 import { DiagramBlock } from './DiagramBlock'
 
@@ -26,6 +28,41 @@ function stripFrontmatter(text: string): string {
   return text
 }
 
+interface TocEntry {
+  id: string
+  text: string
+  level: number
+}
+
+// Parses ATX headings (#, ##, ###) from markdown into a TOC, assigning each the
+// same slug id that rehype-slug produces at render time (both use GithubSlugger
+// traversing in document order, so a fresh slugger here matches the rendered
+// heading ids — including duplicate-heading disambiguation like "-1"). Fenced
+// code blocks are skipped so a commented "# foo" inside ```…``` isn't a heading.
+function extractToc(markdown: string): TocEntry[] {
+  const slugger = new GithubSlugger()
+  const entries: TocEntry[] = []
+  let inFence = false
+  for (const line of markdown.split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    const m = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(line)
+    if (!m) continue
+    // Strip inline markdown emphasis/code/links from the visible label.
+    const text = m[2]
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .trim()
+    entries.push({ id: slugger.slug(text), text, level: m[1].length })
+  }
+  return entries
+}
+
 const markdownComponents: Components = {
   h1: ({ node, ...rest }) => <h1 className="text-2xl font-bold mt-5 mb-3" {...rest} />,
   h2: ({ node, ...rest }) => <h2 className="text-xl font-semibold mt-5 mb-2" {...rest} />,
@@ -41,7 +78,6 @@ const markdownComponents: Components = {
     />
   ),
   hr: ({ node, ...rest }) => <hr className="my-6 border-[#e8e8ed]" {...rest} />,
-  img: ({ node, ...rest }) => <img className="max-w-full rounded-lg" {...rest} />,
   table: ({ node, ...rest }) => (
     <div className="overflow-x-auto mb-4">
       <table className="border-collapse w-full text-left" {...rest} />
@@ -91,30 +127,60 @@ interface Props {
 export function MarkdownViewer({ path, artifacts, onSelectArtifact, onClose }: Props) {
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState(false)
+  const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!path) return
     setContent(null)
     setError(false)
+    setZoomed(null)
     fetchArtifactContent(path)
       .then((text) => setContent(stripFrontmatter(text)))
       .catch(() => setError(true))
   }, [path])
 
-  // Escape closes the modal: matches the ✕ button so keyboard users have the
-  // same affordance. Listener is only attached while the viewer is open.
+  // Escape closes the lightbox first (if open), otherwise the viewer — so a
+  // user zooming an image can dismiss just the overlay without losing the doc.
   useEffect(() => {
     if (!path) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (zoomed) setZoomed(null)
+      else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [path, onClose])
+  }, [path, onClose, zoomed])
+
+  const toc = useMemo(() => (content ? extractToc(content) : []), [content])
+
+  // Override img so raster images AND external SVGs open in a zoom lightbox on
+  // click; everything else reuses the shared markdownComponents styling.
+  const components = useMemo<Components>(
+    () => ({
+      ...markdownComponents,
+      img: ({ node, src, alt, ...rest }) => (
+        <img
+          {...rest}
+          src={src}
+          alt={alt}
+          className="max-w-full rounded-lg cursor-zoom-in"
+          onClick={() => typeof src === 'string' && setZoomed({ src, alt: alt ?? '' })}
+        />
+      ),
+    }),
+    [],
+  )
 
   if (!path) return null
 
   const filename = path.split('/').pop() ?? path
+
+  const jumpTo = (id: string) => {
+    const el = scrollRef.current?.querySelector(`#${CSS.escape(id)}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div
@@ -159,17 +225,64 @@ export function MarkdownViewer({ path, artifacts, onSelectArtifact, onClose }: P
           </div>
         )}
       </header>
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-6 py-8 text-base leading-relaxed">
-          {error && <div className="text-[#dc2626]">加载失败</div>}
-          {!error && content === null && <div className="text-[#6e6e73]">加载中…</div>}
-          {!error && content !== null && (
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {content}
-            </ReactMarkdown>
-          )}
+      <div className="flex-1 min-h-0 flex">
+        {toc.length > 1 && (
+          <nav
+            data-testid="markdown-toc"
+            aria-label="文档目录"
+            className="hidden lg:block w-60 shrink-0 overflow-y-auto border-r border-[#e8e8ed] py-6 px-3"
+          >
+            <div className="text-xs font-semibold text-[#6e6e73] px-2 mb-2">目录</div>
+            <ul className="space-y-0.5">
+              {toc.map((entry, i) => (
+                <li key={`${entry.id}-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => jumpTo(entry.id)}
+                    className="w-full text-left text-xs text-[#1d1d1f] hover:text-[#0063f8] hover:bg-[#f0f5ff] rounded px-2 py-1 truncate"
+                    style={{ paddingLeft: `${(entry.level - 1) * 12 + 8}px` }}
+                    title={entry.text}
+                  >
+                    {entry.text}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-6 py-8 text-base leading-relaxed">
+            {error && <div className="text-[#dc2626]">加载失败</div>}
+            {!error && content === null && <div className="text-[#6e6e73]">加载中…</div>}
+            {!error && content !== null && (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSlug]}
+                components={components}
+              >
+                {content}
+              </ReactMarkdown>
+            )}
+          </div>
         </div>
       </div>
+      {zoomed && (
+        <div
+          data-testid="image-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={zoomed.alt || '图片预览'}
+          onClick={() => setZoomed(null)}
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8 cursor-zoom-out"
+        >
+          <img
+            src={zoomed.src}
+            alt={zoomed.alt}
+            className="max-w-[92vw] max-h-[92vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

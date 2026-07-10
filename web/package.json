@@ -11,10 +11,12 @@
   "dependencies": {
     "@fontsource/inter": "^5.1.0",
     "cytoscape": "^3.30.2",
+    "github-slugger": "^2.0.0",
     "mermaid": "^11.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
+    "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
