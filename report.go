@@ -244,6 +244,10 @@ func handleReport(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry
 		writeJSONError(w, "invalid body", 400)
 		return
 	}
+	if req.Type != "weekly" && req.Type != "monthly" {
+		writeJSONError(w, "invalid report type", 400)
+		return
+	}
 	cfg, err := chat.LoadConfig()
 	if err != nil || cfg == nil {
 		writeJSONError(w, "请先配置 LLM provider", 400)

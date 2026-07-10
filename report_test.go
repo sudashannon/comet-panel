@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -72,10 +72,10 @@ func TestGatherReportData_BadDateReturnsError(t *testing.T) {
 }
 
 func TestHandleReport_NoProviderReturns400(t *testing.T) {
-	prevCfg, prevUser := chat.LoadConfig, os.Getenv("HOME")
-	t.Cleanup(func() { chat.LoadConfig = prevCfg; os.Setenv("HOME", prevUser) })
+	prevCfg := chat.LoadConfig
+	t.Cleanup(func() { chat.LoadConfig = prevCfg })
 	tmp := t.TempDir()
-	os.Setenv("HOME", tmp)
+	t.Setenv("HOME", tmp)
 	chat.LoadConfig = func() (*chat.Config, error) {
 		return &chat.Config{ActiveProvider: "minimax", Providers: map[string]chat.ProviderConfig{"minimax": {}}}, nil
 	}
@@ -92,9 +92,9 @@ func TestHandleReport_NoProviderReturns400(t *testing.T) {
 
 func TestListReports_Empty(t *testing.T) {
 	tmp := t.TempDir()
-	prevHome, prevDir := os.Getenv("HOME"), reportsDirFn
-	t.Cleanup(func() { os.Setenv("HOME", prevHome); reportsDirFn = prevDir })
-	os.Setenv("HOME", tmp)
+	prevDir := reportsDirFn
+	t.Cleanup(func() { reportsDirFn = prevDir })
+	t.Setenv("HOME", tmp)
 	reportsDirFn = func() (string, error) { return tmp, nil }
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/reports", nil)
@@ -130,5 +130,49 @@ func TestWeekly_BlockedDrainReceivesFullText(t *testing.T) {
 	out := synthesizeWeekly(data, "2026-06-01", "2026-06-30", pcfg, nil)
 	if !strings.Contains(string(out), "测试周报") {
 		t.Fatalf("want markdown to include fake text; got %s", out)
+	}
+}
+
+func TestReport_RoundTrip_ListAndGet(t *testing.T) {
+	tmp := t.TempDir()
+	prevDir := reportsDirFn
+	t.Cleanup(func() { reportsDirFn = prevDir })
+	t.Setenv("HOME", tmp)
+	reportsDirFn = func() (string, error) { return tmp, nil }
+
+	body := []byte("# 周报\n\n本周内容。")
+	name, err := saveReport(tmp, "weekly", "2026-06-01", "2026-06-30", body)
+	if err != nil {
+		t.Fatalf("saveReport: %v", err)
+	}
+
+	listW := httptest.NewRecorder()
+	handleListReports(listW, httptest.NewRequest(http.MethodGet, "/api/reports", nil))
+	if listW.Code != 200 {
+		t.Fatalf("list want 200, got %d", listW.Code)
+	}
+	var metas []reportMeta
+	if err := json.Unmarshal(listW.Body.Bytes(), &metas); err != nil {
+		t.Fatalf("decode list body: %v", err)
+	}
+	if len(metas) != 1 {
+		t.Fatalf("want 1 report, got %d: %+v", len(metas), metas)
+	}
+	m := metas[0]
+	if m.Name != name || m.Type != "weekly" || m.Start != "2026-06-01" || m.End != "2026-06-30" {
+		t.Fatalf("unexpected meta: %+v", m)
+	}
+
+	getW := httptest.NewRecorder()
+	handleGetReport(getW, httptest.NewRequest(http.MethodGet, "/api/reports/get?name="+name, nil))
+	if getW.Code != 200 {
+		t.Fatalf("get want 200, got %d", getW.Code)
+	}
+	var got struct{ Format, Body string }
+	if err := json.Unmarshal(getW.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode get body: %v", err)
+	}
+	if got.Body != string(body) {
+		t.Fatalf("body mismatch: got %q want %q", got.Body, string(body))
 	}
 }
