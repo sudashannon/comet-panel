@@ -16,17 +16,18 @@ const (
 )
 
 type Component struct {
-	ID          string // absolute, canonicalized path — stable identity
-	Type        ComponentType
-	Title       string
-	Path        string
-	Workspace   string
-	Frontmatter map[string]any
-	UpdatedAt   time.Time
+	ID          string         `json:"id"` // absolute, canonicalized path — stable identity
+	Type        ComponentType  `json:"type"`
+	Title       string         `json:"title"`
+	Path        string         `json:"path"`
+	Workspace   string         `json:"workspace"`
+	Frontmatter map[string]any `json:"frontmatter"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
 }
 
 type Edge struct {
-	From, To string // Component.ID
-	Kind     string // references | implements | generates | traces-back | supersedes
-	Source   string // "yaml" (highest confidence) | "markdown-link" | "slug-match" (lint-only)
+	From   string `json:"from"`
+	To     string `json:"to"`     // Component.ID
+	Kind   string `json:"kind"`   // references | implements | generates | traces-back | supersedes
+	Source string `json:"source"` // "yaml" (highest confidence) | "markdown-link" | "slug-match" (lint-only)
 }
