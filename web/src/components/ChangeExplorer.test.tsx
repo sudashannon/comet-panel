@@ -29,6 +29,19 @@ describe('ChangeExplorer', () => {
     expect(onSelect).toHaveBeenCalledWith('bar')
   })
 
+  it('renders a phase badge and workflow tag on each change card', () => {
+    render(
+      <ChangeExplorer
+        changes={[makeChange({ name: 'foo', phase: 'build', workflow: 'full' })]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('foo')).toBeTruthy()
+    expect(screen.getAllByText('build', { selector: 'span' })[0]).toBeTruthy()
+    expect(screen.getAllByText('full', { selector: 'span' })[0]).toBeTruthy()
+  })
+
   it('groups archived changes under a collapsible "已归档" section', () => {
     const onSelect = vi.fn()
     const { container } = render(
