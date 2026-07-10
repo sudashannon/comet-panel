@@ -26,7 +26,7 @@ function barColor(phase: string, pct: number): string {
 const PHASE_STYLES: Record<string, string> = {
   open: 'bg-[#f0f0f0] text-[#6e6e73]',
   design: 'bg-[#e6f0ff] text-[#0063f8]',
-  build: 'bg-[#fdf1dc] text-[#c47a06]',
+  build: 'bg-[#fdf1dc] text-[#d97706]',
   verify: 'bg-[#f1e6fb] text-[#7c3aed]',
   archive: 'bg-[#e7f7ec] text-[#16a34a]',
 }
