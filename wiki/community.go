@@ -168,10 +168,18 @@ func DetectCommunities(g *Graph) map[string]int {
 }
 
 // communityLabelStopwords lists terms too generic to serve as a useful
-// community label (English function words + common Chinese particles).
+// community label (English function words, common Chinese particles, and
+// generic engineering/workflow terms that appear across all communities).
 var communityLabelStopwords = map[string]bool{
-	"the": true, "a": true, "and": true, "is": true, "of": true,
-	"的": true, "是": true, "了": true, "和": true, "在": true,
+	// English function words
+	"the": true, "a": true, "an": true, "and": true, "is": true, "of": true,
+	"to": true, "in": true, "for": true, "on": true, "with": true, "from": true,
+	// Chinese particles
+	"的": true, "是": true, "了": true, "和": true, "在": true, "与": true,
+	// Generic engineering terms (appear in almost every change)
+	"fix": true, "spec": true, "plan": true, "proposal": true, "design": true,
+	"tasks": true, "implementation": true, "v1": true, "v2": true,
+	"docs": true, "test": true, "add": true, "update": true, "get": true,
 }
 
 // CommunityLabels computes a human-readable label for each community by
@@ -240,12 +248,24 @@ func CommunityLabels(components []Component, communities map[string]int) map[int
 }
 
 // isValidLabelTerm reports whether tok is eligible to be a community label:
-// at least 2 runes long and not a common stopword.
+// at least 2 runes long, not a common stopword, and not a pure numeric string
+// (which typically comes from date fragments like "06", "2026").
 func isValidLabelTerm(tok string) bool {
 	if communityLabelStopwords[tok] {
 		return false
 	}
-	return len([]rune(tok)) >= 2
+	if len([]rune(tok)) < 2 {
+		return false
+	}
+	// Reject pure numeric tokens (date fragments like "06", "2026", "13")
+	allDigit := true
+	for _, r := range tok {
+		if !unicode.IsDigit(r) {
+			allDigit = false
+			break
+		}
+	}
+	return !allDigit
 }
 
 // labelTokens tokenizes text the same way tokenizeCorpus does for ASCII
