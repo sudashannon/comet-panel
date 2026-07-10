@@ -285,8 +285,10 @@ func handleReport(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry
 	}
 
 	dir, dirErr := reportsDirFn()
+	var savedName string
 	if dirErr == nil {
-		if _, saveErr := saveReport(dir, req.Type, req.Start, req.End, body); saveErr != nil {
+		name, saveErr := saveReport(dir, req.Type, req.Start, req.End, body)
+		if saveErr != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(500)
 			json.NewEncoder(w).Encode(map[string]any{
@@ -296,10 +298,11 @@ func handleReport(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry
 			})
 			return
 		}
+		savedName = name
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"format": ext(req.Type), "body": string(body)})
+	json.NewEncoder(w).Encode(map[string]any{"format": ext(req.Type), "body": string(body), "savedName": savedName})
 }
 
 // synthesizeWeekly builds the weekly-report prompt from ReportData and
@@ -514,8 +517,9 @@ func handleListReports(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 
-// handleGetReport is GET /api/reports/get?name=<file>: returns a single
-// persisted report's body, rejecting any path-traversal attempt in name.
+// handleGetReport is GET|DELETE /api/reports/get?name=<file>: returns a single
+// persisted report's body (GET), or deletes it (DELETE), rejecting any
+// path-traversal attempt in name.
 func handleGetReport(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if name == "" || strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
@@ -527,17 +531,31 @@ func handleGetReport(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, "not found", 404)
 		return
 	}
-	body, err := os.ReadFile(filepath.Join(dir, filepath.Base(name)))
-	if err != nil {
-		writeJSONError(w, "not found", 404)
-		return
+	path := filepath.Join(dir, filepath.Base(name))
+
+	switch r.Method {
+	case http.MethodDelete:
+		if err := os.Remove(path); err != nil {
+			writeJSONError(w, "not found", 404)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	case http.MethodGet:
+		body, err := os.ReadFile(path)
+		if err != nil {
+			writeJSONError(w, "not found", 404)
+			return
+		}
+		format := "md"
+		if strings.HasSuffix(name, ".html") {
+			format = "html"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"format": format, "body": string(body)})
+	default:
+		writeJSONError(w, "method not allowed", 405)
 	}
-	format := "md"
-	if strings.HasSuffix(name, ".html") {
-		format = "html"
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"format": format, "body": string(body)})
 }
 
 // parseReportName parses "<type>-<start>_<end>-<ts>.<ext>" into its parts.

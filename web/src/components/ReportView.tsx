@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchChatConfig, generateReport, listReports, getReport } from '../api/client'
+import { fetchChatConfig, generateReport, listReports, getReport, deleteReport } from '../api/client'
 import type { ChatConfig, ReportMeta, ReportResponse, ReportType, WorkspaceConfig } from '../api/types'
 import { MarkdownViewer } from './MarkdownViewer'
 
@@ -36,6 +36,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
 
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<ReportResponse | null>(null)
+  const [loadedName, setLoadedName] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const [history, setHistory] = useState<ReportMeta[]>([])
@@ -70,6 +71,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
         ...(reportWorkspace ? { workspace: reportWorkspace } : {}),
       })
       setResult(resp)
+      setLoadedName(resp.savedName ?? null)
       reloadHistory()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -80,6 +82,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
 
   function handleHistoryClick(item: ReportMeta) {
     setError('')
+    setLoadedName(item.name)
     getReport(item.name)
       .then(setResult)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
@@ -96,6 +99,20 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
     a.download = `${type}-report-${end}.${ext}`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function handleDelete() {
+    if (!result) return
+    // Find the history item matching current result (best-effort: last loaded)
+    const item = history.find((h) => h.name === loadedName)
+    if (!item) return
+    deleteReport(item.name)
+      .then(() => {
+        setResult(null)
+        setLoadedName(null)
+        listReports().then(setHistory).catch(() => {})
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }
 
   if (configLoading) {
@@ -217,7 +234,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
         <div className="flex-1 min-h-0">
           {result ? (
             <div className="h-full min-h-0 flex flex-col gap-2">
-              <div className="flex justify-end shrink-0">
+              <div className="flex justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   data-testid="report-download"
@@ -226,6 +243,16 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
                 >
                   ⬇ 下载
                 </button>
+                {loadedName && (
+                  <button
+                    type="button"
+                    data-testid="report-delete"
+                    onClick={handleDelete}
+                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#e8e8ed] text-[#dc2626] hover:bg-[#fef2f2]"
+                  >
+                    🗑 删除
+                  </button>
+                )}
               </div>
               <div className="flex-1 min-h-0">
                 {result.format === 'html' ? (

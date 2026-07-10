@@ -142,6 +142,7 @@ export interface ReportRequest {
 export interface ReportResponse {
   format: 'markdown' | 'html'
   body: string
+  savedName?: string
 }
 
 export interface ReportMeta {

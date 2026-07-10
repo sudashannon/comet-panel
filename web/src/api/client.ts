@@ -208,3 +208,8 @@ export async function getReport(name: string): Promise<ReportResponse> {
   if (!res.ok) throw new Error(`getReport failed: ${res.status}`)
   return res.json()
 }
+
+export async function deleteReport(name: string): Promise<void> {
+  const res = await fetch('/api/reports/get?name=' + encodeURIComponent(name), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`deleteReport failed: ${res.status}`)
+}
