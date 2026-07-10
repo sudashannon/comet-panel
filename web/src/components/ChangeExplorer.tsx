@@ -116,6 +116,13 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
   const active = filtered.filter((c) => !c.archived)
   const archived = filtered.filter((c) => c.archived)
 
+  const clearFilters = () => {
+    setSearch('')
+    setStatus('all')
+    setWorkflow('all')
+    setPhase('all')
+  }
+
   // Auto-expand the archived section when the selected change is archived OR
   // when the user is actively searching/filtering — otherwise a search whose
   // only matches are archived looks like "无匹配" behind a collapsed group.
@@ -171,7 +178,18 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
         </div>
       </div>
       {active.length === 0 && archived.length === 0 && (
-        <div className="text-xs text-[#6e6e73] text-center py-4">无匹配</div>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[#e8e8ed] py-8 text-center">
+          <span className="text-2xl text-[#c7c7cc]" aria-hidden="true">🔍</span>
+          <div className="text-sm font-medium text-[#6e6e73]">无匹配的变更</div>
+          <div className="text-xs text-[#a1a1a6]">尝试调整搜索关键词或筛选条件</div>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="mt-1 rounded-lg border border-[#e8e8ed] px-3 py-1 text-xs font-medium text-[#0063f8] hover:bg-[#f0f5ff]"
+          >
+            清除筛选
+          </button>
+        </div>
       )}
       {active.map((c) => (
         <ChangeCard

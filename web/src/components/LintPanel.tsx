@@ -64,18 +64,43 @@ export function LintPanel() {
       {[...groups.entries()].map(([rule, items]) => (
         <section key={rule}>
           <div className="sticky top-0 flex items-center gap-2 bg-white/95 py-1 border-b border-[#e8e8ed] mb-1">
-            <span className="text-[#c47a06] font-mono font-semibold whitespace-nowrap">{rule}</span>
+            <span className="shrink-0 text-[#c47a06] font-mono font-semibold whitespace-nowrap">{rule}</span>
             <span className="text-[#6e6e73]">({items.length})</span>
           </div>
           <div className="space-y-1">
-            {items.map((i, idx) => (
-              <div key={idx} className="text-[#6e6e73] truncate pl-1" title={i.detail}>
-                {i.detail}
-              </div>
-            ))}
+            {items.map((i, idx) => <LintDetail key={idx} detail={i.detail} />)}
           </div>
         </section>
       ))}
+    </div>
+  )
+}
+
+// Dead-link details look like "link to <path> has no matching component" —
+// the path can be a long absolute filesystem path, and the component filename
+// at its tail is the actually useful part. A plain `truncate` ellipsis cuts
+// the string from the right, hiding exactly that filename. Splitting off the
+// static prefix/suffix and rendering the path in an RTL-truncated span keeps
+// the ellipsis on the LEFT of the path instead, so the filename stays visible.
+const DEAD_LINK_DETAIL_RE = /^(link to )(.+)( has no matching component)$/
+
+function LintDetail({ detail }: { detail: string }) {
+  const match = detail.match(DEAD_LINK_DETAIL_RE)
+  if (!match) {
+    return (
+      <div className="text-[#6e6e73] truncate pl-1" title={detail}>
+        {detail}
+      </div>
+    )
+  }
+  const [, prefix, path, suffix] = match
+  return (
+    <div className="flex min-w-0 text-[#6e6e73] pl-1" title={detail}>
+      <span className="shrink-0 whitespace-nowrap">{prefix}</span>
+      <span className="min-w-0 truncate" dir="rtl" style={{ textAlign: 'left' }}>
+        {path}
+      </span>
+      <span className="shrink-0 whitespace-nowrap">{suffix}</span>
     </div>
   )
 }

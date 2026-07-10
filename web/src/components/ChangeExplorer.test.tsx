@@ -192,7 +192,7 @@ describe('ChangeExplorer', () => {
     expect(screen.queryByText('skip-this')).toBeNull()
   })
 
-  it('shows a "无匹配" message when filters produce an empty result', () => {
+  it('shows a helpful empty-state with a working "清除筛选" button when filters produce an empty result', () => {
     render(
       <ChangeExplorer
         changes={[makeChange({ name: 'foo' }), makeChange({ name: 'bar' })]}
@@ -201,7 +201,12 @@ describe('ChangeExplorer', () => {
       />,
     )
     fireEvent.change(screen.getByPlaceholderText('搜索变更名称…'), { target: { value: 'nonexistent' } })
-    expect(screen.getByText('无匹配')).toBeTruthy()
+    expect(screen.getByText('无匹配的变更')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('清除筛选'))
+    expect(screen.getByText('foo')).toBeTruthy()
+    expect(screen.getByText('bar')).toBeTruthy()
+    expect((screen.getByPlaceholderText('搜索变更名称…') as HTMLInputElement).value).toBe('')
   })
 
   it('clearing the search input restores the full list', () => {

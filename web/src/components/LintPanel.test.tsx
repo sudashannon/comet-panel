@@ -21,6 +21,25 @@ describe('LintPanel', () => {
     await waitFor(() => expect(screen.getByText(/dead-link/)).toBeTruthy())
   })
 
+  it('renders long dead-link paths with the filename tail preserved via RTL truncation', async () => {
+    const longPath = '/home/user/workspace/comet-panel/.comet/changes/some-very-long-change-name/design.md'
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { rule: 'dead-link', componentId: '/x/src.md', detail: `link to ${longPath} has no matching component` },
+      ],
+    } as Response)
+    render(<LintPanel />)
+    await waitFor(() => expect(screen.getByText('link to')).toBeTruthy())
+    expect(screen.getByText(longPath)).toBeTruthy()
+    expect(screen.getByText('has no matching component')).toBeTruthy()
+    const detailRow = screen.getByText(longPath)
+    expect(detailRow.getAttribute('dir')).toBe('rtl')
+    expect(detailRow.closest('[title]')?.getAttribute('title')).toBe(
+      `link to ${longPath} has no matching component`,
+    )
+  })
+
   it('shows an indexing message while polling, then a genuine clean-state message once polling gives up', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => [] } as Response)
