@@ -27,6 +27,10 @@ func (g *Graph) Component(id string) (Component, bool) {
 	return c, ok
 }
 
+func (g *Graph) Components() map[string]Component {
+	return g.components
+}
+
 func (g *Graph) Forward(id string) []Edge {
 	return g.forward[id]
 }
