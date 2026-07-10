@@ -1,8 +1,18 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { MarkdownViewer } from './MarkdownViewer'
 
 afterEach(() => vi.restoreAllMocks())
+
+// jsdom does not implement the global CSS.escape used by MarkdownViewer's
+// TOC jump-to-heading handler; polyfill it so those tests can exercise the
+// real click -> scrollIntoView path instead of stubbing the handler away.
+if (typeof globalThis.CSS === 'undefined') {
+  Object.defineProperty(globalThis, 'CSS', {
+    value: { escape: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`) },
+    writable: true,
+  })
+}
 
 describe('MarkdownViewer', () => {
   it('renders nothing when path is null', () => {
@@ -137,5 +147,115 @@ describe('MarkdownViewer', () => {
 
     await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
     expect(screen.queryByTestId('artifact-switcher')).toBeNull()
+  })
+
+  it('renders a TOC nav listing heading text and jumps to the heading on click', async () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# A\n\nintro\n\n## B\n\nmiddle\n\n### C\n\nend',
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+    const nav = await screen.findByTestId('markdown-toc')
+
+    // All three heading labels appear as TOC entries.
+    expect(screen.getByRole('button', { name: 'A' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'B' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'C' })).toBeTruthy()
+
+    const entryB = screen.getAllByText('B').find((el) => nav.contains(el))
+    expect(entryB).toBeTruthy()
+    entryB!.click()
+
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not render a TOC nav for zero or exactly one heading', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => 'just a paragraph, no headings at all',
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText(/just a paragraph/)).toBeTruthy())
+    expect(screen.queryByTestId('markdown-toc')).toBeNull()
+  })
+
+  it('still does not render a TOC nav with a single heading', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Only Heading\n\nbody text',
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('body text')).toBeTruthy())
+    expect(screen.queryByTestId('markdown-toc')).toBeNull()
+  })
+
+  it('strips inline markdown from a heading to produce a clean TOC label', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Title\n\n## `foo` bar\n\nbody',
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+    const nav = await screen.findByTestId('markdown-toc')
+
+    // The TOC label is the plain-text "foo bar", not the raw "`foo` bar".
+    expect(screen.getByRole('button', { name: 'foo bar' })).toBeTruthy()
+    expect(screen.queryByText('`foo` bar')).toBeNull()
+    void nav
+  })
+
+  it('opens an image lightbox on click, closes on overlay click, and does not close when clicking the enlarged image', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '![diagram](http://x/a.svg)\n\nsome text',
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('some text')).toBeTruthy())
+
+    const thumb = screen.getByRole('img', { name: 'diagram' })
+    expect(thumb.className).toContain('cursor-zoom-in')
+    expect(screen.queryByTestId('image-lightbox')).toBeNull()
+
+    fireEvent.click(thumb)
+
+    const lightbox = screen.getByTestId('image-lightbox')
+    expect(lightbox.getAttribute('role')).toBe('dialog')
+    const enlarged = screen.getAllByRole('img', { name: 'diagram' }).find((el) => lightbox.contains(el))
+    expect(enlarged).toBeTruthy()
+    expect(enlarged!.getAttribute('src')).toBe('http://x/a.svg')
+
+    // Clicking the enlarged image itself must not close the lightbox.
+    fireEvent.click(enlarged!)
+    expect(screen.queryByTestId('image-lightbox')).not.toBeNull()
+
+    // Clicking the overlay (outside the image) closes it.
+    fireEvent.click(lightbox)
+    expect(screen.queryByTestId('image-lightbox')).toBeNull()
+  })
+
+  it('closes the lightbox on Escape without closing the viewer, then closes the viewer on the next Escape', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '![diagram](http://x/a.svg)\n\nsome text',
+    } as Response)
+
+    const onClose = vi.fn()
+    render(<MarkdownViewer path="/x/design.md" onClose={onClose} />)
+    await waitFor(() => expect(screen.getByText('some text')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('img', { name: 'diagram' }))
+    expect(screen.getByTestId('image-lightbox')).toBeTruthy()
+
+    fireEvent(window, new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(screen.queryByTestId('image-lightbox')).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent(window, new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
