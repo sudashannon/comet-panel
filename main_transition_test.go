@@ -105,7 +105,7 @@ func TestHandleTransition_RunsAgainstAliasedWorkspacePath(t *testing.T) {
 
 	wsDir := t.TempDir()
 	openspecDir := filepath.Join(wsDir, "openspec")
-	os.MkdirAll(openspecDir, 0755)
+	os.MkdirAll(filepath.Join(openspecDir, "changes"), 0755)
 
 	regDir := t.TempDir()
 	reg, _ := NewWorkspaceRegistry(filepath.Join(regDir, "workspaces.yaml"))

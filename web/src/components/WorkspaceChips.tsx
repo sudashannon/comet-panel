@@ -12,21 +12,34 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
   const [adding, setAdding] = useState(false)
   const [alias, setAlias] = useState('')
   const [path, setPath] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const canSubmit = alias.trim() !== '' && path.trim() !== ''
+  const canSubmit = alias.trim() !== '' && path.trim() !== '' && !submitting
 
   async function submit() {
     if (!canSubmit) return
-    await onAdd({ alias, path, color: '#0063f8' })
-    setAdding(false)
-    setAlias('')
-    setPath('')
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onAdd({ alias, path, color: '#0063f8' })
+      setAdding(false)
+      setAlias('')
+      setPath('')
+    } catch (e) {
+      // Surface the server's rejection (e.g. path has no openspec/changes) inline
+      // so the user gets immediate feedback at add-time, not a post-refresh warning.
+      setError(e instanceof Error ? e.message : '添加失败')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function cancel() {
     setAdding(false)
     setAlias('')
     setPath('')
+    setError(null)
   }
 
   return (
@@ -71,6 +84,11 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
             onChange={(e) => setPath(e.target.value)}
             className="w-full border border-[#e8e8ed] rounded px-2 py-1.5 text-sm"
           />
+          {error && (
+            <div data-testid="add-ws-error" className="text-xs text-[#dc2626] leading-snug">
+              {error}
+            </div>
+          )}
           <div className="flex items-center justify-end gap-2 pt-1">
             <button onClick={cancel} className="px-2 py-1 text-xs text-[#6e6e73]">
               取消

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { WorkspaceChips } from './WorkspaceChips'
 
@@ -53,5 +53,33 @@ describe('WorkspaceChips', () => {
     fireEvent.click(screen.getByText('取消'))
     expect(screen.queryByTestId('add-ws-alias')).toBeNull()
     expect(onAdd).not.toHaveBeenCalled()
+  })
+
+  it('shows the inline error and keeps the form open (with values retained) when onAdd rejects', async () => {
+    const onAdd = vi.fn().mockRejectedValue(new Error('该路径下未找到 openspec/changes'))
+    render(<WorkspaceChips workspaces={workspaces} active={null} onSelect={vi.fn()} onAdd={onAdd} />)
+    fireEvent.click(screen.getByText('+ 添加'))
+    fireEvent.change(screen.getByTestId('add-ws-alias'), { target: { value: 'bad-ws' } })
+    fireEvent.change(screen.getByTestId('add-ws-path'), { target: { value: '/x/bad' } })
+    fireEvent.click(screen.getByTestId('add-ws-submit'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('add-ws-error').textContent).toBe('该路径下未找到 openspec/changes'),
+    )
+    // Form stays open with the user's input retained, not cleared/closed.
+    expect((screen.getByTestId('add-ws-alias') as HTMLInputElement).value).toBe('bad-ws')
+    expect((screen.getByTestId('add-ws-path') as HTMLInputElement).value).toBe('/x/bad')
+  })
+
+  it('closes the form and shows no error when onAdd resolves', async () => {
+    const onAdd = vi.fn().mockResolvedValue(undefined)
+    render(<WorkspaceChips workspaces={workspaces} active={null} onSelect={vi.fn()} onAdd={onAdd} />)
+    fireEvent.click(screen.getByText('+ 添加'))
+    fireEvent.change(screen.getByTestId('add-ws-alias'), { target: { value: 'good-ws' } })
+    fireEvent.change(screen.getByTestId('add-ws-path'), { target: { value: '/x/good' } })
+    fireEvent.click(screen.getByTestId('add-ws-submit'))
+
+    await waitFor(() => expect(screen.queryByTestId('add-ws-alias')).toBeNull())
+    expect(screen.queryByTestId('add-ws-error')).toBeNull()
   })
 })

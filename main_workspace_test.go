@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,7 +38,7 @@ func TestHandleAddWorkspace_PersistsAndReturns201(t *testing.T) {
 	// The workspace Path must be a real, existing directory now that
 	// validateWorkspacePath rejects non-existent paths at Add() time.
 	miaoPath := filepath.Join(t.TempDir(), "miao", "openspec")
-	os.MkdirAll(miaoPath, 0755)
+	os.MkdirAll(filepath.Join(miaoPath, "changes"), 0755)
 	body, _ := json.Marshal(WorkspaceConfig{Alias: "miao", Path: miaoPath, Color: "#0063f8"})
 	req := httptest.NewRequest("POST", "/api/workspaces", bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -141,13 +142,13 @@ func TestHandleGetChange_UnregisteredWorkspaceAliasReturns400(t *testing.T) {
 func TestHandleGetArtifact_TraversalGuardUsesResolvedWorkspaceRoot(t *testing.T) {
 	wsA := t.TempDir()
 	openspecA := filepath.Join(wsA, "openspec")
-	os.MkdirAll(openspecA, 0755)
+	os.MkdirAll(filepath.Join(openspecA, "changes"), 0755)
 	secretA := filepath.Join(wsA, "secret-a.txt")
 	os.WriteFile(secretA, []byte("secret-a"), 0644)
 
 	wsB := t.TempDir()
 	openspecB := filepath.Join(wsB, "openspec")
-	os.MkdirAll(openspecB, 0755)
+	os.MkdirAll(filepath.Join(openspecB, "changes"), 0755)
 	secretB := filepath.Join(wsB, "secret-b.txt")
 	os.WriteFile(secretB, []byte("secret-b"), 0644)
 
@@ -191,7 +192,7 @@ func TestHandleGetArtifact_SiblingPrefixEscapeBlocked(t *testing.T) {
 	// strings.HasPrefix("/base/ws-evil", "/base/ws") falsely allows.
 	wsRoot := filepath.Join(base, "ws")
 	openspecDir := filepath.Join(wsRoot, "openspec")
-	os.MkdirAll(openspecDir, 0755)
+	os.MkdirAll(filepath.Join(openspecDir, "changes"), 0755)
 
 	evilRoot := filepath.Join(base, "ws-evil")
 	os.MkdirAll(evilRoot, 0755)
@@ -256,5 +257,50 @@ func TestHandleAddWorkspace_RootPathReturns400(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for root path workspace registration, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandleAddWorkspace_UnreadableWorkspaceReturns400(t *testing.T) {
+	// A path that is absolute, exists, is a directory, and is not the
+	// filesystem root — but has neither changes/ nor openspec/changes/ —
+	// must be rejected at add-time with the zh-CN "unreadable workspace"
+	// message, not silently accepted.
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+
+	emptyPath := filepath.Join(t.TempDir(), "no-changes-here")
+	os.MkdirAll(emptyPath, 0755)
+	body, _ := json.Marshal(WorkspaceConfig{Alias: "unreadable", Path: emptyPath, Color: "#000"})
+	req := httptest.NewRequest("POST", "/api/workspaces", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handleAddWorkspace(w, req, reg)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for a workspace dir with no changes/ nor openspec/changes/, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "openspec/changes") {
+		t.Fatalf("expected error body to mention openspec/changes, got: %s", w.Body.String())
+	}
+	if len(reg.List()) != 0 {
+		t.Fatalf("expected registry to remain empty after rejected unreadable path, got %d", len(reg.List()))
+	}
+}
+
+func TestHandleAddWorkspace_ReadableWorkspaceWithOpenspecChangesReturns201(t *testing.T) {
+	dir := t.TempDir()
+	reg, _ := NewWorkspaceRegistry(filepath.Join(dir, "workspaces.yaml"))
+
+	repoRootPath := filepath.Join(t.TempDir(), "repo-root")
+	os.MkdirAll(filepath.Join(repoRootPath, "openspec", "changes"), 0755)
+	body, _ := json.Marshal(WorkspaceConfig{Alias: "repo-root", Path: repoRootPath, Color: "#000"})
+	req := httptest.NewRequest("POST", "/api/workspaces", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handleAddWorkspace(w, req, reg)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for a workspace dir with openspec/changes/, got %d: %s", w.Code, w.Body.String())
+	}
+	if len(reg.List()) != 1 {
+		t.Fatalf("expected registry to contain 1 workspace, got %d", len(reg.List()))
 	}
 }

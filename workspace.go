@@ -109,6 +109,14 @@ func validateWorkspacePath(path string) error {
 	if len(segments) < 2 {
 		return fmt.Errorf("workspace path %q must not be the filesystem root or a direct child of it", path)
 	}
+	// Require a scannable OpenSpec changes dir so an unreadable workspace is
+	// rejected at add-time (immediate feedback) rather than silently accepted
+	// and only surfacing as a "workspace unreadable" warning on the next scan.
+	// Mirrors scanAllChanges's repo-root tolerance: accept either <path>/changes
+	// or <path>/openspec/changes.
+	if !isDir(filepath.Join(clean, "changes")) && !isDir(filepath.Join(clean, "openspec", "changes")) {
+		return fmt.Errorf("workspace path %q 下未找到 openspec/changes 目录，不是有效的 OpenSpec 工作区", path)
+	}
 
 	return nil
 }

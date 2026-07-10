@@ -21,7 +21,10 @@ export async function addWorkspace(cfg: WorkspaceConfig): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(cfg),
   })
-  if (!res.ok) throw new Error(`addWorkspace failed: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || `添加工作区失败 (${res.status})`)
+  }
 }
 
 // Distinct from fetchChanges() (Task 4), which discards the envelope's
