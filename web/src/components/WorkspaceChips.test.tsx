@@ -33,4 +33,25 @@ describe('WorkspaceChips', () => {
     fireEvent.click(screen.getByTestId('add-ws-submit'))
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ alias: 'new-ws', path: '/x/new' }))
   })
+
+  it('disables submit until both alias and path are filled', () => {
+    render(<WorkspaceChips workspaces={workspaces} active={null} onSelect={vi.fn()} onAdd={vi.fn()} />)
+    fireEvent.click(screen.getByText('+ 添加'))
+    const submitBtn = screen.getByTestId('add-ws-submit') as HTMLButtonElement
+    expect(submitBtn.disabled).toBe(true)
+    fireEvent.change(screen.getByTestId('add-ws-alias'), { target: { value: 'new-ws' } })
+    expect(submitBtn.disabled).toBe(true)
+    fireEvent.change(screen.getByTestId('add-ws-path'), { target: { value: '/x/new' } })
+    expect(submitBtn.disabled).toBe(false)
+  })
+
+  it('hides the form when 取消 is clicked without calling onAdd', () => {
+    const onAdd = vi.fn()
+    render(<WorkspaceChips workspaces={workspaces} active={null} onSelect={vi.fn()} onAdd={onAdd} />)
+    fireEvent.click(screen.getByText('+ 添加'))
+    fireEvent.change(screen.getByTestId('add-ws-alias'), { target: { value: 'new-ws' } })
+    fireEvent.click(screen.getByText('取消'))
+    expect(screen.queryByTestId('add-ws-alias')).toBeNull()
+    expect(onAdd).not.toHaveBeenCalled()
+  })
 })
