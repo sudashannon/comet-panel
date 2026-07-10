@@ -119,19 +119,30 @@ interface Artifact {
 
 interface Props {
   path: string | null
+  // Renders this markdown string directly instead of fetching `path` from
+  // the artifact API — used by ReportView for generated report bodies that
+  // never touch disk under a change's artifact tree. When set, `path` is
+  // still used as the header title but no fetch/effect runs.
+  body?: string
   artifacts?: Artifact[]
   workspace?: string
   onSelectArtifact?: (path: string) => void
   onClose: () => void
 }
 
-export function MarkdownViewer({ path, artifacts, workspace, onSelectArtifact, onClose }: Props) {
-  const [content, setContent] = useState<string | null>(null)
+export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtifact, onClose }: Props) {
+  const [content, setContent] = useState<string | null>(body ?? null)
   const [error, setError] = useState(false)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (body !== undefined) {
+      setContent(stripFrontmatter(body))
+      setError(false)
+      setZoomed(null)
+      return
+    }
     if (!path) return
     setContent(null)
     setError(false)
@@ -139,7 +150,7 @@ export function MarkdownViewer({ path, artifacts, workspace, onSelectArtifact, o
     fetchArtifactContent(path, workspace)
       .then((text) => setContent(stripFrontmatter(text)))
       .catch(() => setError(true))
-  }, [path, workspace])
+  }, [path, body, workspace])
 
   // Escape closes the lightbox first (if open), otherwise the viewer — so a
   // user zooming an image can dismiss just the overlay without losing the doc.
@@ -174,9 +185,9 @@ export function MarkdownViewer({ path, artifacts, workspace, onSelectArtifact, o
     [],
   )
 
-  if (!path) return null
+  if (!path && body === undefined) return null
 
-  const filename = path.split('/').pop() ?? path
+  const filename = path ? path.split('/').pop() ?? path : '报告'
 
   const jumpTo = (id: string) => {
     const el = scrollRef.current?.querySelector(`#${CSS.escape(id)}`)
@@ -191,7 +202,7 @@ export function MarkdownViewer({ path, artifacts, workspace, onSelectArtifact, o
     >
       <header className="sticky top-0 z-10 bg-white border-b border-[#e8e8ed] px-6 py-3 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
-          <div className="text-sm font-semibold text-[#1d1d1f] truncate" title={path}>
+          <div className="text-sm font-semibold text-[#1d1d1f] truncate" title={path ?? undefined}>
             {filename}
           </div>
           <button

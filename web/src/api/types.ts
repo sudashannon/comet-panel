@@ -129,3 +129,25 @@ export interface ChatProviders {
   active: string
   providers: ChatProviderInfo[]
 }
+
+export type ReportType = 'weekly' | 'monthly'
+
+export interface ReportRequest {
+  type: ReportType
+  start: string
+  end: string
+  workspace?: string
+}
+
+export interface ReportResponse {
+  format: 'markdown' | 'html'
+  body: string
+}
+
+export interface ReportMeta {
+  name: string
+  type: ReportType
+  start: string
+  end: string
+  createdAt: string
+}

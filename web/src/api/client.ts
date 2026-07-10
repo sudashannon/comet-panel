@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -178,4 +178,33 @@ export async function streamChat(
       }
     }
   }
+}
+
+// Gate: POST /api/report 400s when no provider api_key is configured (see
+// isProviderReady() in ReportView.tsx, which pre-checks this client-side so
+// the request round-trip isn't the only signal). Error body follows the
+// same { error } shape as addWorkspace() above.
+export async function generateReport(req: ReportRequest): Promise<ReportResponse> {
+  const res = await fetch('/api/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || `生成报告失败 (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function listReports(): Promise<ReportMeta[]> {
+  const res = await fetch('/api/reports')
+  if (!res.ok) throw new Error(`listReports failed: ${res.status}`)
+  return res.json()
+}
+
+export async function getReport(name: string): Promise<ReportResponse> {
+  const res = await fetch('/api/reports/get?name=' + encodeURIComponent(name))
+  if (!res.ok) throw new Error(`getReport failed: ${res.status}`)
+  return res.json()
 }

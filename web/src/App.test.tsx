@@ -38,6 +38,12 @@ vi.mock('./api/client', () => ({
     change: '', messages: [], context_files: [], usage: { total_input: 0, total_output: 0 }, created_at: '', updated_at: '',
   }),
   streamChat: vi.fn(),
+  fetchChatConfig: vi.fn().mockResolvedValue({ active_provider: '', providers: {} }),
+  updateChatConfig: vi.fn(),
+  fetchChatProviders: vi.fn().mockResolvedValue({ active: '', providers: [] }),
+  generateReport: vi.fn(),
+  listReports: vi.fn().mockResolvedValue([]),
+  getReport: vi.fn(),
 }))
 
 function makeChange(overrides: Partial<ChangeSummary>): ChangeSummary {
@@ -224,5 +230,37 @@ describe('App view switcher', () => {
     fireEvent.click(screen.getByRole('button', { name: '变更列表' }))
     expect(screen.getByTestId('kpi-grid')).toBeTruthy()
     expect(screen.queryByTestId('wiki-graph-canvas')).toBeNull()
+  })
+
+  it('switching view via SideRail closes an open MarkdownViewer', async () => {
+    const changes = [makeChange({ name: 'alpha' })]
+    vi.mocked(fetchWorkspaces).mockResolvedValueOnce([])
+    vi.mocked(fetchChangesWithMeta).mockResolvedValueOnce({ changes, failedWorkspaces: [] })
+    vi.mocked(fetchChangeDetail).mockResolvedValue({
+      name: 'alpha', workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 0, tasksTotal: 0, verifyResult: 'pending', createdAt: '',
+      phases: [
+        {
+          key: 'design',
+          label: '设计',
+          status: 'done',
+          artifacts: [{ file: 'design.md', label: '设计文档', exists: true, path: '/x/alpha/design.md' }],
+        },
+      ],
+    })
+
+    render(<App />)
+    await screen.findByText('alpha')
+
+    fireEvent.click(screen.getByText('alpha'))
+    const artifactButton = await screen.findByText('设计文档')
+    fireEvent.click(artifactButton)
+    await screen.findByText('✕ 关闭')
+
+    fireEvent.click(screen.getByRole('button', { name: '图谱' }))
+
+    // The viewer must be gone immediately on view switch, not just hidden
+    // behind the newly-mounted 图谱 view.
+    expect(screen.queryByText('✕ 关闭')).toBeNull()
   })
 })
