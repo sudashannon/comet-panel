@@ -82,25 +82,39 @@ export function LintPanel() {
 // the string from the right, hiding exactly that filename. Splitting off the
 // static prefix/suffix and rendering the path in an RTL-truncated span keeps
 // the ellipsis on the LEFT of the path instead, so the filename stays visible.
+// Detail text may embed percent-encoded paths (e.g. URL-encoded CJK filenames
+// like `%E4%BA%A7%E7%BA%BF`); decode them so filenames render as readable
+// text instead of escape sequences. Malformed sequences throw, so guard and
+// fall back to the raw string.
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text)
+  } catch {
+    return text
+  }
+}
+
 const DEAD_LINK_DETAIL_RE = /^(link to )(.+)( has no matching component)$/
 
 function LintDetail({ detail }: { detail: string }) {
+  const decodedDetail = safeDecode(detail)
   const match = detail.match(DEAD_LINK_DETAIL_RE)
   if (!match) {
     return (
-      <div className="text-[#6e6e73] truncate pl-1" title={detail}>
-        {detail}
+      <div className="text-[#6e6e73] truncate pl-1" title={decodedDetail}>
+        {decodedDetail}
       </div>
     )
   }
   const [, prefix, path, suffix] = match
   return (
-    <div className="flex min-w-0 text-[#6e6e73] pl-1" title={detail}>
+    <div className="flex min-w-0 text-[#6e6e73] pl-1" title={decodedDetail}>
       <span className="shrink-0 whitespace-nowrap">{prefix}</span>
       <span className="min-w-0 truncate" dir="rtl" style={{ textAlign: 'left' }}>
-        {path}
+        {safeDecode(path)}
       </span>
       <span className="shrink-0 whitespace-nowrap">{suffix}</span>
     </div>
   )
 }
+

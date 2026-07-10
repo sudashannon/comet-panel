@@ -40,6 +40,38 @@ describe('LintPanel', () => {
     )
   })
 
+  it('decodes percent-encoded CJK filenames in dead-link details', async () => {
+    const encodedPath = '/x/LZ100_%E4%BA%A7%E7%BA%BF%E7%94%9F%E4%BA%A7.md'
+    const decodedPath = decodeURIComponent(encodedPath)
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { rule: 'dead-link', componentId: '/x/src.md', detail: `link to ${encodedPath} has no matching component` },
+      ],
+    } as Response)
+    render(<LintPanel />)
+    await waitFor(() => expect(screen.getByText('link to')).toBeTruthy())
+    expect(screen.getByText(decodedPath)).toBeTruthy()
+    expect(screen.queryByText(encodedPath)).toBeFalsy()
+    const detailRow = screen.getByText(decodedPath)
+    expect(detailRow.closest('[title]')?.getAttribute('title')).toBe(
+      `link to ${decodedPath} has no matching component`,
+    )
+  })
+
+  it('falls back to the raw string when the detail has a malformed percent-encoding', async () => {
+    const malformedPath = '/x/broken-%E4%A7.md'
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { rule: 'dead-link', componentId: '/x/src.md', detail: `link to ${malformedPath} has no matching component` },
+      ],
+    } as Response)
+    render(<LintPanel />)
+    await waitFor(() => expect(screen.getByText('link to')).toBeTruthy())
+    expect(screen.getByText(malformedPath)).toBeTruthy()
+  })
+
   it('shows an indexing message while polling, then a genuine clean-state message once polling gives up', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => [] } as Response)
