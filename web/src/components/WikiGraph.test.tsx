@@ -18,8 +18,8 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function mockGraphResponse(components: unknown[], edges: unknown[] = []) {
-  return { ok: true, json: async () => ({ components, edges }) } as Response
+function mockGraphResponse(components: unknown[], edges: unknown[] = [], communities?: Record<string, number>) {
+  return { ok: true, json: async () => ({ components, edges, communities }) } as Response
 }
 
 describe('WikiGraph', () => {
@@ -43,8 +43,8 @@ describe('WikiGraph', () => {
       layout: { name: string }
     }
     expect(call.elements).toEqual([
-      { data: { id: '/x/a.md', label: 'A', color: TYPE_COLORS.spec } },
-      { data: { id: '/x/b.md', label: 'B', color: TYPE_COLORS.plan } },
+      { data: { id: '/x/a.md', label: 'A', color: TYPE_COLORS.spec, commColor: '#ffffff' } },
+      { data: { id: '/x/b.md', label: 'B', color: TYPE_COLORS.plan, commColor: '#ffffff' } },
       { data: { id: 'e0', source: '/x/a.md', target: '/x/b.md', kind: 'references', color: '#16a34a' } },
     ])
     // Edges present -> force-directed layout reveals structure instead of the flat grid.
@@ -231,5 +231,36 @@ describe('WikiGraph', () => {
       await vi.advanceTimersByTimeAsync(60000)
     })
     expect(fetchMock.mock.calls.length).toBe(callsBeforeUnmount)
+  })
+
+  it('colors node borders by community and shows a community legend', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockGraphResponse(
+        [
+          { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+          { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
+          { id: '/x/c.md', type: 'artifact', title: 'C', path: '/x/c.md', workspace: 'miao' },
+        ],
+        [
+          { from: '/x/a.md', to: '/x/b.md', kind: 'references', source: 'markdown-link' },
+          { from: '/x/a.md', to: '/x/c.md', kind: 'similar', source: 'embedding' },
+        ],
+        { '/x/a.md': 0, '/x/b.md': 0, '/x/c.md': 1 },
+      ),
+    )
+    const { getByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalled())
+    const call = vi.mocked(cytoscape).mock.calls[0][0] as unknown as {
+      elements: Array<{ data: { id: string; commColor?: string; kind?: string } }>
+    }
+    expect(call.elements.find((el) => el.data.id === '/x/a.md')?.data.commColor).toBe('#e6194b')
+    expect(call.elements.find((el) => el.data.id === '/x/b.md')?.data.commColor).toBe('#e6194b')
+    expect(call.elements.find((el) => el.data.id === '/x/c.md')?.data.commColor).toBe('#3cb44b')
+    expect(call.elements.find((el) => el.data.kind === 'similar')).toBeTruthy()
+
+    await waitFor(() => expect(getByTestId('wiki-graph-community-legend')).toBeTruthy())
+    expect(getByTestId('wiki-graph-community-legend').textContent).toContain('#0')
+    expect(getByTestId('wiki-graph-community-legend').textContent).toContain('#1')
   })
 })

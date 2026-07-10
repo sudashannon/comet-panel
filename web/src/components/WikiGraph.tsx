@@ -55,6 +55,14 @@ const EDGE_COLORS: Record<string, string> = {
 }
 const EDGE_FALLBACK_COLOR = '#8e8e93'
 
+// COMMUNITY_COLORS gives each detected community (see wiki graph community
+// detection) a distinct border color, independent of TYPE_COLORS' node fill.
+const COMMUNITY_COLORS = [
+  '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
+  '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
+  '#dcbeff', '#9a6324',
+]
+
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 20
 
@@ -63,6 +71,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   const cyRef = useRef<cytoscape.Core | null>(null)
   const [components, setComponents] = useState<WikiComponent[]>([])
   const [edges, setEdges] = useState<WikiEdge[]>([])
+  const [communities, setCommunities] = useState<Record<string, number>>({})
   const [gaveUp, setGaveUp] = useState(false)
   const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null)
   // 关系边只占 794 个节点里的一小部分（约 222 条边、189 个有关联节点），其余
@@ -83,6 +92,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           if (data.components.length > 0) {
             setComponents(data.components)
             setEdges(data.edges)
+            setCommunities(data.communities ?? {})
             return
           }
           setComponents([])
@@ -111,6 +121,15 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   }, [])
 
   const hasEdges = edges.length > 0
+  const topCommunities = Object.entries(
+    Object.values(communities).reduce<Record<number, number>>((counts, id) => {
+      if (id >= 0) counts[id] = (counts[id] ?? 0) + 1
+      return counts
+    }, {}),
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([id]) => Number(id))
 
   useEffect(() => {
     if (!containerRef.current || components.length === 0) return
@@ -139,9 +158,15 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     const cy = cytoscape({
       container,
       elements: [
-        ...visible.map((c) => ({
-          data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73' },
-        })),
+        ...visible.map((c) => {
+          const commColor =
+            communities[c.id] != null && communities[c.id] >= 0
+              ? COMMUNITY_COLORS[communities[c.id] % COMMUNITY_COLORS.length]
+              : '#ffffff'
+          return {
+            data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73', commColor },
+          }
+        }),
         ...visibleEdges.map((e, i) => ({
           data: {
             id: `e${i}`,
@@ -167,8 +192,8 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             'text-max-width': '80px',
             width: 14,
             height: 14,
-            'border-width': 1,
-            'border-color': '#ffffff',
+            'border-width': 2,
+            'border-color': 'data(commColor)',
           },
         },
         {
@@ -195,6 +220,14 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           style: {
             width: 1.75,
             opacity: 1,
+          },
+        },
+        {
+          selector: 'edge[kind="similar"]',
+          style: {
+            'line-style': 'dashed',
+            opacity: 0.3,
+            width: 0.5,
           },
         },
       ],
@@ -231,7 +264,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       cy.destroy()
       cyRef.current = null
     }
-  }, [components, edges, connectedOnly, onNodeClick])
+  }, [components, edges, communities, connectedOnly, onNodeClick])
 
   return (
     <div className="relative flex h-[calc(100vh-160px)] min-h-[500px] w-full flex-col">
@@ -295,6 +328,25 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
               ))}
             </ul>
           </div>
+          {topCommunities.length > 0 && (
+            <div
+              data-testid="wiki-graph-community-legend"
+              className="absolute right-2 top-24 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+            >
+              <div className="mb-1 font-medium text-[#6e6e73]">社区图例</div>
+              <ul className="flex flex-wrap gap-1.5">
+                {topCommunities.map((id) => (
+                  <li key={id} className="flex items-center gap-1">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full border border-[#1d1d1f]/10"
+                      style={{ backgroundColor: COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] }}
+                    />
+                    <span>#{id}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
     </div>
