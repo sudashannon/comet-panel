@@ -29,7 +29,7 @@ export function ChangeDetail({
   useEffect(() => {
     if (!onArtifactsChanged) return
     let cancelled = false
-    fetchChangeDetail(change.name)
+    fetchChangeDetail(change.name, change.workspace)
       .then((detail) => {
         if (cancelled) return
         const artifacts = (detail.phases ?? [])
@@ -91,7 +91,7 @@ export function ChangeDetail({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border border-[#e8e8ed] rounded-lg p-3">
           <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">产出物</h4>
-          <ArtifactList changeName={change.name} onSelectArtifact={onOpenArtifact} />
+          <ArtifactList changeName={change.name} workspace={change.workspace} onSelectArtifact={onOpenArtifact} />
         </div>
         <div className="border border-[#e8e8ed] rounded-lg p-3">
           <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">文档关联</h4>

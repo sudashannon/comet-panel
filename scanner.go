@@ -357,6 +357,12 @@ func scanChange(parentDir, name string, archived bool, base string) ChangeSummar
 }
 
 func scanChangeDetail(baseDir, name string) (*ChangeDetail, error) {
+	// Same repo-root tolerance as scanAllChanges: if baseDir is a repo root
+	// (no changes/ but has openspec/changes/), descend into openspec/ so the
+	// detail/artifacts view resolves the change dir correctly.
+	if !isDir(filepath.Join(baseDir, "changes")) && isDir(filepath.Join(baseDir, "openspec", "changes")) {
+		baseDir = filepath.Join(baseDir, "openspec")
+	}
 	changesDir := filepath.Join(baseDir, "changes")
 
 	dir := filepath.Join(changesDir, name)

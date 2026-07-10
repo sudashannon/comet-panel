@@ -7,6 +7,8 @@ import {
   fetchWikiIndex,
   fetchWikiGraph,
   fetchWikiLint,
+  fetchChangeDetail,
+  fetchArtifactContent,
   streamChat,
   fetchChatSession,
   fetchChatConfig,
@@ -220,6 +222,79 @@ describe('fetchWikiLint', () => {
   it('throws on non-OK response', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
     await expect(fetchWikiLint()).rejects.toThrow()
+  })
+})
+
+describe('fetchChangeDetail', () => {
+  it('appends a ?workspace= query param when a workspace is given', async () => {
+    const mockResponse = {
+      name: 'rx101-x',
+      workflow: 'full',
+      phase: 'build',
+      archived: false,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      verifyResult: '',
+      createdAt: '',
+      phases: [],
+    }
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    } as Response)
+
+    const result = await fetchChangeDetail('rx101-x', 'rx101')
+    expect(fetchSpy).toHaveBeenCalledWith('/api/changes/rx101-x?workspace=rx101')
+    expect(result).toEqual(mockResponse)
+  })
+
+  it('omits the workspace query param when no workspace is given', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response)
+
+    await fetchChangeDetail('rx101-x')
+    expect(fetchSpy).toHaveBeenCalledWith('/api/changes/rx101-x')
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 404 } as Response)
+    await expect(fetchChangeDetail('missing-change')).rejects.toThrow()
+  })
+})
+
+describe('fetchArtifactContent', () => {
+  it('includes workspace=<ws> in the query string when a workspace is given', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# content',
+    } as Response)
+
+    const result = await fetchArtifactContent('/p', 'ws')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const requestedUrl = new URL(fetchSpy.mock.calls[0][0] as string, 'http://localhost')
+    expect(requestedUrl.pathname).toBe('/api/artifact')
+    expect(requestedUrl.searchParams.get('path')).toBe('/p')
+    expect(requestedUrl.searchParams.get('workspace')).toBe('ws')
+    expect(result).toBe('# content')
+  })
+
+  it('omits the workspace param entirely when no workspace is given', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# content',
+    } as Response)
+
+    await fetchArtifactContent('/p')
+    const requestedUrl = new URL(fetchSpy.mock.calls[0][0] as string, 'http://localhost')
+    expect(requestedUrl.searchParams.has('workspace')).toBe(false)
+    expect(requestedUrl.searchParams.get('path')).toBe('/p')
+  })
+
+  it('throws on non-OK response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
+    await expect(fetchArtifactContent('/p')).rejects.toThrow()
   })
 })
 

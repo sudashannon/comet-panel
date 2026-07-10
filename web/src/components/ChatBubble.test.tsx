@@ -203,10 +203,10 @@ describe('ChatBubble', () => {
       onEvent({ type: 'done' })
     })
 
-    render(<ChatBubble changeName="rx101-x" />)
+    render(<ChatBubble changeName="rx101-x" workspace="rx101" />)
     fireEvent.click(screen.getByTestId('chat-bubble-button'))
 
-    await waitFor(() => expect(fetchChangeDetail).toHaveBeenCalledWith('rx101-x'))
+    await waitFor(() => expect(fetchChangeDetail).toHaveBeenCalledWith('rx101-x', 'rx101'))
 
     // Only artifacts that exist are offered as context; the missing tasks.md is excluded.
     const designChip = await screen.findByTestId('context-file-chip-openspec/changes/rx101-x/design.md')
@@ -248,7 +248,7 @@ describe('ChatBubble', () => {
 
     render(<ChatBubble changeName="rx101-x" />)
     fireEvent.click(screen.getByTestId('chat-bubble-button'))
-    await waitFor(() => expect(fetchChangeDetail).toHaveBeenCalledWith('rx101-x'))
+    await waitFor(() => expect(fetchChangeDetail).toHaveBeenCalledWith('rx101-x', undefined))
 
     const chip = await screen.findByTestId('context-file-chip-openspec/changes/rx101-x/design.md')
     expect(chip.getAttribute('aria-pressed')).toBe('false')

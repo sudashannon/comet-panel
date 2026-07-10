@@ -32,7 +32,7 @@ function toChatMessage(msg: ChatSessionMessage): ChatMessage {
   return thinking ? { role, text, thinking } : { role, text }
 }
 
-export function ChatBubble({ changeName }: { changeName: string }) {
+export function ChatBubble({ changeName, workspace }: { changeName: string; workspace?: string }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -83,7 +83,7 @@ export function ChatBubble({ changeName }: { changeName: string }) {
   // 作为可勾选的上下文文件展示；用户勾选后发送时会连同消息一起传给后端。
   useEffect(() => {
     let cancelled = false
-    fetchChangeDetail(changeName)
+    fetchChangeDetail(changeName, workspace)
       .then((detail) => {
         if (cancelled) return
         const paths = (detail.phases ?? [])
@@ -98,7 +98,7 @@ export function ChatBubble({ changeName }: { changeName: string }) {
     return () => {
       cancelled = true
     }
-  }, [changeName])
+  }, [changeName, workspace])
 
   function toggleContextFile(path: string) {
     setSelectedFiles((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]))

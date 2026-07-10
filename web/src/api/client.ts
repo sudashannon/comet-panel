@@ -70,14 +70,17 @@ export async function fetchWikiGraph(): Promise<WikiGraphData> {
   return res.json()
 }
 
-export async function fetchChangeDetail(name: string): Promise<ChangeDetail> {
-  const res = await fetch('/api/changes/' + encodeURIComponent(name))
+export async function fetchChangeDetail(name: string, workspace?: string): Promise<ChangeDetail> {
+  const q = workspace ? '?workspace=' + encodeURIComponent(workspace) : ''
+  const res = await fetch('/api/changes/' + encodeURIComponent(name) + q)
   if (!res.ok) throw new Error(`fetchChangeDetail failed: ${res.status}`)
   return res.json()
 }
 
-export async function fetchArtifactContent(path: string): Promise<string> {
-  const res = await fetch('/api/artifact?path=' + encodeURIComponent(path))
+export async function fetchArtifactContent(path: string, workspace?: string): Promise<string> {
+  const params = new URLSearchParams({ path })
+  if (workspace) params.set('workspace', workspace)
+  const res = await fetch('/api/artifact?' + params.toString())
   if (!res.ok) throw new Error(`fetchArtifactContent failed: ${res.status}`)
   return res.text()
 }

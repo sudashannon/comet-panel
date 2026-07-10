@@ -165,6 +165,7 @@ export default function App() {
                 <MarkdownViewer
                   path={viewerPath}
                   artifacts={changeArtifacts}
+                  workspace={selectedChange?.workspace}
                   onSelectArtifact={setViewerPath}
                   onClose={() => setViewerPath(null)}
                 />
@@ -210,7 +211,7 @@ export default function App() {
             </main>
           </div>
 
-          {selectedChange && <ChatBubble key={selectedChange.name} changeName={selectedChange.name} />}
+          {selectedChange && <ChatBubble key={selectedChange.name} changeName={selectedChange.name} workspace={selectedChange.workspace} />}
         </>
       )}
 

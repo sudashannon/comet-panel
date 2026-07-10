@@ -79,4 +79,25 @@ describe('ArtifactList', () => {
     await screen.findByText('2. Design')
     expect(screen.queryByText('1. Open')).toBeNull()
   })
+
+  it('forwards the workspace prop through fetchChangeDetail to the request URL', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        name: 'rx101-x',
+        workflow: 'full',
+        phase: 'design',
+        archived: false,
+        tasksCompleted: 0,
+        tasksTotal: 0,
+        verifyResult: 'pending',
+        createdAt: '2026-05-29',
+        phases: [],
+      }),
+    } as Response)
+
+    render(<ArtifactList changeName="rx101-x" workspace="rx101" onSelectArtifact={vi.fn()} />)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/changes/rx101-x?workspace=rx101'))
+  })
 })

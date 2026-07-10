@@ -120,11 +120,12 @@ interface Artifact {
 interface Props {
   path: string | null
   artifacts?: Artifact[]
+  workspace?: string
   onSelectArtifact?: (path: string) => void
   onClose: () => void
 }
 
-export function MarkdownViewer({ path, artifacts, onSelectArtifact, onClose }: Props) {
+export function MarkdownViewer({ path, artifacts, workspace, onSelectArtifact, onClose }: Props) {
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState(false)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
@@ -135,10 +136,10 @@ export function MarkdownViewer({ path, artifacts, onSelectArtifact, onClose }: P
     setContent(null)
     setError(false)
     setZoomed(null)
-    fetchArtifactContent(path)
+    fetchArtifactContent(path, workspace)
       .then((text) => setContent(stripFrontmatter(text)))
       .catch(() => setError(true))
-  }, [path])
+  }, [path, workspace])
 
   // Escape closes the lightbox first (if open), otherwise the viewer — so a
   // user zooming an image can dismiss just the overlay without losing the doc.

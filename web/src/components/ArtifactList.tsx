@@ -4,6 +4,7 @@ import type { ArtifactInfo, PhaseInfo } from '../api/types'
 
 interface Props {
   changeName: string
+  workspace?: string
   onSelectArtifact: (path: string) => void
 }
 
@@ -44,14 +45,14 @@ function PhaseSection({ phase, onSelectArtifact }: { phase: PhaseInfo; onSelectA
   )
 }
 
-export function ArtifactList({ changeName, onSelectArtifact }: Props) {
+export function ArtifactList({ changeName, workspace, onSelectArtifact }: Props) {
   const [phases, setPhases] = useState<PhaseInfo[] | null>(null)
 
   useEffect(() => {
-    fetchChangeDetail(changeName)
+    fetchChangeDetail(changeName, workspace)
       .then((detail) => setPhases(detail.phases ?? []))
       .catch(() => setPhases([]))
-  }, [changeName])
+  }, [changeName, workspace])
 
   if (phases === null) return null
 
