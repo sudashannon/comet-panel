@@ -185,5 +185,45 @@ describe('ChatBubble', () => {
 
     await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1))
   })
+
+  it('shows a labeled, collapsible context-file section that toggles visibility', async () => {
+    vi.mocked(fetchChangeDetail).mockResolvedValue({
+      name: 'rx101-x',
+      workflow: '',
+      phase: '',
+      archived: false,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      verifyResult: '',
+      createdAt: '',
+      phases: [
+        {
+          key: 'design',
+          label: 'Design',
+          status: 'done',
+          artifacts: [
+            { file: 'design.md', label: 'Design', exists: true, path: 'openspec/changes/rx101-x/design.md' },
+          ],
+        },
+      ],
+    })
+
+    render(<ChatBubble changeName="rx101-x" />)
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+    await waitFor(() => expect(fetchChangeDetail).toHaveBeenCalledWith('rx101-x'))
+
+    const chip = await screen.findByTestId('context-file-chip-openspec/changes/rx101-x/design.md')
+    expect(chip.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByTestId('context-file-list')).toBeTruthy()
+
+    fireEvent.click(chip)
+    expect(chip.getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(screen.getByTestId('context-panel-toggle'))
+    expect(screen.queryByTestId('context-file-list')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('context-panel-toggle'))
+    expect(screen.getByTestId('context-file-list')).toBeTruthy()
+  })
 })
 

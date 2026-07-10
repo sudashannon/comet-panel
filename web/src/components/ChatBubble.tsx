@@ -30,6 +30,7 @@ export function ChatBubble({ changeName }: { changeName: string }) {
   const [sending, setSending] = useState(false)
   const [contextFiles, setContextFiles] = useState<string[]>([])
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [contextPanelOpen, setContextPanelOpen] = useState(true)
   const messagesRef = useRef<HTMLDivElement>(null)
   // Guards against the history load resolving AFTER the user has already
   // sent a message (e.g. slow /api/chat/session, fast first keystroke):
@@ -183,26 +184,47 @@ export function ChatBubble({ changeName }: { changeName: string }) {
             ))}
           </div>
           {contextFiles.length > 0 && (
-            <div className="flex flex-wrap gap-1 px-3 py-2 border-t border-[#e8e8ed]">
-              {contextFiles.map((path) => {
-                const selected = selectedFiles.includes(path)
-                return (
-                  <button
-                    key={path}
-                    type="button"
-                    data-testid={`context-file-chip-${path}`}
-                    onClick={() => toggleContextFile(path)}
-                    title={path}
-                    className={
-                      selected
-                        ? 'text-xs rounded-full px-2 py-0.5 bg-[#0063f8] text-white'
-                        : 'text-xs rounded-full px-2 py-0.5 bg-[#f5f5f7] text-[#6e6e73] border border-[#e8e8ed]'
-                    }
-                  >
-                    {path.split('/').pop()}
-                  </button>
-                )
-              })}
+            <div className="border-t border-[#e8e8ed]">
+              <button
+                type="button"
+                data-testid="context-panel-toggle"
+                onClick={() => setContextPanelOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-[#6e6e73] hover:text-[#1d1d1f]"
+              >
+                <span>
+                  上下文文件
+                  {selectedFiles.length > 0 ? ` (已选 ${selectedFiles.length}/${contextFiles.length})` : ` (${contextFiles.length})`}
+                </span>
+                <span className="text-[10px]">{contextPanelOpen ? '收起 ▲' : '展开 ▼'}</span>
+              </button>
+              {contextPanelOpen && (
+                <div
+                  data-testid="context-file-list"
+                  className="flex flex-wrap gap-1.5 px-3 pb-2 max-h-20 overflow-y-auto"
+                >
+                  {contextFiles.map((path) => {
+                    const selected = selectedFiles.includes(path)
+                    return (
+                      <button
+                        key={path}
+                        type="button"
+                        data-testid={`context-file-chip-${path}`}
+                        aria-pressed={selected}
+                        onClick={() => toggleContextFile(path)}
+                        title={path}
+                        className={
+                          selected
+                            ? 'text-xs rounded-full px-2 py-0.5 bg-[#0063f8] text-white font-medium flex items-center gap-1'
+                            : 'text-xs rounded-full px-2 py-0.5 bg-white text-[#6e6e73] border border-[#e8e8ed] hover:border-[#0063f8] hover:text-[#0063f8] flex items-center gap-1'
+                        }
+                      >
+                        {selected && <span aria-hidden="true">✓</span>}
+                        {path.split('/').pop()}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
           <div className="p-3 border-t border-[#e8e8ed] flex gap-2">
