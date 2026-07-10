@@ -43,6 +43,7 @@ export const TYPE_COLORS: Record<string, string> = {
 
 export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const cyRef = useRef<cytoscape.Core | null>(null)
   const [components, setComponents] = useState<WikiComponent[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -61,10 +62,55 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
         data: { id: c.id, label: c.title },
         style: { 'background-color': TYPE_COLORS[c.type] ?? '#6e6e73' },
       })),
-      layout: { name: 'cose' },
+      style: [
+        {
+          selector: 'node',
+          style: {
+            label: 'data(label)',
+            'font-size': 6,
+            'min-zoomed-font-size': 8,
+            color: '#1d1d1f',
+            'text-valign': 'bottom',
+            'text-margin-y': 3,
+            'text-wrap': 'ellipsis',
+            'text-max-width': '80px',
+            width: 10,
+            height: 10,
+            'border-width': 1,
+            'border-color': '#ffffff',
+          },
+        },
+        {
+          selector: 'edge',
+          style: {
+            width: 0.5,
+            'line-color': '#e8e8ed',
+            'curve-style': 'bezier',
+            opacity: 0.5,
+          },
+        },
+      ],
+      layout: {
+        name: 'cose',
+        animate: false,
+        nodeRepulsion: 450000,
+        idealEdgeLength: 120,
+        gravity: 40,
+        numIter: 1000,
+        nodeOverlap: 20,
+        componentSpacing: 150,
+      },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      wheelSensitivity: 0.2,
     })
+    cyRef.current = cy
+    cy.one('layoutstop', () => cy.fit(undefined, 30))
     cy.on('tap', 'node', (evt) => onNodeClick(evt.target.id()))
-    return () => cy.destroy()
+    return () => {
+      cy.destroy()
+      cyRef.current = null
+    }
   }, [components, onNodeClick])
 
   if (loaded && components.length === 0) {
@@ -75,5 +121,37 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     )
   }
 
-  return <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-[500px]" />
+  return (
+    <div className="relative w-full h-[500px]">
+      <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-full" />
+      {components.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => cyRef.current?.fit(undefined, 30)}
+            className="absolute left-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm hover:bg-[#f5f5f7]"
+          >
+            适应窗口
+          </button>
+          <div
+            data-testid="wiki-graph-legend"
+            className="absolute right-2 top-2 z-10 rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+          >
+            <div className="mb-1 font-medium text-[#6e6e73]">类型图例</div>
+            <ul className="space-y-0.5">
+              {Object.entries(TYPE_COLORS).map(([type, color]) => (
+                <li key={type} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span>{type}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }

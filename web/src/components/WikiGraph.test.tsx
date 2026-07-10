@@ -5,6 +5,8 @@ import { WikiGraph, TYPE_COLORS } from './WikiGraph'
 
 const mockCy = {
   on: vi.fn(),
+  one: vi.fn(),
+  fit: vi.fn(),
   destroy: vi.fn(),
 }
 vi.mock('cytoscape', () => ({
@@ -43,6 +45,21 @@ describe('WikiGraph', () => {
 
     unmount()
     expect(mockCy.destroy).toHaveBeenCalled()
+  })
+
+  it('renders a type legend once components load', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+        { id: '/x/b.md', type: 'plan', title: 'B', path: '/x/b.md', workspace: 'miao' },
+      ],
+    } as Response)
+    const { getByTestId, getByText } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(getByTestId('wiki-graph-legend')).toBeTruthy())
+    expect(getByText('spec')).toBeTruthy()
+    expect(getByText('plan')).toBeTruthy()
   })
 
   it('shows an empty-state message when the wiki index is empty', async () => {
