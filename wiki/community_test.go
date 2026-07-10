@@ -1,6 +1,9 @@
 package wiki
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // buildClusteredGraph builds two fully-connected triangles (A-B-C and D-E-F)
 // joined by a single weak bridge edge A-D.
@@ -97,5 +100,49 @@ func TestDetectCommunities_MiscCommunitiesAllShareNegativeOne(t *testing.T) {
 	got := DetectCommunities(g)
 	if got["x"] != -1 || got["y"] != -1 {
 		t.Fatalf("expected both isolated nodes to be misc, got %+v", got)
+	}
+}
+
+func TestCommunityLabels_PicksDistinctiveTerm(t *testing.T) {
+	components := []Component{
+		{ID: "a", Title: "安全编译设计"},
+		{ID: "b", Title: "安全编译实施"},
+		{ID: "c", Title: "前端界面设计"},
+		{ID: "d", Title: "前端界面实施"},
+	}
+	communities := map[string]int{
+		"a": 0, "b": 0,
+		"c": 1, "d": 1,
+	}
+
+	labels := CommunityLabels(components, communities)
+
+	label, ok := labels[0]
+	if !ok {
+		t.Fatalf("expected a label for community 0, got %+v", labels)
+	}
+	if !strings.Contains(label, "安") && !strings.Contains(label, "全") &&
+		!strings.Contains(label, "编") && !strings.Contains(label, "译") {
+		t.Fatalf("expected label for community 0 to contain 安/全/编/译, got %q", label)
+	}
+}
+
+func TestCommunityLabels_SkipsMiscCommunity(t *testing.T) {
+	components := []Component{
+		{ID: "a", Title: "安全编译设计"},
+		{ID: "b", Title: "安全编译实施"},
+		{ID: "c", Title: "孤立节点"},
+	}
+	communities := map[string]int{
+		"a": 0, "b": 0, "c": -1,
+	}
+
+	labels := CommunityLabels(components, communities)
+
+	if _, ok := labels[-1]; ok {
+		t.Fatalf("expected no label for misc community -1, got %+v", labels)
+	}
+	if len(labels) != 1 {
+		t.Fatalf("expected exactly one labeled community, got %+v", labels)
 	}
 }

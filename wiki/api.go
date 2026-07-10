@@ -114,9 +114,10 @@ func (a *API) HandleIndex(w http.ResponseWriter, r *http.Request) {
 // persistIndexCache in index.go) but served live over HTTP so the frontend
 // graph view can render actual relationship edges instead of only nodes.
 type graphResponse struct {
-	Components  []Component    `json:"components"`
-	Edges       []Edge         `json:"edges"`
-	Communities map[string]int `json:"communities"`
+	Components      []Component    `json:"components"`
+	Edges           []Edge         `json:"edges"`
+	Communities     map[string]int `json:"communities"`
+	CommunityLabels map[int]string `json:"communityLabels"`
 }
 
 // HandleGraph returns every component alongside every edge in the graph.
@@ -139,7 +140,7 @@ func (a *API) HandleGraph(w http.ResponseWriter, r *http.Request) {
 	for _, es := range a.graph.forward {
 		edges = append(edges, es...)
 	}
-	json.NewEncoder(w).Encode(graphResponse{Components: components, Edges: edges, Communities: a.graph.Communities()})
+	json.NewEncoder(w).Encode(graphResponse{Components: components, Edges: edges, Communities: a.graph.Communities(), CommunityLabels: a.graph.CommunityLabels()})
 }
 
 func (a *API) HandleSearch(w http.ResponseWriter, r *http.Request) {
