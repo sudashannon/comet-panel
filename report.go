@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -274,9 +276,12 @@ func handleReport(w http.ResponseWriter, r *http.Request, reg *WorkspaceRegistry
 	if req.Type == "weekly" {
 		body = synthesizeWeekly(data, req.Start, req.End, pcfg, p)
 	} else {
-		// Monthly (JSON→template) synthesis lands in Task 2; this is a
-		// compile-stub placeholder so routes/tests for the weekly path work.
-		body = []byte("<html><body>TODO: monthly M1</body></html>")
+		var err error
+		body, err = synthesizeMonthly(data, req.Start, req.End, pcfg, p)
+		if err != nil {
+			writeJSONError(w, err.Error(), 500)
+			return
+		}
 	}
 
 	dir, dirErr := reportsDirFn()
@@ -360,6 +365,116 @@ func weeklyPrompt(data *ReportData, start, end string) string {
 	b.WriteString("4. 下周计划：基于仍在 build/verify 阶段的变更，给出下周关注重点。\n")
 	b.WriteString("\n注意：数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录，请在概述中如实说明这一限制。\n")
 	return b.String()
+}
+
+//go:embed assets/report.tmpl.html
+var monthlyTemplate string
+
+// monthlyJSON is the strict-JSON contract the monthly LLM call must return.
+// Field names match the JSON keys the prompt instructs the model to emit.
+type monthlyJSON struct {
+	Title        string   `json:"title"`
+	Overview     string   `json:"overview"`
+	Total        int      `json:"total"`
+	Active       int      `json:"active"`
+	Themes       int      `json:"themes"`
+	Reports      int      `json:"reports"`
+	Platforms    int      `json:"platforms"`
+	Highlights   []string `json:"highlights"`
+	Milestones   []string `json:"milestones"`
+	ThemesDetail []struct {
+		Name string `json:"name"`
+		Desc string `json:"desc"`
+	} `json:"themesDetail"`
+}
+
+// renderMonthlyFromJSON parses the LLM's structured monthly report JSON and
+// fills the embedded Swiss-style HTML template. Every string value is
+// HTML-escaped before insertion; an invalid/non-JSON payload is an error so
+// the caller can fall back to a raw-output HTML page instead of a broken one.
+func renderMonthlyFromJSON(raw []byte) ([]byte, error) {
+	var m monthlyJSON
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, fmt.Errorf("月报数据解析失败: %w", err)
+	}
+
+	var themesHTML strings.Builder
+	for _, t := range m.ThemesDetail {
+		fmt.Fprintf(&themesHTML, `<div class="theme"><div class="t">%s</div><div class="d">%s</div></div>`,
+			html.EscapeString(t.Name), html.EscapeString(t.Desc))
+	}
+	var highlightsHTML strings.Builder
+	for _, h := range m.Highlights {
+		fmt.Fprintf(&highlightsHTML, "<li>%s</li>", html.EscapeString(h))
+	}
+	var milestonesHTML strings.Builder
+	for _, ms := range m.Milestones {
+		fmt.Fprintf(&milestonesHTML, "<li>%s</li>", html.EscapeString(ms))
+	}
+
+	out := monthlyTemplate
+	replacements := map[string]string{
+		"{{TITLE}}":           html.EscapeString(m.Title),
+		"{{OVERVIEW}}":        html.EscapeString(m.Overview),
+		"{{TOTAL}}":           fmt.Sprintf("%d", m.Total),
+		"{{ACTIVE}}":          fmt.Sprintf("%d", m.Active),
+		"{{THEMES}}":          fmt.Sprintf("%d", m.Themes),
+		"{{REPORTS}}":         fmt.Sprintf("%d", m.Reports),
+		"{{PLATFORMS}}":       fmt.Sprintf("%d", m.Platforms),
+		"{{THEMES_HTML}}":     themesHTML.String(),
+		"{{HIGHLIGHTS_HTML}}": highlightsHTML.String(),
+		"{{MILESTONES_HTML}}": milestonesHTML.String(),
+	}
+	for k, v := range replacements {
+		out = strings.ReplaceAll(out, k, v)
+	}
+	return []byte(out), nil
+}
+
+// monthlySystemPrompt instructs the model to return strict JSON only — no
+// prose, no Markdown code fences — matching the monthlyJSON contract.
+func monthlySystemPrompt() string {
+	return "你是一名技术团队的月报数据助手。只输出严格合法的 JSON，不要输出任何 Markdown 代码块标记（如 ```），不要输出 JSON 之外的任何文字说明。" +
+		"JSON 必须且只能包含以下字段：title(string) overview(string) total(int) active(int) themes(int) reports(int) platforms(int) " +
+		"themesDetail(array of {name,desc}) highlights(array of string) milestones(array of string)。"
+}
+
+// monthlyPrompt builds the user message for the monthly report LLM call: a
+// structured brief plus the change corpus as JSON, instructing the model to
+// emit the monthlyJSON contract described in monthlySystemPrompt.
+func monthlyPrompt(data *ReportData, start, end string) string {
+	scope := data.Workspace
+	if scope == "" {
+		scope = "全部 workspace"
+	}
+	corpus, _ := json.Marshal(dumpData(data))
+	var b strings.Builder
+	fmt.Fprintf(&b, "请基于以下 %s 至 %s 的 comet 变更数据（范围：%s）生成月报的结构化数据。\n\n", start, end, scope)
+	fmt.Fprintf(&b, "统计：总计 %d 项，进行中 %d 项，已归档 %d 项，验证失败 %d 项。\n\n", data.Counts.Total, data.Counts.Active, data.Counts.Archived, data.Counts.WithVerifyFail)
+	b.WriteString("变更数据（JSON，每项含 date/name/phase/verify/tasksDone/tasksTotal/why/what/archived/workspace）：\n")
+	b.Write(corpus)
+	b.WriteString("\n\n请归纳出 title/overview/total/active/themes/reports/platforms/themesDetail/highlights/milestones，")
+	b.WriteString("其中 total/active 取自上方统计，themes 为归纳出的主题数量，reports 为本区间产出的报告或文档数量估计，platforms 固定为 2（comet + docs）。")
+	b.WriteString("注意：数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录，请在 overview 中如实说明这一限制。\n")
+	return b.String()
+}
+
+// synthesizeMonthly builds the monthly-report prompt, blocks on
+// chatStreamDrain for the LLM's structured JSON, and renders it into the
+// embedded Swiss template. If the LLM response is not valid JSON, returns
+// an error (月报数据解析失败，请重试) so the caller can return 500.
+func synthesizeMonthly(data *ReportData, start, end string, pcfg chat.ProviderConfig, p provider.Provider) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	text, err := chatStreamDrain(ctx, p, pcfg, monthlySystemPrompt(), monthlyPrompt(data, start, end))
+	if err != nil {
+		return []byte("<html><body><h1>月报生成失败</h1><pre>" + html.EscapeString(err.Error()) + "</pre></body></html>"), nil
+	}
+	rendered, parseErr := renderMonthlyFromJSON([]byte(strings.TrimSpace(text)))
+	if parseErr != nil {
+		return nil, errors.New("月报数据解析失败，请重试")
+	}
+	return rendered, nil
 }
 
 // reportMeta is the list-view metadata for a persisted report file.

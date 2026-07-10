@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<style>
+  :root{--paper:#fafaf8;--ink:#0a0a0a;--grey-1:#f0f0ee;--grey-2:#d4d4d2;--grey-3:#737373;--accent:#002FA7}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Inter","PingFang SC","Noto Sans SC",system-ui,sans-serif;padding:48px;max-width:960px;margin:0 auto}
+  header{border-bottom:3px solid var(--ink);padding-bottom:24px;margin-bottom:32px}
+  h1{font-size:32px;font-weight:800;letter-spacing:-.01em}
+  .overview{color:var(--grey-3);font-size:15px;margin-top:8px;max-width:720px}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:40px}
+  .stat{background:var(--grey-1);border-radius:8px;padding:16px}
+  .stat .n{font-size:28px;font-weight:800;color:var(--accent)}
+  .stat .l{font-size:12px;color:var(--grey-3);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+  section{margin-bottom:36px}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--grey-3);border-bottom:1px solid var(--grey-2);padding-bottom:8px;margin-bottom:16px}
+  .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .theme{background:#fff;border:1px solid var(--grey-2);border-radius:8px;padding:14px}
+  .theme .t{font-weight:700;font-size:14px}
+  .theme .d{font-size:13px;color:var(--grey-3);margin-top:4px}
+  ul.list{list-style:none}
+  ul.list li{padding:10px 0;border-bottom:1px solid var(--grey-1);font-size:14px}
+  ul.list li:last-child{border-bottom:none}
+  .milestones{border-left:2px solid var(--accent);padding-left:16px}
+  .milestones li{list-style:none;padding:8px 0;font-size:14px}
+  footer{color:var(--grey-3);font-size:12px;margin-top:40px;padding-top:16px;border-top:1px solid var(--grey-2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>{{TITLE}}</h1>
+  <p class="overview">{{OVERVIEW}}</p>
+</header>
+<div class="stats">
+  <div class="stat"><div class="n">{{TOTAL}}</div><div class="l">总计变更</div></div>
+  <div class="stat"><div class="n">{{ACTIVE}}</div><div class="l">进行中</div></div>
+  <div class="stat"><div class="n">{{THEMES}}</div><div class="l">主题</div></div>
+  <div class="stat"><div class="n">{{REPORTS}}</div><div class="l">产出</div></div>
+  <div class="stat"><div class="n">{{PLATFORMS}}</div><div class="l">涉及平台</div></div>
+</div>
+<section>
+  <h2>主题</h2>
+  <div class="themes">{{THEMES_HTML}}</div>
+</section>
+<section>
+  <h2>关键成果</h2>
+  <ul class="list">{{HIGHLIGHTS_HTML}}</ul>
+</section>
+<section>
+  <h2>里程碑</h2>
+  <ul class="milestones">{{MILESTONES_HTML}}</ul>
+</section>
+<footer>数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录。</footer>
+</body>
+</html>
