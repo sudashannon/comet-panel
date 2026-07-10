@@ -76,12 +76,19 @@ const markdownComponents: Components = {
   a: ({ node, ...rest }) => <a className="text-[#0063f8] underline" {...rest} />,
 }
 
+interface Artifact {
+  path: string
+  label: string
+}
+
 interface Props {
   path: string | null
+  artifacts?: Artifact[]
+  onSelectArtifact?: (path: string) => void
   onClose: () => void
 }
 
-export function MarkdownViewer({ path, onClose }: Props) {
+export function MarkdownViewer({ path, artifacts, onSelectArtifact, onClose }: Props) {
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState(false)
 
@@ -115,17 +122,42 @@ export function MarkdownViewer({ path, onClose }: Props) {
       role="region"
       aria-label={filename}
     >
-      <header className="sticky top-0 z-10 bg-white border-b border-[#e8e8ed] px-6 py-3 flex items-center justify-between gap-4">
-        <div className="text-sm font-semibold text-[#1d1d1f] truncate" title={path}>
-          {filename}
+      <header className="sticky top-0 z-10 bg-white border-b border-[#e8e8ed] px-6 py-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-sm font-semibold text-[#1d1d1f] truncate" title={path}>
+            {filename}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+          >
+            ✕ 关闭
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
-        >
-          ✕ 关闭
-        </button>
+        {artifacts && artifacts.length > 1 && (
+          <div data-testid="artifact-switcher" className="flex items-center gap-1.5 overflow-x-auto">
+            {artifacts.map((artifact) => {
+              const active = artifact.path === path
+              return (
+                <button
+                  key={artifact.path}
+                  type="button"
+                  aria-current={active}
+                  onClick={() => !active && onSelectArtifact?.(artifact.path)}
+                  className={
+                    'shrink-0 text-xs px-2.5 py-1 rounded-full border whitespace-nowrap ' +
+                    (active
+                      ? 'bg-[#0063f8] text-white border-[#0063f8]'
+                      : 'text-[#1d1d1f] border-[#e8e8ed] hover:border-[#0063f8] hover:text-[#0063f8]')
+                  }
+                >
+                  {artifact.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-6 py-8 text-base leading-relaxed">

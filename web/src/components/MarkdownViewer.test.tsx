@@ -81,4 +81,61 @@ describe('MarkdownViewer', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('renders an artifact switcher when multiple artifacts are given, highlights the current one, and switches in place on click', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      const text = url.includes('design.md') ? '# 设计文档' : '# 任务清单'
+      return { ok: true, text: async () => text } as Response
+    })
+
+    const artifacts = [
+      { path: '/x/design.md', label: '设计文档' },
+      { path: '/x/tasks.md', label: '任务清单' },
+    ]
+    const onClose = vi.fn()
+    const onSelectArtifact = vi.fn()
+    render(
+      <MarkdownViewer
+        path="/x/design.md"
+        artifacts={artifacts}
+        onSelectArtifact={onSelectArtifact}
+        onClose={onClose}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByText('设计文档')).toBeTruthy())
+
+    const switcher = screen.getByTestId('artifact-switcher')
+    const currentButton = screen.getAllByText('设计文档').find((el) => switcher.contains(el))!
+    const otherButton = screen.getAllByText('任务清单').find((el) => switcher.contains(el))!
+    expect(currentButton.getAttribute('aria-current')).toBe('true')
+    expect(otherButton.getAttribute('aria-current')).toBe('false')
+
+    otherButton.click()
+
+    // Switching does not close the viewer — it delegates to onSelectArtifact
+    // so the parent can update `path` in place.
+    expect(onSelectArtifact).toHaveBeenCalledWith('/x/tasks.md')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('does not render the switcher with fewer than two artifacts', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Hello',
+    } as Response)
+
+    render(
+      <MarkdownViewer
+        path="/x/design.md"
+        artifacts={[{ path: '/x/design.md', label: '设计文档' }]}
+        onSelectArtifact={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    expect(screen.queryByTestId('artifact-switcher')).toBeNull()
+  })
 })

@@ -32,6 +32,11 @@ export default function App() {
   // itself since node ids alone don't carry a file path.
   const [wikiComponents, setWikiComponents] = useState<WikiComponent[]>([])
   const [viewerPath, setViewerPath] = useState<string | null>(null)
+  // Current change's flattened, existing-only artifact list — fed by
+  // ChangeDetail (which already fetches the change detail for ArtifactList's
+  // sibling data) and consumed by MarkdownViewer's in-viewer switcher, so a
+  // user reading one artifact can hop to another without closing the viewer.
+  const [changeArtifacts, setChangeArtifacts] = useState<{ path: string; label: string }[]>([])
 
   useEffect(() => {
     fetchWorkspaces()
@@ -148,6 +153,7 @@ export default function App() {
                 selected={selected}
                 onSelect={(name) => {
                   setViewerPath(null)
+                  setChangeArtifacts([])
                   setSelected(name)
                   setSidebarOpen(false)
                 }}
@@ -156,7 +162,12 @@ export default function App() {
 
             <main className="flex-1 min-h-0 overflow-y-auto p-4">
               {viewerPath ? (
-                <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
+                <MarkdownViewer
+                  path={viewerPath}
+                  artifacts={changeArtifacts}
+                  onSelectArtifact={setViewerPath}
+                  onClose={() => setViewerPath(null)}
+                />
               ) : (
                 <div className="space-y-4">
                   <KpiCards
@@ -170,6 +181,7 @@ export default function App() {
                     <ChangeDetail
                       change={selectedChange}
                       onOpenArtifact={setViewerPath}
+                      onArtifactsChanged={setChangeArtifacts}
                       onChangeUpdated={() =>
                         fetchChangesWithMeta()
                           .then((r) => {

@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { fetchChangeDetail } from '../api/client'
 import type { ChangeSummary } from '../api/types'
 import { PhaseStepper } from './PhaseStepper'
 import { TaskDonut } from './TaskDonut'
@@ -14,11 +16,36 @@ export function ChangeDetail({
   change,
   onChangeUpdated,
   onOpenArtifact,
+  onArtifactsChanged,
 }: {
   change: ChangeSummary
   onChangeUpdated: () => void
   onOpenArtifact: (path: string) => void
+  // Flattened, existing-only artifact list for the current change — lets
+  // App feed MarkdownViewer's in-viewer switcher without ArtifactList (which
+  // owns its own fetch/render) needing to expose its internal data.
+  onArtifactsChanged?: (artifacts: { path: string; label: string }[]) => void
 }) {
+  useEffect(() => {
+    if (!onArtifactsChanged) return
+    let cancelled = false
+    fetchChangeDetail(change.name)
+      .then((detail) => {
+        if (cancelled) return
+        const artifacts = (detail.phases ?? [])
+          .flatMap((phase) => phase.artifacts)
+          .filter((a) => a.exists && a.path)
+          .map((a) => ({ path: a.path!, label: a.label }))
+        onArtifactsChanged(artifacts)
+      })
+      .catch(() => {
+        if (!cancelled) onArtifactsChanged([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [change.name, onArtifactsChanged])
+
   return (
     <div className="bg-white rounded-lg p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] space-y-4">
       <div className="flex items-center justify-between">

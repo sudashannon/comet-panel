@@ -105,4 +105,57 @@ describe('ChangeDetail', () => {
 
     await waitFor(() => {})
   })
+
+  it('calls onArtifactsChanged with the flattened, existing-only artifact list for the current change', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      if (url.includes('/api/changes/')) {
+        return {
+          ok: true,
+          json: async () => ({
+            name: 'rx101-x',
+            phases: [
+              {
+                key: 'design',
+                label: '设计',
+                artifacts: [
+                  { file: 'design.md', label: '设计文档', exists: true, path: '/x/rx101-x/design.md' },
+                  { file: 'proposal.md', label: '提案', exists: false },
+                ],
+              },
+              {
+                key: 'build',
+                label: '构建',
+                artifacts: [{ file: 'tasks.md', label: '任务清单', exists: true, path: '/x/rx101-x/tasks.md' }],
+              },
+            ],
+          }),
+        } as Response
+      }
+      return { ok: true, json: async () => ({ component: {}, forward: [], backlinks: [] }) } as Response
+    })
+
+    const change: ChangeSummary = {
+      name: 'rx101-x', workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 19, tasksTotal: 31, verifyResult: 'pending', createdAt: '2026-05-29',
+      artifacts: {}, visualized: true, designReviewed: true, verifyReviewed: false,
+      verifiedAt: '', buildMode: '', reviewMode: '', tddMode: '', autoTransition: false,
+    }
+    const onArtifactsChanged = vi.fn()
+    render(
+      <ChangeDetail
+        change={change}
+        onChangeUpdated={() => {}}
+        onOpenArtifact={() => {}}
+        onArtifactsChanged={onArtifactsChanged}
+      />,
+    )
+
+    await waitFor(() =>
+      expect(onArtifactsChanged).toHaveBeenCalledWith([
+        { path: '/x/rx101-x/design.md', label: '设计文档' },
+        { path: '/x/rx101-x/tasks.md', label: '任务清单' },
+      ]),
+    )
+  })
 })
