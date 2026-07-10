@@ -62,15 +62,8 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		allComponents = append(allComponents, components...)
 
 		changesDir := filepath.Join(openspecPath, "changes")
-		entries, err := os.ReadDir(changesDir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if !e.IsDir() {
-				continue
-			}
-			changeDir := filepath.Join(changesDir, e.Name())
+		changeDirs := collectChangeDirs(changesDir)
+		for _, changeDir := range changeDirs {
 
 			// A TypeChange component is created for every change directory
 			// that has a .comet.yaml, keyed by the .comet.yaml path itself.
@@ -85,7 +78,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 				allComponents = append(allComponents, Component{
 					ID:        yamlPath,
 					Type:      TypeChange,
-					Title:     e.Name(),
+					Title:     filepath.Base(changeDir),
 					Path:      yamlPath,
 					Workspace: ws.Alias,
 				})
@@ -125,6 +118,37 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		persistIndexCache(indexCacheDir, allComponents, allEdges) // best-effort, errors logged not returned
 	}
 	return g, nil
+}
+
+// collectChangeDirs lists all change directories: direct children of
+// changesDir (excluding "archive" itself) plus one-level children of
+// changesDir/archive/. This ensures archived changes get YAML edge
+// extraction too.
+func collectChangeDirs(changesDir string) []string {
+	var dirs []string
+	entries, err := os.ReadDir(changesDir)
+	if err != nil {
+		return nil
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if e.Name() == "archive" {
+			archiveDir := filepath.Join(changesDir, "archive")
+			archiveEntries, err := os.ReadDir(archiveDir)
+			if err == nil {
+				for _, ae := range archiveEntries {
+					if ae.IsDir() {
+						dirs = append(dirs, filepath.Join(archiveDir, ae.Name()))
+					}
+				}
+			}
+			continue
+		}
+		dirs = append(dirs, filepath.Join(changesDir, e.Name()))
+	}
+	return dirs
 }
 
 func persistIndexCache(dir string, components []Component, edges []Edge) {

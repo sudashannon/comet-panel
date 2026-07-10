@@ -85,3 +85,37 @@ func TestBuildIndex_ToleratesRepoRootPath(t *testing.T) {
 		t.Fatalf("expected 1 forward edge from change component to design.md, got %+v", fwd)
 	}
 }
+
+func TestBuildIndex_ArchiveChangesGetYAMLEdges(t *testing.T) {
+	dir := t.TempDir()
+	// Create workspace structure: <dir>/openspec/changes/archive/2026-06-04-test-change/
+	openspecDir := filepath.Join(dir, "openspec")
+	archiveChangeDir := filepath.Join(openspecDir, "changes", "archive", "2026-06-04-test-change")
+	os.MkdirAll(archiveChangeDir, 0755)
+
+	// Create a target spec file that .comet.yaml references
+	specDir := filepath.Join(dir, "docs", "superpowers", "specs")
+	os.MkdirAll(specDir, 0755)
+	os.WriteFile(filepath.Join(specDir, "test-design.md"), []byte("# Test Design\n"), 0644)
+
+	// Create .comet.yaml with design_doc reference
+	os.WriteFile(filepath.Join(archiveChangeDir, ".comet.yaml"), []byte(
+		"phase: archive\ndesign_doc: docs/superpowers/specs/test-design.md\n",
+	), 0644)
+
+	// Create the design.md so ScanComponents picks it up
+	os.WriteFile(filepath.Join(archiveChangeDir, "design.md"), []byte("# Design\n"), 0644)
+
+	ws := []WorkspaceConfig{{Alias: "test", Path: openspecDir}}
+	g, err := BuildIndex(ws, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The .comet.yaml node should have forward edges
+	yamlID := filepath.Join(archiveChangeDir, ".comet.yaml")
+	edges := g.Forward(yamlID)
+	if len(edges) == 0 {
+		t.Errorf("expected YAML edges from archived change, got 0")
+	}
+}
