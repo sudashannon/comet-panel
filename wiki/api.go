@@ -37,6 +37,16 @@ func NewAPIWithWorkspaces(ws []WorkspaceConfig, indexCacheDir string) (*API, err
 	return &API{graph: g, ws: ws, indexCacheDir: indexCacheDir}, nil
 }
 
+// NewAPIWithWorkspacesAsync constructs an API immediately with an empty,
+// non-nil graph — it never blocks on scanning the workspace tree. Callers
+// that need the initial index populated must call Rebuild themselves,
+// typically in a background goroutine, so the HTTP server can bind and
+// start serving (HandleIndex/HandleLint return `[]` until the build
+// completes) instead of waiting tens of seconds for a large tree to scan.
+func NewAPIWithWorkspacesAsync(ws []WorkspaceConfig, indexCacheDir string) *API {
+	return &API{graph: BuildGraph(nil, nil), ws: ws, indexCacheDir: indexCacheDir}
+}
+
 // SetLister wires a live WorkspaceLister so HandleRebuild rebuilds from the
 // current workspace registry instead of the construction-time snapshot in
 // a.ws. Passing nil restores the a.ws fallback behavior.
@@ -135,7 +145,13 @@ func (a *API) HandleLint(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(issues)
 }
 
-func (a *API) HandleRebuild(w http.ResponseWriter, r *http.Request) {
+// Rebuild reruns BuildIndex against the current workspace set (preferring
+// the live lister set via SetLister over the construction-time snapshot in
+// a.ws) and swaps the result into a.graph under lock. It is safe to call
+// from a background goroutine — e.g. main.go kicks off the initial index
+// build this way right after NewAPIWithWorkspacesAsync so the HTTP server
+// can bind without waiting for a full workspace scan.
+func (a *API) Rebuild() error {
 	a.mu.RLock()
 	lister := a.lister
 	ws := a.ws
@@ -147,13 +163,20 @@ func (a *API) HandleRebuild(w http.ResponseWriter, r *http.Request) {
 
 	newGraph, err := BuildIndex(ws, a.indexCacheDir)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
+		return err
 	}
 	a.mu.Lock()
 	a.graph = newGraph
 	a.mu.Unlock()
+	return nil
+}
+
+func (a *API) HandleRebuild(w http.ResponseWriter, r *http.Request) {
+	if err := a.Rebuild(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "rebuilt"})
 }

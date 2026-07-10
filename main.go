@@ -55,14 +55,21 @@ func main() {
 	})
 
 	wikiCacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki")
-	wikiAPI, err := wiki.NewAPIWithWorkspaces(toWikiWorkspaces(reg.List()), wikiCacheDir)
-	if err != nil {
-		log.Printf("wiki index build failed (non-fatal, dashboard still serves): %v", err)
-		wikiAPI, _ = wiki.NewAPIWithWorkspaces(nil, wikiCacheDir)
-	}
+	wikiAPI := wiki.NewAPIWithWorkspacesAsync(toWikiWorkspaces(reg.List()), wikiCacheDir)
 	// Wire the live registry so /api/wiki/rebuild reflects runtime workspace
 	// adds instead of only the construction-time snapshot taken above.
 	wikiAPI.SetLister(registryLister{reg})
+	// The initial index build scans the whole workspace tree and can take
+	// tens of seconds on a large repo. Run it in the background so
+	// ListenAndServe below binds immediately instead of leaving the
+	// dashboard unreachable for the whole scan; HandleIndex/HandleLint
+	// serve `[]` off the empty graph from NewAPIWithWorkspacesAsync until
+	// this swaps in the built one.
+	go func() {
+		if err := wikiAPI.Rebuild(); err != nil {
+			log.Printf("wiki index build failed (non-fatal, dashboard still serves): %v", err)
+		}
+	}()
 	mux.HandleFunc("/api/wiki/index", wikiAPI.HandleIndex)
 	mux.HandleFunc("/api/wiki/component/", wikiAPI.HandleComponent)
 	mux.HandleFunc("/api/wiki/search", wikiAPI.HandleSearch)
