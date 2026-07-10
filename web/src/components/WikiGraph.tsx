@@ -41,17 +41,49 @@ export const TYPE_COLORS: Record<string, string> = {
   diagram: '#dc2626',
 }
 
+const POLL_INTERVAL_MS = 3000
+const MAX_POLL_ATTEMPTS = 20
+
 export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const cyRef = useRef<cytoscape.Core | null>(null)
   const [components, setComponents] = useState<WikiComponent[]>([])
-  const [loaded, setLoaded] = useState(false)
+  const [gaveUp, setGaveUp] = useState(false)
 
   useEffect(() => {
-    fetchWikiIndex()
-      .then(setComponents)
-      .catch(() => setComponents([]))
-      .finally(() => setLoaded(true))
+    let cancelled = false
+    let attempts = 0
+    let timer: number | undefined
+
+    const poll = () => {
+      fetchWikiIndex()
+        .then((data) => {
+          if (cancelled) return
+          if (data.length > 0) {
+            setComponents(data)
+            return
+          }
+          setComponents([])
+          attempts += 1
+          if (attempts >= MAX_POLL_ATTEMPTS) {
+            setGaveUp(true)
+            return
+          }
+          timer = window.setTimeout(poll, POLL_INTERVAL_MS)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setComponents([])
+          setGaveUp(true)
+        })
+    }
+
+    poll()
+
+    return () => {
+      cancelled = true
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {
@@ -115,17 +147,18 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     }
   }, [components, onNodeClick])
 
-  if (loaded && components.length === 0) {
-    return (
-      <div className="w-full h-[500px] flex items-center justify-center text-xs text-[#6e6e73]">
-        索引为空，请先注册工作区并重建（POST /api/wiki/rebuild）
-      </div>
-    )
-  }
-
   return (
     <div className="relative w-full h-[500px]">
       <div ref={containerRef} data-testid="wiki-graph-canvas" className="w-full h-full" />
+      {components.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6e6e73]">
+          {gaveUp ? (
+            <span>索引为空，请先注册工作区并重建（POST /api/wiki/rebuild）</span>
+          ) : (
+            <span className="animate-pulse">索引构建中…</span>
+          )}
+        </div>
+      )}
       {components.length > 0 && (
         <>
           <button

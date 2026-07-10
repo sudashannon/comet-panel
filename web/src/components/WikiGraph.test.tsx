@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import cytoscape from 'cytoscape'
 import { WikiGraph, TYPE_COLORS } from './WikiGraph'
@@ -13,7 +13,10 @@ vi.mock('cytoscape', () => ({
   default: vi.fn(() => mockCy),
 }))
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+})
 
 describe('WikiGraph', () => {
   it('fetches components, initializes cytoscape with mapped elements, wires tap-to-click, and destroys on unmount', async () => {
@@ -81,7 +84,8 @@ describe('WikiGraph', () => {
     expect(call.elements.map((el) => el.data.id)).toEqual(['/x/change.md', '/x/plan.md', '/x/diagram.md'])
   })
 
-  it('shows an empty-state message when the wiki index is empty', async () => {
+  it('shows an indexing message while polling, then a genuine empty-state message once polling gives up', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => [],
@@ -89,9 +93,67 @@ describe('WikiGraph', () => {
     const onNodeClick = vi.fn()
     const { getByText } = render(<WikiGraph onNodeClick={onNodeClick} />)
 
-    await waitFor(() =>
-      expect(getByText(/索引为空，请先注册工作区并重建（POST \/api\/wiki\/rebuild）/)).toBeTruthy(),
-    )
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(getByText('索引构建中…')).toBeTruthy()
     expect(cytoscape).not.toHaveBeenCalled()
+
+    // 20 attempts total, 3s apart -> advance past the full poll window.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20 * 3000)
+    })
+
+    expect(getByText(/索引为空，请先注册工作区并重建（POST \/api\/wiki\/rebuild）/)).toBeTruthy()
+    expect(cytoscape).not.toHaveBeenCalled()
+  })
+
+  it('auto-populates once a later poll returns data, without manual view-switching', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+      .mockResolvedValue({
+        ok: true,
+        json: async () => [
+          { id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' },
+        ],
+      } as Response)
+    const { getByText, getByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(getByText('索引构建中…')).toBeTruthy()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000)
+    })
+    expect(getByText('索引构建中…')).toBeTruthy()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000)
+    })
+    await waitFor(() => expect(getByTestId('wiki-graph-legend')).toBeTruthy())
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('stops polling and does not update state after unmount', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => [] } as Response)
+    const { unmount } = render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    const callsBeforeUnmount = fetchMock.mock.calls.length
+
+    unmount()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60000)
+    })
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeUnmount)
   })
 })
