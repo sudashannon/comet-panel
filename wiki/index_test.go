@@ -27,7 +27,7 @@ func TestBuildIndex_EndToEnd(t *testing.T) {
 	}
 	back := g.Backlinks(designPath)
 	if len(back) != 3 {
-		t.Fatalf("expected 3 backlinks to design.md (.comet.yaml + proposal.md convention edge + bm25 similarity edge), got %+v", back)
+		t.Fatalf("expected 3 backlinks to design.md (.comet.yaml + proposal.md convention edge + vector similarity edge), got %+v", back)
 	}
 
 	// The change directory itself must be a TypeChange component keyed by
@@ -50,7 +50,7 @@ func TestBuildIndex_EndToEnd(t *testing.T) {
 	// the whole point: the change node is now a real graph endpoint.
 	fwd := g.Forward(yamlPath)
 	if len(fwd) != 2 {
-		t.Fatalf("expected 2 forward edges from change component (implements + bm25 similarity), got %+v", fwd)
+		t.Fatalf("expected 2 forward edges from change component (implements + vector similarity), got %+v", fwd)
 	}
 	if fwd[0].To != designPath || fwd[1].To != designPath {
 		t.Fatalf("expected both forward edges from change component to point to design.md, got %+v", fwd)
@@ -84,8 +84,8 @@ func TestBuildIndex_ToleratesRepoRootPath(t *testing.T) {
 
 	designPath := filepath.Join(changeDir, "design.md")
 	fwd := g.Forward(yamlPath)
-	if len(fwd) != 1 || fwd[0].To != designPath {
-		t.Fatalf("expected 1 forward edge from change component to design.md, got %+v", fwd)
+	if len(fwd) != 2 || fwd[0].To != designPath || fwd[1].To != designPath {
+		t.Fatalf("expected 2 forward edges (implements + vector similarity) from change component to design.md, got %+v", fwd)
 	}
 }
 

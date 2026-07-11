@@ -6,6 +6,7 @@ type Graph struct {
 	backward        map[string][]Edge
 	communities     map[string]int
 	communityLabels map[int]string
+	embeddings      map[string][]float32
 }
 
 func BuildGraph(components []Component, edges []Edge) *Graph {
@@ -47,6 +48,14 @@ func (g *Graph) CommunityLabels() map[int]string {
 
 func (g *Graph) SetCommunityLabels(l map[int]string) {
 	g.communityLabels = l
+}
+
+func (g *Graph) Embeddings() map[string][]float32 {
+	return g.embeddings
+}
+
+func (g *Graph) SetEmbeddings(e map[string][]float32) {
+	g.embeddings = e
 }
 
 func (g *Graph) Forward(id string) []Edge {

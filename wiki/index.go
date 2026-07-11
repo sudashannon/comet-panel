@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -125,17 +126,51 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		}
 	}
 
-	// BM25 similarity edges
-	simEdges := ComputeSimilarityEdges(allComponents, 3, 0.3)
+	// Vector similarity edges (ternlight embeddings)
+	scriptPath := findEmbedScript()
+	embeddings, embedErr := ComputeEmbeddings(allComponents, scriptPath)
+	var simEdges []Edge
+	if embedErr == nil && len(embeddings) > 0 {
+		simEdges = ComputeVectorSimilarityEdges(embeddings, 3, 0.5)
+		if indexCacheDir != "" {
+			if err := SaveEmbeddings(filepath.Join(indexCacheDir, "embeddings.bin"), embeddings); err != nil {
+				log.Printf("wiki index: failed to cache embeddings: %v", err)
+			}
+		}
+	} else if embedErr != nil {
+		log.Printf("wiki: embedding computation failed (non-fatal, no similarity edges): %v", embedErr)
+	}
 	allEdges = append(allEdges, simEdges...)
 
 	g := BuildGraph(allComponents, allEdges)
+	g.SetEmbeddings(embeddings)
 	g.SetCommunities(DetectCommunities(g))
-	g.SetCommunityLabels(CommunityLabels(allComponents, g.Communities()))
 	if indexCacheDir != "" {
 		persistIndexCache(indexCacheDir, allComponents, allEdges) // best-effort, errors logged not returned
 	}
 	return g, nil
+}
+
+// findEmbedScript locates scripts/embed.ts. It tries, in order: relative to
+// this source file (works under `go test`, where CWD is the package dir and
+// os.Args[0] is a throwaway test binary in a temp dir), relative to the
+// running executable (production: the binary ships next to scripts/), and
+// finally relative to the current working directory (dev `go run` from repo
+// root). Returns the first candidate that exists on disk, or the CWD-relative
+// path as a last resort so callers get a descriptive "not found" error.
+func findEmbedScript() string {
+	if _, thisFile, _, ok := runtime.Caller(0); ok {
+		// thisFile is .../wiki/index.go; repo root is one level up.
+		candidate := filepath.Join(filepath.Dir(thisFile), "..", "scripts", "embed.ts")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	candidate := filepath.Join(filepath.Dir(os.Args[0]), "scripts", "embed.ts")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate
+	}
+	return "scripts/embed.ts"
 }
 
 // collectChangeDirs lists all change directories: direct children of
