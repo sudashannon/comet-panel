@@ -71,6 +71,16 @@ func main() {
 			log.Printf("wiki index build failed (non-fatal, dashboard still serves): %v", err)
 		}
 	}()
+	watcher := wiki.NewWatcher(wikiAPI, "scripts/embed.ts")
+	workspacePaths := make([]string, 0, len(reg.List()))
+	for _, ws := range reg.List() {
+		workspacePaths = append(workspacePaths, ws.Path)
+	}
+	if err := watcher.Start(workspacePaths); err != nil {
+		log.Printf("wiki watcher start failed (non-fatal): %v", err)
+	} else {
+		defer watcher.Stop()
+	}
 	mux.HandleFunc("/api/wiki/index", wikiAPI.HandleIndex)
 	mux.HandleFunc("/api/wiki/graph", wikiAPI.HandleGraph)
 	mux.HandleFunc("/api/wiki/component/", wikiAPI.HandleComponent)
