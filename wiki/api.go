@@ -2,9 +2,11 @@ package wiki
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -162,46 +164,117 @@ func (a *API) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(matches)
 }
 
-type embeddingItem struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Workspace string    `json:"workspace"`
-	Type      string    `json:"type"`
-	Vector    []float32 `json:"vector"`
+// semanticSearchRequest is the POST /api/wiki/search-semantic request body:
+// a free-text query plus how many ranked results to return.
+type semanticSearchRequest struct {
+	Query string `json:"query"`
+	TopK  int    `json:"topK"`
 }
 
-// HandleEmbeddings returns every component's precomputed embedding vector
-// alongside enough metadata (title/workspace/type) for the frontend to
-// render a result without a second round-trip -- SemanticSearch.tsx fetches
-// this once, embeds the user's query client-side via @ternlight/mini, and
-// ranks these vectors by cosine similarity entirely in the browser.
-func (a *API) HandleEmbeddings(w http.ResponseWriter, r *http.Request) {
+// semanticSearchResult is one ranked hit: enough metadata for the frontend
+// to render a result row plus the cosine similarity score it was ranked by.
+type semanticSearchResult struct {
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Workspace  string  `json:"workspace"`
+	Type       string  `json:"type"`
+	Similarity float64 `json:"similarity"`
+}
+
+// HandleSemanticSearch embeds the query server-side (via the same
+// scripts/embed.ts bun script used to build the corpus) and ranks every
+// precomputed component embedding against it by cosine similarity. This
+// replaces the old client-side flow where the browser fetched the entire
+// embeddings corpus and ran @ternlight/mini's WASM encoder locally.
+func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	var req semanticSearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", 400)
+		return
+	}
+	if req.Query == "" {
+		json.NewEncoder(w).Encode([]semanticSearchResult{})
+		return
+	}
+	if req.TopK <= 0 {
+		req.TopK = 10
+	}
+
+	// Embed the query using the same script the offline corpus build uses.
+	scriptPath := findEmbedScript()
+	queryComps := []Component{{ID: "__query__", Title: req.Query, Path: ""}}
+	embedResult, err := ComputeEmbeddings(queryComps, scriptPath)
+	if err != nil {
+		http.Error(w, "embedding failed: "+err.Error(), 500)
+		return
+	}
+	queryVec, ok := embedResult["__query__"]
+	if !ok || len(queryVec) == 0 {
+		http.Error(w, "embedding produced no vector", 500)
+		return
+	}
+
 	a.mu.RLock()
 	embeddings := a.graph.Embeddings()
 	components := a.graph.Components()
 	a.mu.RUnlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	if len(embeddings) == 0 {
-		json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
-		return
+	type scored struct {
+		id  string
+		sim float64
+	}
+	var results []scored
+	queryNorm := vecNorm(queryVec)
+	for id, vec := range embeddings {
+		sim := cosineSim(queryVec, vec, queryNorm, vecNorm(vec))
+		if sim > 0.3 {
+			results = append(results, scored{id, sim})
+		}
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].sim > results[j].sim })
+	if len(results) > req.TopK {
+		results = results[:req.TopK]
 	}
 
-	items := make([]embeddingItem, 0, len(embeddings))
-	for id, vec := range embeddings {
-		c, ok := components[id]
+	w.Header().Set("Content-Type", "application/json")
+	out := make([]semanticSearchResult, 0, len(results))
+	for _, res := range results {
+		c, ok := components[res.id]
 		if !ok {
 			continue
 		}
-		items = append(items, embeddingItem{
-			ID:        id,
-			Title:     c.Title,
-			Workspace: c.Workspace,
-			Type:      string(c.Type),
-			Vector:    vec,
+		out = append(out, semanticSearchResult{
+			ID:         res.id,
+			Title:      c.Title,
+			Workspace:  c.Workspace,
+			Type:       string(c.Type),
+			Similarity: res.sim,
 		})
 	}
-	json.NewEncoder(w).Encode(map[string]any{"items": items})
+	json.NewEncoder(w).Encode(out)
+}
+
+func vecNorm(v []float32) float64 {
+	var sum float64
+	for _, x := range v {
+		sum += float64(x) * float64(x)
+	}
+	return math.Sqrt(sum)
+}
+
+func cosineSim(a, b []float32, normA, normB float64) float64 {
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	var dot float64
+	for i := range a {
+		dot += float64(a[i]) * float64(b[i])
+	}
+	return dot / (normA * normB)
 }
 
 // HandleLint normalizes a nil Lint() result to an empty slice before

@@ -200,14 +200,7 @@ describe('WikiGraph', () => {
       mockGraphResponse([{ id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' }]),
     ]
     let graphCallIndex = 0
-    // fetchEmbeddings() also calls global fetch (on a separate '/api/wiki/embeddings'
-    // URL) as soon as WikiGraph mounts -- routing on the request URL keeps that call
-    // from consuming one of the sequenced graph-poll responses queued below.
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = typeof input === 'string' ? input : (input as Request).url
-      if (url.includes('/api/wiki/embeddings')) {
-        return Promise.resolve({ ok: true, json: async () => ({ items: [] }) } as Response)
-      }
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
       const response = graphResponses[Math.min(graphCallIndex, graphResponses.length - 1)]
       graphCallIndex += 1
       return Promise.resolve(response)
@@ -228,7 +221,7 @@ describe('WikiGraph', () => {
       await vi.advanceTimersByTimeAsync(3000)
     })
     await waitFor(() => expect(getByTestId('wiki-graph-legend')).toBeTruthy())
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it('stops polling and does not update state after unmount', async () => {

@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, EmbeddingsResponse } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -215,12 +215,24 @@ export async function deleteReport(name: string): Promise<void> {
   if (!res.ok) throw new Error(`deleteReport failed: ${res.status}`)
 }
 
-// fetchEmbeddings is the semantic-search data source: every component's
-// precomputed 384-dim vector (from wiki/embed.go's offline embedding pass),
-// fetched once by SemanticSearch.tsx so query-time ranking is a pure
-// client-side cosine-similarity scan against this cached array.
-export async function fetchEmbeddings(): Promise<EmbeddingsResponse> {
-  const res = await fetch('/api/wiki/embeddings')
-  if (!res.ok) throw new Error(`fetchEmbeddings: ${res.status}`)
+export interface SemanticSearchResult {
+  id: string
+  title: string
+  workspace: string
+  type: string
+  similarity: number
+}
+
+// searchSemantic is the semantic-search data source: the backend embeds the
+// query server-side (bun scripts/embed.ts) and ranks it against every
+// precomputed component embedding by cosine similarity, returning only the
+// top matches -- no corpus fetch or client-side WASM encoder required.
+export async function searchSemantic(query: string, topK = 10): Promise<SemanticSearchResult[]> {
+  const res = await fetch('/api/wiki/search-semantic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, topK }),
+  })
+  if (!res.ok) return []
   return res.json()
 }

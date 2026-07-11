@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
-import { embed } from '@ternlight/mini'
-import { fetchWikiGraph, fetchEmbeddings } from '../api/client'
+import { fetchWikiGraph, searchSemantic } from '../api/client'
 import type { WikiComponent, WikiEdge } from '../api/types'
 import { GraphFilters } from './GraphFilters'
 import { useWikiEvents } from '../hooks/useWikiEvents'
@@ -69,30 +68,6 @@ export const COMMUNITY_COLORS = [
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 20
 const SEARCH_DEBOUNCE_MS = 300
-// Below this cosine similarity a component is treated as "not a match" for
-// the search-box highlight -- without a floor, embed() on a short/generic
-// query would still rank every node with *some* similarity and the
-// highlight would cover the whole graph instead of the relevant subset.
-const SEARCH_SIMILARITY_THRESHOLD = 0.35
-
-// Duplicated (not shared) from SemanticSearch.tsx: same generic-vector
-// cosine similarity, but kept local since this is the only other call site
-// and pulling in a shared module for one 12-line pure function isn't worth
-// the extra indirection.
-function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
-  const len = Math.min(a.length, b.length)
-  let dot = 0
-  let magA = 0
-  let magB = 0
-  for (let i = 0; i < len; i++) {
-    dot += a[i] * b[i]
-    magA += a[i] * a[i]
-    magB += b[i] * b[i]
-  }
-  if (magA === 0 || magB === 0) return 0
-  return dot / (Math.sqrt(magA) * Math.sqrt(magB))
-}
-
 export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const cyRef = useRef<cytoscape.Core | null>(null)
@@ -109,12 +84,11 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   const [connectedOnly, setConnectedOnly] = useState(true)
   const [activeWorkspaces, setActiveWorkspaces] = useState<Set<string> | null>(null)
   const [activeCommunity, setActiveCommunity] = useState<number | null>(null)
-  // Search-box state: embeddings are fetched once (independent of the
-  // graph/edges poll above) and the query is embedded client-side via
-  // @ternlight/mini, mirroring SemanticSearch.tsx's approach but scoped to
-  // highlighting matching nodes in place rather than listing them.
+  // Search-box state: each debounced keystroke calls POST
+  // /api/wiki/search-semantic (server-side embed + cosine ranking) and
+  // highlights the returned node ids in place, rather than fetching the
+  // whole corpus and embedding client-side.
   const [searchQuery, setSearchQuery] = useState('')
-  const [embeddingsById, setEmbeddingsById] = useState<Record<string, number[]>>({})
   const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null)
 
   useEffect(() => {
@@ -173,47 +147,29 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   }, [])
   useWikiEvents(refetchGraph)
 
-  // Fetches once, independent of the components/edges poll above -- a
-  // missing/empty embeddings index (e.g. offline embedding pass never run)
-  // just means the search box never highlights anything, not a load error.
-  useEffect(() => {
-    let cancelled = false
-    fetchEmbeddings()
-      .then((data) => {
-        if (cancelled) return
-        const map: Record<string, number[]> = {}
-        for (const item of data.items) map[item.id] = item.vector
-        setEmbeddingsById(map)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setEmbeddingsById({})
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   useEffect(() => {
     const trimmed = searchQuery.trim()
-    if (trimmed === '' || Object.keys(embeddingsById).length === 0) {
+    if (trimmed === '') {
       setMatchedIds(null)
       return
     }
+    let cancelled = false
     const timer = window.setTimeout(() => {
-      try {
-        const queryVector = embed(trimmed)
-        const matches = new Set<string>()
-        for (const [id, vector] of Object.entries(embeddingsById)) {
-          if (cosineSimilarity(queryVector, vector) >= SEARCH_SIMILARITY_THRESHOLD) matches.add(id)
-        }
-        setMatchedIds(matches)
-      } catch {
-        setMatchedIds(new Set())
-      }
+      searchSemantic(trimmed)
+        .then((results) => {
+          if (cancelled) return
+          setMatchedIds(new Set(results.map((r) => r.id)))
+        })
+        .catch(() => {
+          if (cancelled) return
+          setMatchedIds(new Set())
+        })
     }, SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(timer)
-  }, [searchQuery, embeddingsById])
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery])
 
   const hasEdges = edges.length > 0
   const topCommunities = Object.entries(

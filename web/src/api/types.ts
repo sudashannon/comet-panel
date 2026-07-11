@@ -156,18 +156,3 @@ export interface ReportMeta {
   end: string
   createdAt: string
 }
-
-// EmbeddingItem mirrors GET /api/wiki/embeddings' per-component shape --
-// enough metadata to render a search result plus the raw 384-dim vector
-// SemanticSearch.tsx ranks client-side against a query embedding.
-export interface EmbeddingItem {
-  id: string
-  title: string
-  workspace: string
-  type: string
-  vector: number[]
-}
-
-export interface EmbeddingsResponse {
-  items: EmbeddingItem[]
-}
