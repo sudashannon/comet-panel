@@ -105,6 +105,8 @@ func classifyPath(path string) ComponentType {
 		return TypeArtifact
 	case strings.Contains(path, string(filepath.Separator)+"diagrams"+string(filepath.Separator)):
 		return TypeDiagram
+	case strings.Contains(path, string(filepath.Separator)+"reports"+string(filepath.Separator)):
+		return TypeReport
 	}
 	return ""
 }

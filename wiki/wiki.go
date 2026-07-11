@@ -13,6 +13,7 @@ const (
 	TypePlan     ComponentType = "plan"
 	TypeArtifact ComponentType = "artifact"
 	TypeDiagram  ComponentType = "diagram"
+	TypeReport   ComponentType = "report"
 )
 
 type Component struct {
