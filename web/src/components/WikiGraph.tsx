@@ -450,62 +450,56 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
                 </label>
               )}
             </div>
-            <div className="absolute left-2 bottom-2 z-10 flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
+            {/* 类型图例 — 左下角 */}
+            <div
+              data-testid="wiki-graph-legend"
+              className="absolute left-2 bottom-2 z-10 w-28 max-h-[50vh] overflow-y-auto rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+            >
+              <div className="mb-1 font-medium text-[#6e6e73]">类型</div>
+              <ul className="space-y-0.5">
+                {Object.entries(TYPE_COLORS).map(([type, color]) => (
+                  <li key={type} className="flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                    <span className="truncate">{type}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* 社区图例 — 右下角 */}
+            {topCommunities.length > 0 && (
               <div
-                data-testid="wiki-graph-legend"
-                className="rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+                data-testid="wiki-graph-community-legend"
+                className="absolute right-2 bottom-2 z-10 w-44 max-h-[50vh] overflow-y-auto rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
               >
-                <div className="mb-1 font-medium text-[#6e6e73]">类型图例</div>
-                <div className="mb-1 text-[10px] text-[#8e8e93]">
-                  节点按类型着色；连线为组件间关系
-                </div>
+                <div className="mb-1 font-medium text-[#6e6e73]">社区</div>
                 <ul className="space-y-0.5">
-                  {Object.entries(TYPE_COLORS).map(([type, color]) => (
-                    <li key={type} className="flex items-center gap-1.5">
-                      <span
-                        className="inline-block h-2 w-2 rounded-full"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span>{type}</span>
-                    </li>
-                  ))}
+                  {topCommunities.map((id) => {
+                    const active = activeCommunity === id
+                    return (
+                      <li key={id}>
+                        <button
+                          type="button"
+                          data-testid="wiki-graph-community-legend-item"
+                          aria-pressed={active}
+                          onClick={() => setActiveCommunity(active ? null : id)}
+                          className={
+                            active
+                              ? 'flex w-full items-center gap-1 rounded bg-[#1d1d1f]/10 px-1 py-0.5 text-left'
+                              : 'flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-[#f5f5f7]'
+                          }
+                        >
+                          <span
+                            className="inline-block h-2 w-2 shrink-0 rounded-full border border-[#1d1d1f]/10"
+                            style={{ backgroundColor: COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] }}
+                          />
+                          <span className="truncate">{effectiveCommunityLabels[String(id)] ?? `#${id}`}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
-              {topCommunities.length > 0 && (
-                <div
-                  data-testid="wiki-graph-community-legend"
-                  className="rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
-                >
-                  <div className="mb-1 font-medium text-[#6e6e73]">社区图例</div>
-                  <ul className="space-y-0.5">
-                    {topCommunities.map((id) => {
-                      const active = activeCommunity === id
-                      return (
-                        <li key={id}>
-                          <button
-                            type="button"
-                            data-testid="wiki-graph-community-legend-item"
-                            aria-pressed={active}
-                            onClick={() => setActiveCommunity(active ? null : id)}
-                            className={
-                              active
-                                ? 'flex items-center gap-1 rounded bg-[#1d1d1f]/10 px-1 py-0.5'
-                                : 'flex items-center gap-1 rounded px-1 py-0.5 hover:bg-[#f5f5f7]'
-                            }
-                          >
-                            <span
-                              className="inline-block h-2 w-2 rounded-full border border-[#1d1d1f]/10"
-                              style={{ backgroundColor: COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] }}
-                            />
-                            <span>{effectiveCommunityLabels[String(id)] ?? `#${id}`}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-            </div>
+            )}
           </>
         )}
       </div>
