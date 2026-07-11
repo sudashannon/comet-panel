@@ -1,0 +1,7 @@
+{
+  "name": "comet-panel-scripts",
+  "private": true,
+  "dependencies": {
+    "@ternlight/base": "latest"
+  }
+}

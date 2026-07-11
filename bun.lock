@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "comet-panel-scripts",
+      "dependencies": {
+        "@ternlight/base": "latest",
+      },
+    },
+  },
+  "packages": {
+    "@ternlight/base": ["@ternlight/base@0.1.0", "", {}, "sha512-LpPdlH9Q0eX8nNtjqaXvSQXOV5MvOgxdQr+aCiBpvGEOExbAp10DD5yyrujliOG0lW8evCrngxkNmXWslIwpdw=="],
+  }
+}
