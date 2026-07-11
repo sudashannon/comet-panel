@@ -1,6 +1,7 @@
 package wiki
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -107,6 +108,16 @@ func ExtractMarkdownLinks(component Component) ([]Edge, error) {
 		if d == "" || strings.HasPrefix(d, "http://") || strings.HasPrefix(d, "https://") ||
 			strings.HasPrefix(d, "#") || strings.HasPrefix(d, "mailto:") {
 			return ast.WalkContinue, nil
+		}
+		// Strip fragment anchor (#L164-L185, #section, etc.)
+		if idx := strings.IndexByte(d, '#'); idx > 0 {
+			d = d[:idx]
+		}
+		// URL-decode percent-encoded paths (%E4%BA%A7 → 产)
+		if strings.Contains(d, "%") {
+			if decoded, err := url.PathUnescape(d); err == nil {
+				d = decoded
+			}
 		}
 		// Handle file: and file:// URI scheme (VS Code / Obsidian absolute links)
 		if strings.HasPrefix(d, "file:///") {

@@ -37,6 +37,13 @@ func (g *Graph) Lint() []LintIssue {
 	for from, edges := range g.forward {
 		for _, e := range edges {
 			if _, ok := g.components[e.To]; !ok {
+				// If the target file exists on disk but just isn't indexed as a
+				// Component (e.g. source code .c/.py/.go files referenced from design
+				// docs), don't report it as dead — the link is valid, just not a
+				// wiki-tracked artifact.
+				if _, err := os.Stat(e.To); err == nil {
+					continue
+				}
 				issues = append(issues, LintIssue{
 					Rule: "dead-link", ComponentID: from,
 					Detail: fmt.Sprintf("link to %s has no matching component", e.To),
