@@ -108,7 +108,20 @@ func ExtractMarkdownLinks(component Component) ([]Edge, error) {
 			strings.HasPrefix(d, "#") || strings.HasPrefix(d, "mailto:") {
 			return ast.WalkContinue, nil
 		}
-		target := filepath.Clean(filepath.Join(fileDir, d))
+		// Handle file: and file:// URI scheme (VS Code / Obsidian absolute links)
+		if strings.HasPrefix(d, "file:///") {
+			d = d[len("file://"):]
+		} else if strings.HasPrefix(d, "file://") {
+			d = d[len("file://"):]
+		} else if strings.HasPrefix(d, "file:") {
+			d = d[len("file:"):]
+		}
+		var target string
+		if filepath.IsAbs(d) {
+			target = filepath.Clean(d)
+		} else {
+			target = filepath.Clean(filepath.Join(fileDir, d))
+		}
 		edges = append(edges, Edge{
 			From:   component.Path,
 			To:     target,
