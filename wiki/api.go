@@ -231,8 +231,17 @@ func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 	queryNorm := vecNorm(queryVec)
 	for id, vec := range embeddings {
 		sim := cosineSim(queryVec, vec, queryNorm, vecNorm(vec))
-		if sim > 0.3 {
+		if sim > 0.15 {
 			results = append(results, scored{id, sim})
+		}
+	}
+	// Fallback: if vector search yields nothing, do title substring match
+	if len(results) == 0 {
+		queryLower := strings.ToLower(req.Query)
+		for id, c := range components {
+			if strings.Contains(strings.ToLower(c.Title), queryLower) {
+				results = append(results, scored{id, 0.5}) // synthetic score
+			}
 		}
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].sim > results[j].sim })
