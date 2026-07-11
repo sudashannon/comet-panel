@@ -126,19 +126,57 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		}
 	}
 
-	// Vector similarity edges (ternlight embeddings)
+	// Vector similarity edges (ternlight embeddings) — load cache first,
+	// only embed components that aren't already cached.
 	scriptPath := findEmbedScript()
-	embeddings, embedErr := ComputeEmbeddings(allComponents, scriptPath)
+	var embeddings map[string][]float32
+	cachePath := ""
+	if indexCacheDir != "" {
+		cachePath = filepath.Join(indexCacheDir, "embeddings.bin")
+		if cached, err := LoadEmbeddings(cachePath); err == nil && len(cached) > 0 {
+			embeddings = cached
+		}
+	}
+	// Find components missing from cache
+	var missing []Component
+	if embeddings == nil {
+		embeddings = make(map[string][]float32)
+	}
+	for _, c := range allComponents {
+		if _, ok := embeddings[c.ID]; !ok {
+			missing = append(missing, c)
+		}
+	}
+	// Remove stale entries (components that no longer exist)
+	compIDs := make(map[string]bool, len(allComponents))
+	for _, c := range allComponents {
+		compIDs[c.ID] = true
+	}
+	for id := range embeddings {
+		if !compIDs[id] {
+			delete(embeddings, id)
+		}
+	}
+	// Only call expensive embed for missing components
+	if len(missing) > 0 {
+		log.Printf("wiki index: embedding %d new/changed components (cache has %d)", len(missing), len(embeddings))
+		newVecs, err := ComputeEmbeddings(missing, scriptPath)
+		if err != nil {
+			log.Printf("wiki: embedding computation failed (non-fatal): %v", err)
+		} else {
+			for id, vec := range newVecs {
+				embeddings[id] = vec
+			}
+		}
+	}
 	var simEdges []Edge
-	if embedErr == nil && len(embeddings) > 0 {
+	if len(embeddings) > 0 {
 		simEdges = ComputeVectorSimilarityEdges(embeddings, 3, 0.5)
-		if indexCacheDir != "" {
-			if err := SaveEmbeddings(filepath.Join(indexCacheDir, "embeddings.bin"), embeddings); err != nil {
+		if cachePath != "" {
+			if err := SaveEmbeddings(cachePath, embeddings); err != nil {
 				log.Printf("wiki index: failed to cache embeddings: %v", err)
 			}
 		}
-	} else if embedErr != nil {
-		log.Printf("wiki: embedding computation failed (non-fatal, no similarity edges): %v", embedErr)
 	}
 	allEdges = append(allEdges, simEdges...)
 
