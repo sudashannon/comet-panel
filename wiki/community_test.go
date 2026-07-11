@@ -115,7 +115,7 @@ func TestCommunityLabels_PicksDistinctiveTerm(t *testing.T) {
 		"c": 1, "d": 1,
 	}
 
-	labels := CommunityLabels(components, communities)
+	labels := CommunityLabels(components, communities, nil)
 
 	label, ok := labels[0]
 	if !ok {
@@ -137,12 +137,40 @@ func TestCommunityLabels_SkipsMiscCommunity(t *testing.T) {
 		"a": 0, "b": 0, "c": -1,
 	}
 
-	labels := CommunityLabels(components, communities)
+	labels := CommunityLabels(components, communities, nil)
 
 	if _, ok := labels[-1]; ok {
 		t.Fatalf("expected no label for misc community -1, got %+v", labels)
 	}
 	if len(labels) != 1 {
 		t.Fatalf("expected exactly one labeled community, got %+v", labels)
+	}
+}
+
+func TestCommunityLabels_VectorCentroid(t *testing.T) {
+	comps := []Component{
+		{ID: "a", Title: "安全设计"},
+		{ID: "b", Title: "安全实施"},
+		{ID: "c", Title: "OTA 升级"},
+	}
+	communities := map[string]int{"a": 0, "b": 0, "c": 0}
+	// a and b similar vectors, c different
+	embeddings := map[string][]float32{
+		"a": make([]float32, 384),
+		"b": make([]float32, 384),
+		"c": make([]float32, 384),
+	}
+	for i := range 100 {
+		embeddings["a"][i] = 1.0
+		embeddings["b"][i] = 0.95
+	}
+	for i := 200; i < 300; i++ {
+		embeddings["c"][i] = 1.0
+	}
+	labels := CommunityLabels(comps, communities, embeddings)
+	// Label should be one of the security titles (closer to centroid)
+	label := labels[0]
+	if label != "安全设计" && label != "安全实施" {
+		t.Errorf("expected security-related label, got %q", label)
 	}
 }

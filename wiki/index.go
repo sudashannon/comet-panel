@@ -145,6 +145,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 	g := BuildGraph(allComponents, allEdges)
 	g.SetEmbeddings(embeddings)
 	g.SetCommunities(DetectCommunities(g))
+	g.SetCommunityLabels(CommunityLabels(allComponents, g.Communities(), embeddings))
 	if indexCacheDir != "" {
 		persistIndexCache(indexCacheDir, allComponents, allEdges) // best-effort, errors logged not returned
 	}

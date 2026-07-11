@@ -182,7 +182,113 @@ var communityLabelStopwords = map[string]bool{
 	"docs": true, "test": true, "add": true, "update": true, "get": true,
 }
 
-// CommunityLabels computes a human-readable label for each community by
+// CommunityLabels computes a human-readable label for each community.
+//
+// When embeddings are available, the label is chosen via a vector centroid
+// approach: for each community, the centroid is the element-wise mean of
+// its members' embedding vectors, and the label is the Title of the member
+// whose vector has the highest cosine similarity to that centroid (i.e.
+// the most "central" member of the community).
+//
+// When embeddings is nil or empty, this falls back to the TF-IDF approach
+// (see communityLabelsTFIDF): the most distinctive term (highest TF-IDF
+// score) across the titles of the community's members.
+func CommunityLabels(components []Component, communities map[string]int, embeddings map[string][]float32) map[int]string {
+	if len(embeddings) == 0 {
+		return communityLabelsTFIDF(components, communities)
+	}
+
+	// Group members by community, skipping misc (-1) and components with no
+	// embedding vector.
+	commMembers := make(map[int][]Component)
+	for _, c := range components {
+		commID, ok := communities[c.ID]
+		if !ok || commID == -1 {
+			continue
+		}
+		if _, ok := embeddings[c.ID]; !ok {
+			continue
+		}
+		commMembers[commID] = append(commMembers[commID], c)
+	}
+	if len(commMembers) == 0 {
+		return communityLabelsTFIDF(components, communities)
+	}
+
+	labels := make(map[int]string, len(commMembers))
+	for commID, members := range commMembers {
+		centroid := vectorCentroid(members, embeddings)
+		bestTitle := ""
+		bestSim := math.Inf(-1)
+		for _, m := range members {
+			sim := cosineSimilarity(embeddings[m.ID], centroid)
+			if sim > bestSim {
+				bestSim = sim
+				bestTitle = m.Title
+			}
+		}
+		if bestTitle != "" {
+			labels[commID] = bestTitle
+		}
+	}
+	return labels
+}
+
+// vectorCentroid computes the element-wise mean of the embedding vectors of
+// members. All vectors are assumed to share the same dimensionality; the
+// first member present in embeddings determines the centroid's length.
+func vectorCentroid(members []Component, embeddings map[string][]float32) []float32 {
+	var dim int
+	for _, m := range members {
+		if v, ok := embeddings[m.ID]; ok {
+			dim = len(v)
+			break
+		}
+	}
+	centroid := make([]float64, dim)
+	n := 0
+	for _, m := range members {
+		v, ok := embeddings[m.ID]
+		if !ok {
+			continue
+		}
+		for i := 0; i < dim && i < len(v); i++ {
+			centroid[i] += float64(v[i])
+		}
+		n++
+	}
+	result := make([]float32, dim)
+	if n == 0 {
+		return result
+	}
+	for i := range centroid {
+		result[i] = float32(centroid[i] / float64(n))
+	}
+	return result
+}
+
+// cosineSimilarity returns the cosine similarity between a and b. Vectors of
+// mismatched length compare only over their shared prefix. A zero-length
+// vector on either side yields -Inf so it never wins a "closest" comparison.
+func cosineSimilarity(a, b []float32) float64 {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	var dot, normA, normB float64
+	for i := range n {
+		fa, fb := float64(a[i]), float64(b[i])
+		dot += fa * fb
+		normA += fa * fa
+		normB += fb * fb
+	}
+	if normA == 0 || normB == 0 {
+		return math.Inf(-1)
+	}
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+// communityLabelsTFIDF computes a human-readable label for each community by
 // finding the most distinctive term (highest TF-IDF score) across the
 // titles of the community's members.
 //
@@ -190,7 +296,7 @@ var communityLabelStopwords = map[string]bool{
 // log(N / df) where N is the number of communities and df is the number of
 // communities whose titles contain the term at least once. Terms shorter
 // than 2 runes and common stopwords are excluded from consideration.
-func CommunityLabels(components []Component, communities map[string]int) map[int]string {
+func communityLabelsTFIDF(components []Component, communities map[string]int) map[int]string {
 	// Group titles (as token lists) by community, skipping misc (-1).
 	commTokens := make(map[int][]string)
 	for _, c := range components {
