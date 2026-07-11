@@ -13,6 +13,7 @@ import { LintPanel } from './components/LintPanel'
 import { SideRail } from './components/SideRail'
 import { SettingsPanel } from './components/SettingsPanel'
 import { ReportView } from './components/ReportView'
+import { SemanticSearch } from './components/SemanticSearch'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
 // internal counts and the KPI-filter classification below so the two can
@@ -31,7 +32,7 @@ export default function App() {
   // App-level view switch: 变更列表 (default) is the existing per-change
   // dashboard; 图谱/Lint are GLOBAL cross-change views over the whole wiki
   // index, so they live as siblings here rather than nested under a change.
-  const [view, setView] = useState<'changes' | 'graph' | 'timeline' | 'lint' | 'report'>('changes')
+  const [view, setView] = useState<'changes' | 'graph' | 'timeline' | 'search' | 'lint' | 'report'>('changes')
   // Wiki components (id -> path) so a WikiGraph node tap can open the right
   // artifact in MarkdownViewer; fetched independently of the graph view
   // itself since node ids alone don't carry a file path.
@@ -47,7 +48,7 @@ export default function App() {
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
   // reading changeArtifacts/wikiComponents state from the view being left)
   // after switching to a sibling view, e.g. lingering into 报告 or Lint.
-  function handleViewChange(v: 'changes' | 'graph' | 'timeline' | 'lint' | 'report') {
+  function handleViewChange(v: 'changes' | 'graph' | 'timeline' | 'search' | 'lint' | 'report') {
     setViewerPath(null)
     setView(v)
   }
@@ -226,6 +227,21 @@ export default function App() {
       {view === 'timeline' && (
         <div className="flex-1 min-h-0 p-4">
           <WikiTimeline />
+        </div>
+      )}
+
+      {view === 'search' && (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+          {viewerPath ? (
+            <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
+          ) : (
+            <SemanticSearch
+              onNodeClick={(id) => {
+                const component = wikiComponents.find((c) => c.id === id)
+                setViewerPath(component?.path ?? id)
+              }}
+            />
+          )}
         </div>
       )}
 

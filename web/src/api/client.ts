@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, EmbeddingsResponse } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -213,4 +213,14 @@ export async function getReport(name: string): Promise<ReportResponse> {
 export async function deleteReport(name: string): Promise<void> {
   const res = await fetch('/api/reports/get?name=' + encodeURIComponent(name), { method: 'DELETE' })
   if (!res.ok) throw new Error(`deleteReport failed: ${res.status}`)
+}
+
+// fetchEmbeddings is the semantic-search data source: every component's
+// precomputed 384-dim vector (from wiki/embed.go's offline embedding pass),
+// fetched once by SemanticSearch.tsx so query-time ranking is a pure
+// client-side cosine-similarity scan against this cached array.
+export async function fetchEmbeddings(): Promise<EmbeddingsResponse> {
+  const res = await fetch('/api/wiki/embeddings')
+  if (!res.ok) throw new Error(`fetchEmbeddings: ${res.status}`)
+  return res.json()
 }

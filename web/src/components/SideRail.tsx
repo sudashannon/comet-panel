@@ -1,4 +1,4 @@
-type View = 'changes' | 'graph' | 'timeline' | 'lint' | 'report'
+type View = 'changes' | 'graph' | 'timeline' | 'search' | 'lint' | 'report'
 
 interface SideRailProps {
   view: View
@@ -10,6 +10,7 @@ const ITEMS: { key: View; label: string; icon: string }[] = [
   { key: 'changes', label: '变更列表', icon: '🚀' },
   { key: 'graph', label: '图谱', icon: '🗺️' },
   { key: 'timeline', label: '时间线', icon: '📅' },
+  { key: 'search', label: '搜索', icon: '🔍' },
   { key: 'lint', label: 'Lint', icon: '✓' },
   { key: 'report', label: '报告', icon: '📊' },
 ]

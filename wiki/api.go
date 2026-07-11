@@ -161,6 +161,48 @@ func (a *API) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(matches)
 }
 
+type embeddingItem struct {
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	Workspace string    `json:"workspace"`
+	Type      string    `json:"type"`
+	Vector    []float32 `json:"vector"`
+}
+
+// HandleEmbeddings returns every component's precomputed embedding vector
+// alongside enough metadata (title/workspace/type) for the frontend to
+// render a result without a second round-trip -- SemanticSearch.tsx fetches
+// this once, embeds the user's query client-side via @ternlight/mini, and
+// ranks these vectors by cosine similarity entirely in the browser.
+func (a *API) HandleEmbeddings(w http.ResponseWriter, r *http.Request) {
+	a.mu.RLock()
+	embeddings := a.graph.Embeddings()
+	components := a.graph.Components()
+	a.mu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	if len(embeddings) == 0 {
+		json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
+		return
+	}
+
+	items := make([]embeddingItem, 0, len(embeddings))
+	for id, vec := range embeddings {
+		c, ok := components[id]
+		if !ok {
+			continue
+		}
+		items = append(items, embeddingItem{
+			ID:        id,
+			Title:     c.Title,
+			Workspace: c.Workspace,
+			Type:      string(c.Type),
+			Vector:    vec,
+		})
+	}
+	json.NewEncoder(w).Encode(map[string]any{"items": items})
+}
+
 // HandleLint normalizes a nil Lint() result to an empty slice before
 // encoding. (*Graph).Lint() returns `var issues []LintIssue` unmodified when
 // there are zero issues, which is a nil slice — encoding/json serializes nil

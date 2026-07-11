@@ -8,6 +8,11 @@ const mockCy = {
   one: vi.fn(),
   fit: vi.fn(),
   destroy: vi.fn(),
+  nodes: vi.fn(() => ({
+    removeClass: vi.fn().mockReturnThis(),
+    forEach: vi.fn(),
+  })),
+  batch: vi.fn((fn: () => void) => fn()),
 }
 vi.mock('cytoscape', () => ({
   default: vi.fn(() => mockCy),
@@ -189,13 +194,24 @@ describe('WikiGraph', () => {
 
   it('auto-populates once a later poll returns data, without manual view-switching', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(mockGraphResponse([]))
-      .mockResolvedValueOnce(mockGraphResponse([]))
-      .mockResolvedValue(
-        mockGraphResponse([{ id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' }]),
-      )
+    const graphResponses = [
+      mockGraphResponse([]),
+      mockGraphResponse([]),
+      mockGraphResponse([{ id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' }]),
+    ]
+    let graphCallIndex = 0
+    // fetchEmbeddings() also calls global fetch (on a separate '/api/wiki/embeddings'
+    // URL) as soon as WikiGraph mounts -- routing on the request URL keeps that call
+    // from consuming one of the sequenced graph-poll responses queued below.
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      if (url.includes('/api/wiki/embeddings')) {
+        return Promise.resolve({ ok: true, json: async () => ({ items: [] }) } as Response)
+      }
+      const response = graphResponses[Math.min(graphCallIndex, graphResponses.length - 1)]
+      graphCallIndex += 1
+      return Promise.resolve(response)
+    })
     const { getByText, getByTestId } = render(<WikiGraph onNodeClick={vi.fn()} />)
 
     await act(async () => {
@@ -212,7 +228,7 @@ describe('WikiGraph', () => {
       await vi.advanceTimersByTimeAsync(3000)
     })
     await waitFor(() => expect(getByTestId('wiki-graph-legend')).toBeTruthy())
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
   })
 
   it('stops polling and does not update state after unmount', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
-import { fetchWikiGraph } from '../api/client'
+import { embed } from '@ternlight/mini'
+import { fetchWikiGraph, fetchEmbeddings } from '../api/client'
 import type { WikiComponent, WikiEdge } from '../api/types'
 import { GraphFilters } from './GraphFilters'
 
@@ -66,6 +67,30 @@ export const COMMUNITY_COLORS = [
 
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 20
+const SEARCH_DEBOUNCE_MS = 300
+// Below this cosine similarity a component is treated as "not a match" for
+// the search-box highlight -- without a floor, embed() on a short/generic
+// query would still rank every node with *some* similarity and the
+// highlight would cover the whole graph instead of the relevant subset.
+const SEARCH_SIMILARITY_THRESHOLD = 0.35
+
+// Duplicated (not shared) from SemanticSearch.tsx: same generic-vector
+// cosine similarity, but kept local since this is the only other call site
+// and pulling in a shared module for one 12-line pure function isn't worth
+// the extra indirection.
+function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
+  const len = Math.min(a.length, b.length)
+  let dot = 0
+  let magA = 0
+  let magB = 0
+  for (let i = 0; i < len; i++) {
+    dot += a[i] * b[i]
+    magA += a[i] * a[i]
+    magB += b[i] * b[i]
+  }
+  if (magA === 0 || magB === 0) return 0
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB))
+}
 
 export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -83,6 +108,13 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
   const [connectedOnly, setConnectedOnly] = useState(true)
   const [activeWorkspaces, setActiveWorkspaces] = useState<Set<string> | null>(null)
   const [activeCommunity, setActiveCommunity] = useState<number | null>(null)
+  // Search-box state: embeddings are fetched once (independent of the
+  // graph/edges poll above) and the query is embedded client-side via
+  // @ternlight/mini, mirroring SemanticSearch.tsx's approach but scoped to
+  // highlighting matching nodes in place rather than listing them.
+  const [searchQuery, setSearchQuery] = useState('')
+  const [embeddingsById, setEmbeddingsById] = useState<Record<string, number[]>>({})
+  const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -124,6 +156,48 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       if (timer !== undefined) window.clearTimeout(timer)
     }
   }, [])
+
+  // Fetches once, independent of the components/edges poll above -- a
+  // missing/empty embeddings index (e.g. offline embedding pass never run)
+  // just means the search box never highlights anything, not a load error.
+  useEffect(() => {
+    let cancelled = false
+    fetchEmbeddings()
+      .then((data) => {
+        if (cancelled) return
+        const map: Record<string, number[]> = {}
+        for (const item of data.items) map[item.id] = item.vector
+        setEmbeddingsById(map)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setEmbeddingsById({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim()
+    if (trimmed === '' || Object.keys(embeddingsById).length === 0) {
+      setMatchedIds(null)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      try {
+        const queryVector = embed(trimmed)
+        const matches = new Set<string>()
+        for (const [id, vector] of Object.entries(embeddingsById)) {
+          if (cosineSimilarity(queryVector, vector) >= SEARCH_SIMILARITY_THRESHOLD) matches.add(id)
+        }
+        setMatchedIds(matches)
+      } catch {
+        setMatchedIds(new Set())
+      }
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery, embeddingsById])
 
   const hasEdges = edges.length > 0
   const topCommunities = Object.entries(
@@ -267,6 +341,20 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             width: 0.5,
           },
         },
+        {
+          selector: 'node.search-match',
+          style: {
+            'border-width': 3,
+            'border-color': '#0063f8',
+            'z-index': 10,
+          },
+        },
+        {
+          selector: 'node.search-dim',
+          style: {
+            opacity: 0.25,
+          },
+        },
       ],
       // 只要索引提供了关系边，就用 cose 力导向布局把结构关系可视化出来（implements/
       // references/generates）；极少数没有任何关系边的情况下退回固定网格布局，
@@ -303,6 +391,26 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     }
   }, [components, edges, communities, connectedOnly, activeWorkspaces, activeCommunity, onNodeClick])
 
+  // Applies/clears the highlight classes on the LIVE cytoscape instance
+  // whenever the match set or the underlying graph changes -- separate from
+  // the graph-build effect above so re-searching doesn't tear down and
+  // rebuild the whole cytoscape instance (which would reset pan/zoom/layout).
+  useEffect(() => {
+    const cy = cyRef.current
+    if (!cy) return
+    if (matchedIds === null) {
+      cy.nodes().removeClass('search-match').removeClass('search-dim')
+      return
+    }
+    cy.batch(() => {
+      cy.nodes().forEach((node) => {
+        const isMatch = matchedIds.has(node.id())
+        node.toggleClass('search-match', isMatch)
+        node.toggleClass('search-dim', !isMatch)
+      })
+    })
+  }, [matchedIds, components, edges, communities, connectedOnly, activeWorkspaces, activeCommunity])
+
   return (
     <div className="flex h-[calc(100vh-160px)] min-h-[500px] w-full flex-col">
       {components.length > 0 && workspaces.length > 1 && (
@@ -337,7 +445,15 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
         )}
         {components.length > 0 && (
           <>
-            <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="语义搜索节点…"
+              aria-label="图谱语义搜索"
+              className="absolute left-2 top-2 z-10 w-48 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm outline-none focus:border-[#0063f8]"
+            />
+            <div className="absolute left-2 top-11 z-10 flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => cyRef.current?.fit(undefined, 30)}
