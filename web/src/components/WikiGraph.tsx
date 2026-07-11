@@ -224,7 +224,13 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
     // (e.g. a markdown link target outside the scanned workspace) -- cytoscape
     // throws if an edge names a nonexistent node, so drop those defensively
     // rather than let one bad edge blank the whole graph.
-    const validEdges = edges.filter((e) => componentIds.has(e.from) && componentIds.has(e.to))
+    // Exclude vector/similar edges from visualization — they're too dense
+    // (2500+) and make the force layout crawl. They serve search/community,
+    // not the graph view. Only structural edges (yaml, markdown-link,
+    // convention-internal) are rendered.
+    const validEdges = edges
+      .filter((e) => e.source !== 'vector' && e.source !== 'bm25')
+      .filter((e) => componentIds.has(e.from) && componentIds.has(e.to))
     const connectedIds = new Set<string>()
     validEdges.forEach((e) => {
       connectedIds.add(e.from)
