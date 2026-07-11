@@ -18,6 +18,7 @@ type API struct {
 	ws            []WorkspaceConfig
 	indexCacheDir string
 	lister        WorkspaceLister
+	SSE           *SSEHub
 }
 
 // WorkspaceLister exposes the CURRENT workspace registry, decoupling

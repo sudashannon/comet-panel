@@ -1,6 +1,7 @@
 package wiki
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -156,6 +157,10 @@ func (w *Watcher) processBatch(files []string) {
 	log.Printf("wiki watcher: %d file(s) changed, rebuilding index", len(files))
 	if err := w.api.Rebuild(); err != nil {
 		log.Printf("wiki watcher: rebuild failed: %v", err)
+		return
+	}
+	if w.api.SSE != nil {
+		w.api.SSE.Broadcast(fmt.Sprintf(`{"changed":%d}`, len(files)))
 	}
 }
 

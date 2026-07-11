@@ -337,4 +337,36 @@ describe('WikiGraph', () => {
       expect(call.elements.map((el) => el.data.id)).toEqual(['/x/b.md'])
     })
   })
+
+  it('refetches the graph when the SSE hook fires a graph-updated event', async () => {
+    class MockEventSource {
+      static instance: MockEventSource | null = null
+      listeners: Record<string, Array<() => void>> = {}
+      constructor() {
+        MockEventSource.instance = this
+      }
+      addEventListener(type: string, cb: () => void) {
+        ;(this.listeners[type] ??= []).push(cb)
+      }
+      close() {}
+    }
+    vi.stubGlobal('EventSource', MockEventSource)
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(
+        mockGraphResponse([{ id: '/x/a.md', type: 'spec', title: 'A', path: '/x/a.md', workspace: 'miao' }]),
+      ),
+    )
+    render(<WikiGraph onNodeClick={vi.fn()} />)
+
+    await waitFor(() => expect(vi.mocked(cytoscape)).toHaveBeenCalled())
+    const callsBeforeEvent = fetchMock.mock.calls.length
+
+    await act(async () => {
+      MockEventSource.instance!.listeners['graph-updated']?.forEach((cb) => cb())
+    })
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBeforeEvent))
+    vi.unstubAllGlobals()
+  })
 })

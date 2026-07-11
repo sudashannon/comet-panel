@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
 import { embed } from '@ternlight/mini'
 import { fetchWikiGraph, fetchEmbeddings } from '../api/client'
 import type { WikiComponent, WikiEdge } from '../api/types'
 import { GraphFilters } from './GraphFilters'
+import { useWikiEvents } from '../hooks/useWikiEvents'
 
 /**
  * Color legend for the 8 WikiComponent types shown in the WikiGraph force-directed view.
@@ -156,6 +157,21 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
       if (timer !== undefined) window.clearTimeout(timer)
     }
   }, [])
+
+  // Refetches the graph once on demand -- wired to the SSE hook below so a
+  // watcher-triggered rebuild (see wiki/watcher.go processBatch) refreshes
+  // the canvas immediately instead of waiting for the next poll tick.
+  const refetchGraph = useCallback(() => {
+    fetchWikiGraph()
+      .then((data) => {
+        setComponents(data.components)
+        setEdges(data.edges)
+        setCommunities(data.communities ?? {})
+        setCommunityLabels(data.communityLabels ?? {})
+      })
+      .catch(() => {})
+  }, [])
+  useWikiEvents(refetchGraph)
 
   // Fetches once, independent of the components/edges poll above -- a
   // missing/empty embeddings index (e.g. offline embedding pass never run)

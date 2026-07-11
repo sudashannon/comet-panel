@@ -57,6 +57,8 @@ func main() {
 
 	wikiCacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki")
 	wikiAPI := wiki.NewAPIWithWorkspacesAsync(toWikiWorkspaces(reg.List()), wikiCacheDir)
+	sseHub := wiki.NewSSEHub()
+	wikiAPI.SSE = sseHub
 	// Wire the live registry so /api/wiki/rebuild reflects runtime workspace
 	// adds instead of only the construction-time snapshot taken above.
 	wikiAPI.SetLister(registryLister{reg})
@@ -90,6 +92,7 @@ func main() {
 	mux.HandleFunc("/api/wiki/summarize", wikiAPI.HandleSummarize)
 	mux.HandleFunc("/api/wiki/overview", wikiAPI.HandleOverview)
 	mux.HandleFunc("/api/wiki/embeddings", wikiAPI.HandleEmbeddings)
+	mux.Handle("/api/wiki/events", sseHub)
 
 	mux.HandleFunc("/api/changes", func(w http.ResponseWriter, r *http.Request) {
 		handleListChangesMultiWorkspace(w, r, *baseDir, reg)

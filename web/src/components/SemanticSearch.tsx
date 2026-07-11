@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { embed } from '@ternlight/mini'
 import { fetchEmbeddings } from '../api/client'
 import type { EmbeddingItem } from '../api/types'
 import { TYPE_COLORS } from './WikiGraph'
+import { useWikiEvents } from '../hooks/useWikiEvents'
 
 const DEBOUNCE_MS = 300
 const TOP_K = 10
@@ -68,6 +69,16 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
       cancelled = true
     }
   }, [])
+
+  // Refetches embeddings once on demand -- wired to the SSE hook so a
+  // watcher-triggered rebuild (new/changed components re-embedded) updates
+  // the search corpus immediately instead of only on mount.
+  const refetchEmbeddings = useCallback(() => {
+    fetchEmbeddings()
+      .then((data) => setItems(data.items))
+      .catch(() => setLoadError(true))
+  }, [])
+  useWikiEvents(refetchEmbeddings)
 
   useEffect(() => {
     if (debounceRef.current !== undefined) window.clearTimeout(debounceRef.current)

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { SemanticSearch } from './SemanticSearch'
 import { embed } from '@ternlight/mini'
@@ -87,5 +87,38 @@ describe('SemanticSearch', () => {
 
     fireEvent.change(input, { target: { value: '' } })
     await waitFor(() => expect(screen.queryByText('Matching Doc')).toBeFalsy())
+  })
+
+  it('refetches embeddings when the SSE hook fires a graph-updated event', async () => {
+    class MockEventSource {
+      static instance: MockEventSource | null = null
+      listeners: Record<string, Array<() => void>> = {}
+      constructor() {
+        MockEventSource.instance = this
+      }
+      addEventListener(type: string, cb: () => void) {
+        ;(this.listeners[type] ??= []).push(cb)
+      }
+      close() {}
+    }
+    vi.stubGlobal('EventSource', MockEventSource)
+
+    const items = buildItems('reset my password')
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ items }),
+    } as Response)
+
+    render(<SemanticSearch onNodeClick={() => {}} />)
+    const input = await waitFor(() => screen.getByLabelText('语义搜索') as HTMLInputElement)
+    await waitFor(() => expect(input.disabled).toBe(false))
+    const callsBeforeEvent = fetchMock.mock.calls.length
+
+    await act(async () => {
+      MockEventSource.instance!.listeners['graph-updated']?.forEach((cb) => cb())
+    })
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBeforeEvent))
+    vi.unstubAllGlobals()
   })
 })

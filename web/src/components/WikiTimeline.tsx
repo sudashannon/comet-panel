@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchWikiGraph } from '../api/client'
 import type { WikiComponent } from '../api/types'
 import { COMMUNITY_COLORS } from './WikiGraph'
 import { GraphFilters } from './GraphFilters'
+import { useWikiEvents } from '../hooks/useWikiEvents'
 
 const ROW_HEIGHT = 28
 const BAR_HEIGHT = 16
@@ -84,6 +85,19 @@ export function WikiTimeline() {
       cancelled = true
     }
   }, [])
+
+  // Refetches once on demand -- wired to the SSE hook so a watcher-triggered
+  // rebuild refreshes the timeline immediately instead of only on mount.
+  const refetchGraph = useCallback(() => {
+    fetchWikiGraph()
+      .then((data) => {
+        setComponents(data.components)
+        setCommunities(data.communities ?? {})
+        setCommunityLabels(data.communityLabels ?? {})
+      })
+      .catch(() => {})
+  }, [])
+  useWikiEvents(refetchGraph)
 
   const items = useMemo(
     () => components.filter((c) => c.type === 'change').map((c) => toTimelineItem(c, communities)),
