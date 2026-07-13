@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, Bookmark } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -25,6 +25,31 @@ export async function addWorkspace(cfg: WorkspaceConfig): Promise<void> {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error || `添加工作区失败 (${res.status})`)
   }
+}
+
+export async function fetchBookmarks(): Promise<Bookmark[]> {
+  const res = await fetch('/api/bookmarks')
+  if (!res.ok) throw new Error(`fetchBookmarks failed: ${res.status}`)
+  return res.json()
+}
+
+export async function addBookmark(b: { path: string; title: string; type: string }): Promise<Bookmark[]> {
+  const res = await fetch('/api/bookmarks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(b),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || `addBookmark failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function removeBookmark(path: string): Promise<Bookmark[]> {
+  const res = await fetch('/api/bookmarks?path=' + encodeURIComponent(path), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`removeBookmark failed: ${res.status}`)
+  return res.json()
 }
 
 // Distinct from fetchChanges() (Task 4), which discards the envelope's

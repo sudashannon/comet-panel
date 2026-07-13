@@ -55,6 +55,8 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/bookmarks", handleBookmarks)
+
 	wikiCacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki")
 	wikiAPI := wiki.NewAPIWithWorkspacesAsync(toWikiWorkspaces(reg.List()), wikiCacheDir)
 	sseHub := wiki.NewSSEHub()

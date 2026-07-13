@@ -21,6 +21,13 @@ export interface ChangeSummary {
   componentId?: string // wiki graph node ID (.comet.yaml path); optional until backend populates it
 }
 
+export interface Bookmark {
+  path: string
+  title: string
+  type: string
+  starredAt: string
+}
+
 export interface ChangesResponse {
   changes: ChangeSummary[]
   dir?: string

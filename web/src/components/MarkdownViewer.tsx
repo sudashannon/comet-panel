@@ -128,9 +128,14 @@ interface Props {
   workspace?: string
   onSelectArtifact?: (path: string) => void
   onClose: () => void
+  // Bookmark star toggle: both are optional so callers that don't wire
+  // bookmarking (e.g. ReportView's generated-body viewer) simply omit them
+  // and the star button doesn't render.
+  onToggleStar?: (path: string, title: string) => void
+  isStarred?: boolean
 }
 
-export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtifact, onClose }: Props) {
+export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtifact, onClose, onToggleStar, isStarred }: Props) {
   const [content, setContent] = useState<string | null>(body ?? null)
   const [error, setError] = useState(false)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
@@ -205,13 +210,26 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
           <div className="text-sm font-semibold text-[#1d1d1f] truncate" title={path ?? undefined}>
             {filename}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
-          >
-            ✕ 关闭
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onToggleStar && path && (
+              <button
+                type="button"
+                aria-label={isStarred ? '取消收藏' : '收藏'}
+                aria-pressed={!!isStarred}
+                onClick={() => onToggleStar(path, filename)}
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+              >
+                {isStarred ? '⭐' : '☆'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+            >
+              ✕ 关闭
+            </button>
+          </div>
         </div>
         {artifacts && artifacts.length > 1 && (
           <div data-testid="artifact-switcher" className="flex items-center gap-1.5 overflow-x-auto">

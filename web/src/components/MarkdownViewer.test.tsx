@@ -62,6 +62,53 @@ describe('MarkdownViewer', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('does not render a star button when onToggleStar is omitted', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Hello',
+    } as Response)
+
+    render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+
+    expect(screen.queryByRole('button', { name: '收藏' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '取消收藏' })).toBeNull()
+  })
+
+  it('shows an unstarred button and calls onToggleStar with path and filename', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Hello',
+    } as Response)
+
+    const onToggleStar = vi.fn()
+    render(
+      <MarkdownViewer path="/x/design.md" onClose={vi.fn()} onToggleStar={onToggleStar} isStarred={false} />,
+    )
+    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+
+    const starButton = screen.getByRole('button', { name: '收藏' })
+    expect(starButton.textContent).toBe('☆')
+    fireEvent.click(starButton)
+    expect(onToggleStar).toHaveBeenCalledWith('/x/design.md', 'design.md')
+  })
+
+  it('shows a filled star and aria-pressed when isStarred is true', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '# Hello',
+    } as Response)
+
+    render(
+      <MarkdownViewer path="/x/design.md" onClose={vi.fn()} onToggleStar={vi.fn()} isStarred={true} />,
+    )
+    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+
+    const starButton = screen.getByRole('button', { name: '取消收藏' })
+    expect(starButton.textContent).toBe('⭐')
+    expect(starButton.getAttribute('aria-pressed')).toBe('true')
+  })
+
   it('renders a GFM table as real table markup, not raw pipe text', async () => {
     const table = '| A | B |\n| --- | --- |\n| 1 | 2 |'
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({

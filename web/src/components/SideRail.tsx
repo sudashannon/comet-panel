@@ -4,6 +4,8 @@ interface SideRailProps {
   view: View
   onSelect: (v: View) => void
   onOpenSettings?: () => void
+  onToggleBookmarks?: () => void
+  bookmarkPanelOpen?: boolean
 }
 
 const ITEMS: { key: View; label: string; icon: string }[] = [
@@ -15,7 +17,7 @@ const ITEMS: { key: View; label: string; icon: string }[] = [
   { key: 'report', label: '报告', icon: '📊' },
 ]
 
-export function SideRail({ view, onSelect, onOpenSettings }: SideRailProps) {
+export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bookmarkPanelOpen }: SideRailProps) {
   return (
     <nav
       data-testid="view-switcher"
@@ -42,6 +44,24 @@ export function SideRail({ view, onSelect, onOpenSettings }: SideRailProps) {
         )
       })}
       <div className="flex-1" />
+      <button
+        type="button"
+        aria-label="收藏"
+        aria-pressed={!!bookmarkPanelOpen}
+        onClick={onToggleBookmarks}
+        disabled={!onToggleBookmarks}
+        title={onToggleBookmarks ? '收藏' : '即将推出'}
+        className={
+          'w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] ' +
+          (bookmarkPanelOpen
+            ? 'bg-[#0063f8] text-white shadow-[0_6px_14px_rgba(0,99,248,0.35)]'
+            : onToggleBookmarks
+              ? 'text-[#6e6e73] hover:bg-[#f0f5ff]'
+              : 'text-[#c7cad4] cursor-not-allowed')
+        }
+      >
+        <span aria-hidden="true">⭐</span>
+      </button>
       <button
         type="button"
         aria-label="设置"

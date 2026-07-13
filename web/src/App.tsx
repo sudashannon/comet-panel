@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex } from './api/client'
-import type { ChangeSummary, WorkspaceConfig, WikiComponent } from './api/types'
+import { fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchBookmarks, addBookmark, removeBookmark } from './api/client'
+import type { ChangeSummary, WorkspaceConfig, WikiComponent, Bookmark } from './api/types'
 import { KpiCards, classifyChanges } from './components/KpiCards'
 import { ChangeExplorer } from './components/ChangeExplorer'
 import { ChangeDetail } from './components/ChangeDetail'
@@ -13,6 +13,7 @@ import { LintPanel } from './components/LintPanel'
 import { SideRail } from './components/SideRail'
 import { SettingsPanel } from './components/SettingsPanel'
 import { ReportView } from './components/ReportView'
+import { BookmarkPanel } from './components/BookmarkPanel'
 import { SemanticSearch } from './components/SemanticSearch'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
@@ -43,6 +44,8 @@ export default function App() {
   // sibling data) and consumed by MarkdownViewer's in-viewer switcher, so a
   // user reading one artifact can hop to another without closing the viewer.
   const [changeArtifacts, setChangeArtifacts] = useState<{ path: string; label: string }[]>([])
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+  const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false)
 
   // Every SideRail view switch must close any open MarkdownViewer first —
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
@@ -74,6 +77,36 @@ export default function App() {
       .catch(() => setWikiComponents([]))
   }, [])
 
+  useEffect(() => {
+    fetchBookmarks()
+      .then(setBookmarks)
+      .catch(() => setBookmarks([]))
+  }, [])
+
+  const isBookmarked = (path: string) => bookmarks.some((b) => b.path === path)
+
+  // Toggle star: adds via POST if not yet starred, removes via DELETE if
+  // already starred. `type` is inferred from the path so callers don't need
+  // to thread the artifact kind through every MarkdownViewer.
+  function handleToggleStar(path: string, title: string) {
+    if (isBookmarked(path)) {
+      removeBookmark(path)
+        .then(setBookmarks)
+        .catch(() => {})
+    } else {
+      const type = path.split('.').pop() || 'doc'
+      addBookmark({ path, title, type })
+        .then(setBookmarks)
+        .catch(() => {})
+    }
+  }
+
+  function handleRemoveBookmark(path: string) {
+    removeBookmark(path)
+      .then(setBookmarks)
+      .catch(() => {})
+  }
+
   const selectedChange = changes.find((c) => c.name === selected) ?? null
 
   // `now` is computed once per render and threaded into both KpiCards (for
@@ -104,8 +137,14 @@ export default function App() {
     : workspaceChanges
 
   return (
-    <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden">
-      <SideRail view={view} onSelect={handleViewChange} onOpenSettings={() => setSettingsOpen(true)} />
+    <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden relative">
+      <SideRail
+        view={view}
+        onSelect={handleViewChange}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onToggleBookmarks={() => setBookmarkPanelOpen((v) => !v)}
+        bookmarkPanelOpen={bookmarkPanelOpen}
+      />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <div className="xl:hidden flex items-center p-3 shrink-0">
           <button
@@ -162,6 +201,8 @@ export default function App() {
                   workspace={selectedChange?.workspace}
                   onSelectArtifact={setViewerPath}
                   onClose={() => setViewerPath(null)}
+                  onToggleStar={handleToggleStar}
+                  isStarred={isBookmarked(viewerPath)}
                 />
               ) : (
                 <div className="space-y-4">
@@ -212,7 +253,12 @@ export default function App() {
       {view === 'graph' && (
         <div className="flex-1 min-h-0 p-4">
           {viewerPath ? (
-            <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
+            <MarkdownViewer
+              path={viewerPath}
+              onClose={() => setViewerPath(null)}
+              onToggleStar={handleToggleStar}
+              isStarred={isBookmarked(viewerPath)}
+            />
           ) : (
             <WikiGraph
               onNodeClick={(id) => {
@@ -241,7 +287,12 @@ export default function App() {
         </div>
         {viewerPath && view === 'search' && (
           <div className="absolute inset-0 z-10 overflow-y-auto bg-white">
-            <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
+            <MarkdownViewer
+              path={viewerPath}
+              onClose={() => setViewerPath(null)}
+              onToggleStar={handleToggleStar}
+              isStarred={isBookmarked(viewerPath)}
+            />
           </div>
         )}
       </div>
@@ -255,13 +306,31 @@ export default function App() {
       {view === 'lint' && (
         <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {viewerPath ? (
-            <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
+            <MarkdownViewer
+              path={viewerPath}
+              onClose={() => setViewerPath(null)}
+              onToggleStar={handleToggleStar}
+              isStarred={isBookmarked(viewerPath)}
+            />
           ) : (
             <LintPanel onOpen={(path) => setViewerPath(path)} />
           )}
         </div>
       )}
       </div>
+      {bookmarkPanelOpen && (
+        <div className="absolute top-5 left-[76px] z-40">
+          <BookmarkPanel
+            bookmarks={bookmarks}
+            onOpen={(path) => {
+              setViewerPath(path)
+              setBookmarkPanelOpen(false)
+            }}
+            onRemove={handleRemoveBookmark}
+            onClose={() => setBookmarkPanelOpen(false)}
+          />
+        </div>
+      )}
       {settingsOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto">

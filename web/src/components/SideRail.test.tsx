@@ -31,4 +31,22 @@ describe('SideRail', () => {
     const settings = screen.getByRole('button', { name: '设置' }) as HTMLButtonElement
     expect(settings.disabled).toBe(true)
   })
+
+  it('renders a disabled bookmark placeholder when onToggleBookmarks is omitted', () => {
+    render(<SideRail view="changes" onSelect={() => {}} />)
+    const star = screen.getByRole('button', { name: '收藏' }) as HTMLButtonElement
+    expect(star.disabled).toBe(true)
+  })
+
+  it('calls onToggleBookmarks when the star icon is clicked', () => {
+    const onToggleBookmarks = vi.fn()
+    render(<SideRail view="changes" onSelect={() => {}} onToggleBookmarks={onToggleBookmarks} />)
+    fireEvent.click(screen.getByRole('button', { name: '收藏' }))
+    expect(onToggleBookmarks).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks the bookmark icon as pressed when the panel is open', () => {
+    render(<SideRail view="changes" onSelect={() => {}} onToggleBookmarks={() => {}} bookmarkPanelOpen={true} />)
+    expect(screen.getByRole('button', { name: '收藏' }).getAttribute('aria-pressed')).toBe('true')
+  })
 })

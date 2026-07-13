@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import App from './App'
-import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession, fetchChangeDetail } from './api/client'
+import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession, fetchChangeDetail, fetchBookmarks, addBookmark } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
 
 // WikiGraph mounts a real cytoscape instance with a cose layout and
@@ -34,6 +34,9 @@ vi.mock('./api/client', () => ({
   }),
   fetchArtifactContent: vi.fn().mockResolvedValue(''),
   fetchWikiComponent: vi.fn().mockResolvedValue({ component: { id: '', title: '' }, forward: [], backlinks: [] }),
+  fetchBookmarks: vi.fn().mockResolvedValue([]),
+  addBookmark: vi.fn().mockResolvedValue([]),
+  removeBookmark: vi.fn().mockResolvedValue([]),
   fetchChatSession: vi.fn().mockResolvedValue({
     change: '', messages: [], context_files: [], usage: { total_input: 0, total_output: 0 }, created_at: '', updated_at: '',
   }),
@@ -172,6 +175,48 @@ describe('App', () => {
     fireEvent.click(screen.getByText('✕ 关闭'))
     expect(screen.queryByText('✕ 关闭')).toBeNull()
     await waitFor(() => {})
+  })
+
+  it('starring a doc in MarkdownViewer adds it to the bookmark panel, and clicking it there reopens it', async () => {
+    const changes = [makeChange({ name: 'alpha' })]
+    vi.mocked(fetchWorkspaces).mockResolvedValueOnce([])
+    vi.mocked(fetchChangesWithMeta).mockResolvedValueOnce({ changes, failedWorkspaces: [] })
+    vi.mocked(fetchChangeDetail).mockResolvedValue({
+      name: 'alpha', workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 0, tasksTotal: 0, verifyResult: 'pending', createdAt: '',
+      phases: [
+        {
+          key: 'design',
+          label: '设计',
+          status: 'done',
+          artifacts: [{ file: 'design.md', label: '设计文档', exists: true, path: '/x/alpha/design.md' }],
+        },
+      ],
+    })
+    vi.mocked(fetchBookmarks).mockResolvedValueOnce([])
+    const bookmark = { path: '/x/alpha/design.md', title: 'design.md', type: 'md', starredAt: '2026-01-01T00:00:00Z' }
+    vi.mocked(addBookmark).mockResolvedValueOnce([bookmark])
+
+    render(<App />)
+    await screen.findByText('alpha')
+    fireEvent.click(screen.getByText('alpha'))
+    const artifactButton = await screen.findByText('设计文档')
+    fireEvent.click(artifactButton)
+    await screen.findByText('✕ 关闭')
+
+    fireEvent.click(screen.getAllByRole('button', { name: '收藏' })[1])
+    await waitFor(() =>
+      expect(addBookmark).toHaveBeenCalledWith({ path: '/x/alpha/design.md', title: 'design.md', type: 'md' }),
+    )
+
+    fireEvent.click(screen.getByText('✕ 关闭'))
+
+    fireEvent.click(screen.getAllByRole('button', { name: '收藏' })[0])
+    await screen.findByTestId('bookmark-panel')
+    fireEvent.click(screen.getByText('design.md'))
+
+    await waitFor(() => expect(screen.queryByTestId('bookmark-panel')).toBeNull())
+    await screen.findByText('✕ 关闭')
   })
 })
 
