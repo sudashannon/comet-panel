@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"comet-ui/chat"
 )
@@ -114,6 +115,48 @@ func (a *API) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		all = append(all, c)
 	}
 	json.NewEncoder(w).Encode(all)
+}
+
+// recentItem is the wire shape for HandleRecent — a lightweight projection
+// of Component tailored to a "recent changes" list (no Frontmatter payload).
+type recentItem struct {
+	ID        string        `json:"id"`
+	Title     string        `json:"title"`
+	Type      ComponentType `json:"type"`
+	Workspace string        `json:"workspace"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+	Path      string        `json:"path"`
+}
+
+// HandleRecent returns the 50 most recently updated components, newest
+// first, for the sidebar's "Recent Changes" view.
+func (a *API) HandleRecent(w http.ResponseWriter, r *http.Request) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	all := make([]Component, 0, len(a.graph.components))
+	for id := range a.graph.components {
+		c, _ := a.graph.Component(id)
+		all = append(all, c)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].UpdatedAt.After(all[j].UpdatedAt)
+	})
+	if len(all) > 50 {
+		all = all[:50]
+	}
+	items := make([]recentItem, len(all))
+	for i, c := range all {
+		items[i] = recentItem{
+			ID:        c.ID,
+			Title:     c.Title,
+			Type:      c.Type,
+			Workspace: c.Workspace,
+			UpdatedAt: c.UpdatedAt,
+			Path:      c.Path,
+		}
+	}
+	json.NewEncoder(w).Encode(items)
 }
 
 // graphResponse mirrors index.json+graph.json's on-disk shape (see

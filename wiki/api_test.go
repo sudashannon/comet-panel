@@ -6,8 +6,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHandleWikiComponent_ReturnsBacklinks(t *testing.T) {
@@ -39,6 +41,46 @@ func TestHandleWikiComponent_NotFoundReturns404(t *testing.T) {
 	api.HandleComponent(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestHandleRecent_ReturnsSortedByUpdatedAtDescendingTop50(t *testing.T) {
+	now := time.Now()
+	var comps []Component
+	for i := range 60 {
+		id := strconv.Itoa(i)
+		comps = append(comps, Component{
+			ID:        id,
+			Title:     "doc" + id,
+			Type:      TypeSpec,
+			Workspace: "ws",
+			Path:      "/p/" + id,
+			UpdatedAt: now.Add(time.Duration(i) * time.Minute),
+		})
+	}
+	g := BuildGraph(comps, nil)
+	api := NewAPI(g)
+	req := httptest.NewRequest("GET", "/api/wiki/recent", nil)
+	w := httptest.NewRecorder()
+	api.HandleRecent(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var items []recentItem
+	if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(items) != 50 {
+		t.Fatalf("expected 50 items, got %d", len(items))
+	}
+	if items[0].ID != strconv.Itoa(59) {
+		t.Fatalf("expected newest item first, got %s", items[0].ID)
+	}
+	for i := 1; i < len(items); i++ {
+		if items[i].UpdatedAt.After(items[i-1].UpdatedAt) {
+			t.Fatalf("items not sorted descending at index %d", i)
+		}
 	}
 }
 

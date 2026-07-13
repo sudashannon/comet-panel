@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, Bookmark } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, RecentItem, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, Bookmark } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -95,6 +95,12 @@ export async function fetchWikiIndex(): Promise<WikiComponent[]> {
 export async function fetchWikiGraph(): Promise<WikiGraphData> {
   const res = await fetch('/api/wiki/graph')
   if (!res.ok) throw new Error(`fetchWikiGraph failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchRecent(): Promise<RecentItem[]> {
+  const res = await fetch('/api/wiki/recent')
+  if (!res.ok) throw new Error(`fetchRecent failed: ${res.status}`)
   return res.json()
 }
 

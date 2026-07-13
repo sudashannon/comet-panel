@@ -10,6 +10,7 @@ describe('SideRail', () => {
     expect(screen.getByRole('button', { name: '变更列表' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '图谱' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '时间线' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '最近' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Lint' })).toBeTruthy()
   })
 

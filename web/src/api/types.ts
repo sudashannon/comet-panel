@@ -69,6 +69,15 @@ export interface WikiComponent {
   updatedAt?: string
 }
 
+export interface RecentItem {
+  id: string
+  title: string
+  type: string
+  workspace: string
+  updatedAt: string
+  path: string
+}
+
 // WikiGraphData is the full graph view for the relationship visualization
 // (GET /api/wiki/graph): every component alongside every edge, unlike
 // fetchWikiIndex()'s nodes-only WikiComponent[].

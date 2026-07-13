@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import App from './App'
-import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchChatSession, fetchChangeDetail, fetchBookmarks, addBookmark } from './api/client'
+import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchRecent, fetchChatSession, fetchChangeDetail, fetchBookmarks, addBookmark } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
 
 // WikiGraph mounts a real cytoscape instance with a cose layout and
@@ -9,9 +9,13 @@ import type { ChangeSummary, WorkspaceConfig } from './api/types'
 // jsdom (WikiGraph.test.tsx mocks cytoscape directly to cover that). At the
 // App level we only care that switching to 图谱 mounts WikiGraph and wires
 // its onNodeClick — so mock the component itself rather than cytoscape.
-vi.mock('./components/WikiGraph', () => ({
-  WikiGraph: () => <div data-testid="wiki-graph-canvas" />,
-}))
+vi.mock('./components/WikiGraph', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./components/WikiGraph')>()
+  return {
+    ...actual,
+    WikiGraph: () => <div data-testid="wiki-graph-canvas" />,
+  }
+})
 
 // Regression test for the Critical finding in Task 17 review: the Go backend
 // genuinely returns "changes": null (nil slice) in two real scenarios —
@@ -28,6 +32,7 @@ vi.mock('./api/client', () => ({
   fetchWikiIndex: vi.fn().mockResolvedValue([]),
   fetchWikiLint: vi.fn().mockResolvedValue([]),
   fetchLintIssues: vi.fn().mockResolvedValue([]),
+  fetchRecent: vi.fn().mockResolvedValue([]),
   fetchChangeDetail: vi.fn().mockResolvedValue({
     name: '', workflow: '', phase: '', archived: false, tasksCompleted: 0, tasksTotal: 0,
     verifyResult: '', createdAt: '', phases: [],
@@ -262,6 +267,20 @@ describe('App view switcher', () => {
 
     await waitFor(() => expect(fetchLintIssues).toHaveBeenCalled())
     await screen.findByText(/orphan/)
+    expect(screen.queryByTestId('kpi-grid')).toBeNull()
+  })
+
+  it('switches to the 最近 view and mounts RecentPanel', async () => {
+    vi.mocked(fetchRecent).mockResolvedValueOnce([
+      { id: '/x/a.md', title: 'A doc', type: 'spec', workspace: 'ws', updatedAt: new Date().toISOString(), path: '/x/a.md' },
+    ])
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+
+    fireEvent.click(screen.getByRole('button', { name: '最近' }))
+
+    await waitFor(() => expect(fetchRecent).toHaveBeenCalled())
+    await screen.findByText('A doc')
     expect(screen.queryByTestId('kpi-grid')).toBeNull()
   })
 

@@ -87,6 +87,7 @@ func main() {
 	}
 	mux.HandleFunc("/api/wiki/index", wikiAPI.HandleIndex)
 	mux.HandleFunc("/api/wiki/graph", wikiAPI.HandleGraph)
+	mux.HandleFunc("/api/wiki/recent", wikiAPI.HandleRecent)
 	mux.HandleFunc("/api/wiki/component/", wikiAPI.HandleComponent)
 	mux.HandleFunc("/api/wiki/search", wikiAPI.HandleSearch)
 	mux.HandleFunc("/api/wiki/rebuild", wikiAPI.HandleRebuild)
