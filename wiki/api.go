@@ -200,9 +200,7 @@ func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]semanticSearchResult{})
 		return
 	}
-	if req.TopK <= 0 {
-		req.TopK = 10
-	}
+	// topK=0 means return all results (frontend handles pagination)
 
 	// Embed the query using the same script the offline corpus build uses.
 	scriptPath := findEmbedScript()
@@ -250,9 +248,6 @@ func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].sim > results[j].sim })
-	if len(results) > req.TopK {
-		results = results[:req.TopK]
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	out := make([]semanticSearchResult, 0, len(results))

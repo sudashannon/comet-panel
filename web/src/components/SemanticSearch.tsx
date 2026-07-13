@@ -1,23 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
-import { searchSemantic, type SemanticSearchResult } from '../api/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { searchSemantic } from '../api/client'
+import type { SemanticSearchResult } from '../api/client'
 import { TYPE_COLORS } from './WikiGraph'
 
 const DEBOUNCE_MS = 300
-const TOP_K = 10
+const PAGE_SIZE = 20
 
 interface SemanticSearchProps {
   onNodeClick: (id: string) => void
 }
 
-// SemanticSearch is a standalone search view: as the user types, the query
-// is embedded and ranked against the corpus server-side (POST
-// /api/wiki/search-semantic) so there is no client-side WASM encoder and no
-// upfront corpus fetch -- each debounced keystroke is a single round-trip
-// that returns already-ranked results.
 export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SemanticSearchResult[]>([])
   const [loadError, setLoadError] = useState(false)
+  const [page, setPage] = useState(0)
   const debounceRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
@@ -26,13 +23,15 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
     if (trimmed === '') {
       setResults([])
       setLoadError(false)
+      setPage(0)
       return
     }
     debounceRef.current = window.setTimeout(() => {
-      searchSemantic(trimmed, TOP_K)
+      searchSemantic(trimmed, 0)
         .then((data) => {
           setResults(data)
           setLoadError(false)
+          setPage(0)
         })
         .catch(() => {
           setResults([])
@@ -44,8 +43,14 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
     }
   }, [query])
 
+  const totalPages = Math.ceil(results.length / PAGE_SIZE)
+  const pageResults = useMemo(
+    () => results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [results, page],
+  )
+
   return (
-    <div className="space-y-4 text-xs">
+    <div className="space-y-3 text-xs">
       <input
         type="text"
         value={query}
@@ -58,8 +63,13 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
       {!loadError && query.trim() !== '' && results.length === 0 && (
         <div className="text-[#6e6e73]">无匹配结果</div>
       )}
+      {results.length > 0 && (
+        <div className="text-[#6e6e73]">
+          共 {results.length} 条结果
+        </div>
+      )}
       <ul className="space-y-1.5">
-        {results.map((item) => (
+        {pageResults.map((item) => (
           <li key={item.id}>
             <button
               type="button"
@@ -81,6 +91,29 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
           </li>
         ))}
       </ul>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            type="button"
+            disabled={page === 0}
+            onClick={() => setPage(page - 1)}
+            className="rounded border border-[#e4e4e8] px-2 py-1 disabled:opacity-30"
+          >
+            ← 上一页
+          </button>
+          <span className="text-[#6e6e73]">
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage(page + 1)}
+            className="rounded border border-[#e4e4e8] px-2 py-1 disabled:opacity-30"
+          >
+            下一页 →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

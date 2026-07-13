@@ -30,7 +30,7 @@ describe('SemanticSearch', () => {
     await waitFor(() => expect(screen.getByText('Matching Doc')).toBeTruthy(), { timeout: 2000 })
     expect(screen.getByText('100%')).toBeTruthy()
     expect(screen.getByText('Unrelated Doc')).toBeTruthy()
-    expect(searchSemantic).toHaveBeenCalledWith('reset my password', 10)
+    expect(searchSemantic).toHaveBeenCalledWith('reset my password', 0)
 
     // The higher-similarity item's result row must precede the lower one.
     const rows = screen.getAllByRole('button').filter((b) => b.textContent?.includes('Doc'))
