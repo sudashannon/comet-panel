@@ -48,19 +48,40 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 	var allEdges []Edge
 
 	for _, ws := range workspaces {
-		// Tolerate a workspace path registered as the repo ROOT instead of its
-		// openspec dir (mirrors scanner.go scanAllChanges): if <path>/changes is
-		// absent but <path>/openspec/changes exists, treat <path>/openspec as the
-		// openspec dir so the changes graph nodes/edges are still indexed.
+		// Determine the openspec dir and the scan root.
+		// If <path>/changes exists → it's an openspec dir; scan parent as projectRoot.
+		// If <path>/openspec/changes exists → nested openspec; scan <path> as projectRoot.
+		// Otherwise → it's a plain docs directory (e.g. lz100/); scan ws.Path directly.
 		openspecPath := ws.Path
-		if !dirExists(filepath.Join(openspecPath, "changes")) && dirExists(filepath.Join(openspecPath, "openspec", "changes")) {
+		var scanRoots []string
+		if dirExists(filepath.Join(openspecPath, "changes")) {
+			// It's an openspec dir. Scan it for changes.
+			// Also scan sibling docs/ if present (for specs/plans/reports).
+			scanRoots = append(scanRoots, openspecPath)
+			docsDir := filepath.Join(filepath.Dir(openspecPath), "docs")
+			if dirExists(docsDir) {
+				scanRoots = append(scanRoots, docsDir)
+			}
+		} else if dirExists(filepath.Join(openspecPath, "openspec", "changes")) {
 			openspecPath = filepath.Join(openspecPath, "openspec")
+			scanRoots = append(scanRoots, openspecPath)
+			docsDir := filepath.Join(filepath.Dir(openspecPath), "docs")
+			if dirExists(docsDir) {
+				scanRoots = append(scanRoots, docsDir)
+			}
+		} else {
+			// No openspec structure — plain docs directory
+			scanRoots = append(scanRoots, ws.Path)
 		}
 		projectRoot := filepath.Dir(openspecPath)
 
-		components, err := ScanComponents(projectRoot, ws.Alias)
-		if err != nil {
-			log.Printf("wiki index: workspace %q scan had errors, using %d partial components: %v", ws.Alias, len(components), err)
+		var components []Component
+		for _, root := range scanRoots {
+			comps, err := ScanComponents(root, ws.Alias)
+			if err != nil {
+				log.Printf("wiki index: workspace %q scan %s had errors: %v", ws.Alias, root, err)
+			}
+			components = append(components, comps...)
 		}
 		allComponents = append(allComponents, components...)
 
