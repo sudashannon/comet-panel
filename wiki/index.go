@@ -56,18 +56,28 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		var scanRoots []string
 		if dirExists(filepath.Join(openspecPath, "changes")) {
 			// It's an openspec dir. Scan it for changes.
-			// Also scan sibling docs/ if present (for specs/plans/reports).
+			// Also scan sibling docs/ and knowledge/ if present.
 			scanRoots = append(scanRoots, openspecPath)
-			docsDir := filepath.Join(filepath.Dir(openspecPath), "docs")
+			parent := filepath.Dir(openspecPath)
+			docsDir := filepath.Join(parent, "docs")
 			if dirExists(docsDir) {
 				scanRoots = append(scanRoots, docsDir)
+			}
+			knowledgeDir := filepath.Join(parent, "knowledge")
+			if dirExists(knowledgeDir) {
+				scanRoots = append(scanRoots, knowledgeDir)
 			}
 		} else if dirExists(filepath.Join(openspecPath, "openspec", "changes")) {
 			openspecPath = filepath.Join(openspecPath, "openspec")
 			scanRoots = append(scanRoots, openspecPath)
-			docsDir := filepath.Join(filepath.Dir(openspecPath), "docs")
+			parent := filepath.Dir(openspecPath)
+			docsDir := filepath.Join(parent, "docs")
 			if dirExists(docsDir) {
 				scanRoots = append(scanRoots, docsDir)
+			}
+			knowledgeDir := filepath.Join(parent, "knowledge")
+			if dirExists(knowledgeDir) {
+				scanRoots = append(scanRoots, knowledgeDir)
 			}
 		} else {
 			// No openspec structure — plain docs directory
