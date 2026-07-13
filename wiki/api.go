@@ -229,18 +229,23 @@ func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	var results []scored
 	queryNorm := vecNorm(queryVec)
+	queryLower := strings.ToLower(req.Query)
 	for id, vec := range embeddings {
 		sim := cosineSim(queryVec, vec, queryNorm, vecNorm(vec))
 		if sim > 0.15 {
+			// Keyword boost: if title contains the query term, boost score by 0.3
+			// This ensures exact keyword matches rank above vaguely similar docs.
+			if c, ok := components[id]; ok && strings.Contains(strings.ToLower(c.Title), queryLower) {
+				sim += 0.3
+			}
 			results = append(results, scored{id, sim})
 		}
 	}
 	// Fallback: if vector search yields nothing, do title substring match
 	if len(results) == 0 {
-		queryLower := strings.ToLower(req.Query)
 		for id, c := range components {
 			if strings.Contains(strings.ToLower(c.Title), queryLower) {
-				results = append(results, scored{id, 0.5}) // synthetic score
+				results = append(results, scored{id, 0.5})
 			}
 		}
 	}
