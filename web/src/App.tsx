@@ -231,16 +231,19 @@ export default function App() {
       )}
 
       {view === 'search' && (
-        <div className="flex-1 min-h-0 overflow-y-auto p-4">
-          {viewerPath ? (
-            <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
-          ) : (
+        <div className="flex-1 min-h-0 relative overflow-hidden">
+          <div className="absolute inset-0 overflow-y-auto p-4">
             <SemanticSearch
               onNodeClick={(id) => {
                 const component = wikiComponents.find((c) => c.id === id)
                 setViewerPath(component?.path ?? id)
               }}
             />
+          </div>
+          {viewerPath && (
+            <div className="absolute inset-0 z-10 overflow-y-auto bg-white">
+              <MarkdownViewer path={viewerPath} onClose={() => setViewerPath(null)} />
+            </div>
           )}
         </div>
       )}
