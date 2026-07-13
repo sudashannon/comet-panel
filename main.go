@@ -92,6 +92,7 @@ func main() {
 	mux.HandleFunc("/api/wiki/summarize", wikiAPI.HandleSummarize)
 	mux.HandleFunc("/api/wiki/overview", wikiAPI.HandleOverview)
 	mux.HandleFunc("/api/wiki/search-semantic", wikiAPI.HandleSemanticSearch)
+	mux.HandleFunc("/mcp", wikiAPI.HandleMCP)
 	mux.Handle("/api/wiki/events", sseHub)
 
 	mux.HandleFunc("/api/changes", func(w http.ResponseWriter, r *http.Request) {
