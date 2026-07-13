@@ -30,6 +30,7 @@ export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bo
           <button
             key={it.key}
             type="button"
+            title={it.label}
             aria-label={it.label}
             aria-pressed={on}
             onClick={() => onSelect(it.key)}
