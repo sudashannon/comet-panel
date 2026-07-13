@@ -188,5 +188,22 @@ func parseFrontmatterAndTitle(path string) (map[string]any, string, error) {
 	if title == "" {
 		title = strings.TrimSuffix(filepath.Base(path), ".md")
 	}
+	// If title is a generic word (spec/proposal/tasks/design/plan), enrich it
+	// from the parent directory name which typically carries the change/spec name.
+	// e.g. "specs/rx101-snn-spinal-residual-control/spec.md" → "spec: rx101-snn-spinal-residual-control"
+	if isGenericTitle(title) {
+		parentName := filepath.Base(filepath.Dir(path))
+		if parentName != "." && parentName != "/" && !isGenericTitle(parentName) {
+			title = title + ": " + parentName
+		}
+	}
 	return fm, title, nil
+}
+
+func isGenericTitle(t string) bool {
+	switch strings.ToLower(t) {
+	case "spec", "proposal", "design", "tasks", "plan", "report", "readme", "index":
+		return true
+	}
+	return false
 }
