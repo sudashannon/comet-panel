@@ -28,6 +28,7 @@ type Watcher struct {
 	watcher        *fsnotify.Watcher
 	stop           chan struct{}
 	wg             sync.WaitGroup
+	mirror         *Mirror
 }
 
 // NewWatcher constructs a Watcher bound to api. scriptPath is currently
@@ -73,6 +74,7 @@ func (w *Watcher) Start(paths []string) error {
 		})
 	}
 
+	log.Printf("wiki watcher: watching %d paths", len(paths))
 	w.wg.Add(1)
 	go w.loop()
 	return nil
@@ -162,6 +164,35 @@ func (w *Watcher) processBatch(files []string) {
 	if w.api.SSE != nil {
 		w.api.SSE.Broadcast(fmt.Sprintf(`{"changed":%d}`, len(files)))
 	}
+	w.SyncMirror()
+}
+
+// SetMirror wires a knowledge-mirror sync target into the watcher. When
+// set, every successful rebuild (whether triggered by a debounced file
+// change or the initial startup scan) mirrors the complete current set of
+// indexed components into the mirror's git repo.
+func (w *Watcher) SetMirror(m *Mirror) {
+	w.mirror = m
+}
+
+// SyncMirror mirrors the API's current graph contents into the configured
+// Mirror (see SetMirror). It is safe to call even when no mirror is
+// configured (no-op) or before any rebuild has run; callers include
+// processBatch after every debounced rebuild and main.go after the initial
+// startup rebuild.
+func (w *Watcher) SyncMirror() {
+	if w.mirror == nil {
+		return
+	}
+	w.api.mu.RLock()
+	components := w.api.graph.Components()
+	ws := w.api.ws
+	lister := w.api.lister
+	w.api.mu.RUnlock()
+	if lister != nil {
+		ws = lister.List()
+	}
+	w.mirror.SyncAll(components, ws)
 }
 
 // redetectCommunities re-runs community detection (and re-derives

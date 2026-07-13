@@ -70,15 +70,35 @@ func main() {
 	// dashboard unreachable for the whole scan; HandleIndex/HandleLint
 	// serve `[]` off the empty graph from NewAPIWithWorkspacesAsync until
 	// this swaps in the built one.
+	watcher := wiki.NewWatcher(wikiAPI, "scripts/embed.ts")
+	mirrorDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "knowledge-repo")
+	syncCfg := reg.Sync()
+	if syncCfg.Enabled {
+		mirror := wiki.NewMirror(mirrorDir, syncCfg.Remote)
+		if err := mirror.Init(); err != nil {
+			log.Printf("knowledge mirror init failed (non-fatal): %v", err)
+		} else {
+			watcher.SetMirror(mirror)
+		}
+	}
 	go func() {
 		if err := wikiAPI.Rebuild(); err != nil {
 			log.Printf("wiki index build failed (non-fatal, dashboard still serves): %v", err)
+			return
 		}
+		watcher.SyncMirror()
 	}()
-	watcher := wiki.NewWatcher(wikiAPI, "scripts/embed.ts")
-	workspacePaths := make([]string, 0, len(reg.List()))
+	workspacePaths := make([]string, 0, len(reg.List())*3)
 	for _, ws := range reg.List() {
 		workspacePaths = append(workspacePaths, ws.Path)
+		// Also watch sibling docs/ and knowledge/ (same as BuildIndex scanRoots)
+		parent := filepath.Dir(ws.Path)
+		if docsDir := filepath.Join(parent, "docs"); dirExists(docsDir) {
+			workspacePaths = append(workspacePaths, docsDir)
+		}
+		if knowledgeDir := filepath.Join(parent, "knowledge"); dirExists(knowledgeDir) {
+			workspacePaths = append(workspacePaths, knowledgeDir)
+		}
 	}
 	if err := watcher.Start(workspacePaths); err != nil {
 		log.Printf("wiki watcher start failed (non-fatal): %v", err)

@@ -530,3 +530,8 @@ func makeArtifactExt(file, label, ref, root, changeDir string) ArtifactInfo {
 	}
 	return ArtifactInfo{File: file, Label: label, Exists: fileExists(p), Path: p, External: true}
 }
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
