@@ -1,12 +1,15 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SettingsPanel } from './SettingsPanel'
-import { fetchChatConfig, updateChatConfig, fetchChatProviders } from '../api/client'
+import { fetchChatConfig, updateChatConfig, fetchChatProviders, fetchSyncConfig, updateSyncConfig, triggerSync } from '../api/client'
 
 vi.mock('../api/client', () => ({
   fetchChatProviders: vi.fn(),
   fetchChatConfig: vi.fn(),
   updateChatConfig: vi.fn(),
+  fetchSyncConfig: vi.fn(),
+  updateSyncConfig: vi.fn(),
+  triggerSync: vi.fn(),
 }))
 
 describe('SettingsPanel', () => {
@@ -14,6 +17,9 @@ describe('SettingsPanel', () => {
     vi.mocked(fetchChatProviders).mockReset()
     vi.mocked(fetchChatConfig).mockReset()
     vi.mocked(updateChatConfig).mockReset()
+    vi.mocked(fetchSyncConfig).mockReset()
+    vi.mocked(updateSyncConfig).mockReset()
+    vi.mocked(triggerSync).mockReset()
 
     vi.mocked(fetchChatProviders).mockResolvedValue({
       active: 'anthropic',
@@ -45,6 +51,7 @@ describe('SettingsPanel', () => {
         },
       },
     })
+    vi.mocked(fetchSyncConfig).mockResolvedValue({ enabled: true, remote: 'git@github.com:user/repo.git' })
   })
 
   it('loads and shows provider/model/apiKey fields', async () => {
@@ -129,5 +136,57 @@ describe('SettingsPanel', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(updateChatConfig).not.toHaveBeenCalled()
+  })
+
+  it('loads and shows the sync remote input', async () => {
+    render(<SettingsPanel onClose={() => {}} />)
+
+    await waitFor(() => expect(fetchSyncConfig).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect((screen.getByTestId('sync-remote-input') as HTMLInputElement).value).toBe('git@github.com:user/repo.git'),
+    )
+  })
+
+  it('saving a new remote calls updateSyncConfig and reflects the result', async () => {
+    vi.mocked(updateSyncConfig).mockResolvedValue({ enabled: true, remote: 'git@github.com:user/new-repo.git' })
+    render(<SettingsPanel onClose={() => {}} />)
+
+    await waitFor(() => expect((screen.getByTestId('sync-remote-input') as HTMLInputElement).value).toBe('git@github.com:user/repo.git'))
+
+    fireEvent.change(screen.getByTestId('sync-remote-input'), { target: { value: 'git@github.com:user/new-repo.git' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('sync-remote-save'))
+    })
+
+    await waitFor(() => expect(updateSyncConfig).toHaveBeenCalledWith('git@github.com:user/new-repo.git'))
+    await waitFor(() => expect((screen.getByTestId('sync-remote-input') as HTMLInputElement).value).toBe('git@github.com:user/new-repo.git'))
+  })
+
+  it('clicking the sync button triggers sync and shows the result message', async () => {
+    vi.mocked(triggerSync).mockResolvedValue({ action: 'pulled', filesChanged: 3, message: '拉取远端更新，还原了 3 个文件' })
+    render(<SettingsPanel onClose={() => {}} />)
+
+    await waitFor(() => expect((screen.getByTestId('sync-remote-input') as HTMLInputElement).value).toBe('git@github.com:user/repo.git'))
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('sync-trigger-button'))
+    })
+
+    await waitFor(() => expect(triggerSync).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByTestId('sync-result').textContent).toContain('已拉取'))
+    expect(screen.getByTestId('sync-result').textContent).toContain('3 个文件')
+  })
+
+  it('shows a sync error when triggerSync rejects', async () => {
+    vi.mocked(triggerSync).mockRejectedValue(new Error('triggerSync failed: 500'))
+    render(<SettingsPanel onClose={() => {}} />)
+
+    await waitFor(() => expect((screen.getByTestId('sync-remote-input') as HTMLInputElement).value).toBe('git@github.com:user/repo.git'))
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('sync-trigger-button'))
+    })
+
+    await waitFor(() => expect(screen.getByTestId('sync-error').textContent).toContain('triggerSync failed'))
   })
 })

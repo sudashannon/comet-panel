@@ -55,6 +55,9 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/sync", handleSync(reg))
+	mux.HandleFunc("/api/sync/config", handleSyncConfig(reg))
+
 	mux.HandleFunc("/api/bookmarks", handleBookmarks)
 
 	wikiCacheDir := filepath.Join(os.Getenv("HOME"), ".comet-panel", "wiki")

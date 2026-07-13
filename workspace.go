@@ -18,6 +18,35 @@ type WorkspaceConfig struct {
 
 type workspacesFile struct {
 	Workspaces []WorkspaceConfig `yaml:"workspaces"`
+	Sync       SyncConfig        `yaml:"sync"`
+}
+
+// SyncConfig configures the optional knowledge-mirror git repository: a
+// single git repo at ~/.comet-panel/knowledge-repo mirroring all indexed
+// wiki documents from every workspace, auto-committed on file changes.
+// Enabled defaults to false (opt-in); Remote, if set, is pushed to after
+// each commit.
+type SyncConfig struct {
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	Remote  string `yaml:"remote" json:"remote"`
+}
+
+// LoadSyncConfig reads the top-level `sync:` section of the workspace
+// registry config. A missing file or missing section is not an error —
+// it means mirroring is disabled.
+func LoadSyncConfig(configPath string) (SyncConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if os.IsNotExist(err) {
+		return SyncConfig{}, nil
+	}
+	if err != nil {
+		return SyncConfig{}, err
+	}
+	var f workspacesFile
+	if err := yaml.Unmarshal(data, &f); err != nil {
+		return SyncConfig{}, err
+	}
+	return f.Sync, nil
 }
 
 // LoadWorkspaces reads the workspace registry config. A missing file is not
@@ -44,6 +73,7 @@ type WorkspaceRegistry struct {
 	mu         sync.RWMutex
 	workspaces []WorkspaceConfig
 	configPath string
+	syncCfg    SyncConfig
 }
 
 func NewWorkspaceRegistry(configPath string) (*WorkspaceRegistry, error) {
@@ -51,8 +81,41 @@ func NewWorkspaceRegistry(configPath string) (*WorkspaceRegistry, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &WorkspaceRegistry{workspaces: ws, configPath: configPath}, nil
+	syncCfg, err := LoadSyncConfig(configPath)
+	if err != nil {
+		return nil, err
+	}
+	return &WorkspaceRegistry{workspaces: ws, configPath: configPath, syncCfg: syncCfg}, nil
 }
+
+// Sync returns the knowledge-mirror sync configuration read from the
+// registry's config file (the top-level `sync:` section).
+func (r *WorkspaceRegistry) Sync() SyncConfig {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.syncCfg
+}
+
+// SetSyncRemote updates the mirror's git remote URL and persists it to the
+// registry's config file. Sync is enabled automatically once a non-empty
+// remote is set, and disabled when the remote is cleared -- there is no
+// separate enabled toggle exposed to the UI, so the remote field alone
+// drives whether GET /api/sync attempts a push/pull.
+func (r *WorkspaceRegistry) SetSyncRemote(remote string) (SyncConfig, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	updated := r.syncCfg
+	updated.Remote = remote
+	updated.Enabled = remote != ""
+
+	if err := persistWorkspaces(r.configPath, r.workspaces, updated); err != nil {
+		return SyncConfig{}, err
+	}
+	r.syncCfg = updated
+	return updated, nil
+}
+
 
 func (r *WorkspaceRegistry) List() []WorkspaceConfig {
 	r.mu.RLock()
@@ -77,7 +140,7 @@ func (r *WorkspaceRegistry) Add(cfg WorkspaceConfig) error {
 	}
 
 	updated := append(r.workspaces, cfg)
-	if err := persistWorkspaces(r.configPath, updated); err != nil {
+	if err := persistWorkspaces(r.configPath, updated, r.syncCfg); err != nil {
 		return err
 	}
 	r.workspaces = updated
@@ -121,8 +184,8 @@ func validateWorkspacePath(path string) error {
 	return nil
 }
 
-func persistWorkspaces(configPath string, ws []WorkspaceConfig) error {
-	f := workspacesFile{Workspaces: ws}
+func persistWorkspaces(configPath string, ws []WorkspaceConfig, syncCfg SyncConfig) error {
+	f := workspacesFile{Workspaces: ws, Sync: syncCfg}
 	data, err := yaml.Marshal(f)
 	if err != nil {
 		return err

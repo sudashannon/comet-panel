@@ -1,4 +1,4 @@
-import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, RecentItem, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, Bookmark } from './types'
+import type { ChangeSummary, ChangesResponse, WorkspaceConfig, WikiComponentResponse, LintIssue, WikiComponent, WikiGraphData, RecentItem, ChangeDetail, ChatConfig, ChatConfigPatch, ChatProviders, ReportRequest, ReportResponse, ReportMeta, Bookmark, SyncConfigResponse, SyncResult } from './types'
 
 export async function fetchChanges(): Promise<ChangeSummary[]> {
   const res = await fetch('/api/changes')
@@ -163,6 +163,28 @@ export async function updateChatConfig(patch: ChatConfigPatch): Promise<ChatConf
 export async function fetchChatProviders(): Promise<ChatProviders> {
   const res = await fetch('/api/chat/providers')
   if (!res.ok) throw new Error(`fetchChatProviders failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchSyncConfig(): Promise<SyncConfigResponse> {
+  const res = await fetch('/api/sync/config')
+  if (!res.ok) throw new Error(`fetchSyncConfig failed: ${res.status}`)
+  return res.json()
+}
+
+export async function updateSyncConfig(remote: string): Promise<SyncConfigResponse> {
+  const res = await fetch('/api/sync/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remote }),
+  })
+  if (!res.ok) throw new Error(`updateSyncConfig failed: ${res.status}`)
+  return res.json()
+}
+
+export async function triggerSync(): Promise<SyncResult> {
+  const res = await fetch('/api/sync', { method: 'POST' })
+  if (!res.ok) throw new Error(`triggerSync failed: ${res.status}`)
   return res.json()
 }
 

@@ -172,3 +172,14 @@ export interface ReportMeta {
   end: string
   createdAt: string
 }
+
+export interface SyncConfigResponse {
+  enabled: boolean
+  remote: string
+}
+
+export interface SyncResult {
+  action: 'pushed' | 'pulled' | 'merged' | 'up-to-date' | 'error'
+  filesChanged: number
+  message: string
+}
