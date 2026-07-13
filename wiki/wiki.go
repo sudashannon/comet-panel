@@ -5,15 +5,16 @@ import "time"
 type ComponentType string
 
 const (
-	TypeChange   ComponentType = "change"
-	TypeProposal ComponentType = "proposal"
-	TypeDesign   ComponentType = "design"
-	TypeTasks    ComponentType = "tasks"
-	TypeSpec     ComponentType = "spec"
-	TypePlan     ComponentType = "plan"
-	TypeArtifact ComponentType = "artifact"
-	TypeDiagram  ComponentType = "diagram"
-	TypeReport   ComponentType = "report"
+	TypeChange    ComponentType = "change"
+	TypeProposal  ComponentType = "proposal"
+	TypeDesign    ComponentType = "design"
+	TypeTasks     ComponentType = "tasks"
+	TypeSpec      ComponentType = "spec"
+	TypePlan      ComponentType = "plan"
+	TypeArtifact  ComponentType = "artifact"
+	TypeDiagram   ComponentType = "diagram"
+	TypeReport    ComponentType = "report"
+	TypeKnowledge ComponentType = "knowledge"
 )
 
 type Component struct {

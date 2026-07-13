@@ -59,18 +59,32 @@ func ScanComponents(workspaceRoot, workspaceAlias string) ([]Component, error) {
 			return nil
 		}
 		typ := classifyPath(path)
+		// For files not in a known directory, check frontmatter for wiki:true opt-in
+		var fm map[string]any
+		var title string
+		var parseErr error
 		if typ == "" {
-			return nil
+			fm, title, parseErr = parseFrontmatterAndTitle(path)
+			if parseErr != nil {
+				return nil // can't parse, skip silently
+			}
+			typ = classifyByFrontmatter(fm)
+			if typ == "" {
+				return nil // not classified and no opt-in
+			}
 		}
 		absPath, err := filepath.Abs(path)
 		if err != nil {
 			log.Printf("wiki scan: skipping %s, could not resolve absolute path: %v", path, err)
 			return nil
 		}
-		fm, title, err := parseFrontmatterAndTitle(path)
-		if err != nil {
-			log.Printf("wiki scan: skipping %s, parse error: %v", path, err)
-			return nil
+		// Parse frontmatter if not already done (classified by path, not yet parsed)
+		if fm == nil {
+			fm, title, parseErr = parseFrontmatterAndTitle(path)
+			if parseErr != nil {
+				log.Printf("wiki scan: skipping %s, parse error: %v", path, parseErr)
+				return nil
+			}
 		}
 		components = append(components, Component{
 			ID:          absPath,
@@ -107,6 +121,22 @@ func classifyPath(path string) ComponentType {
 		return TypeDiagram
 	case strings.Contains(path, string(filepath.Separator)+"reports"+string(filepath.Separator)):
 		return TypeReport
+	case strings.Contains(path, string(filepath.Separator)+"knowledge"+string(filepath.Separator)):
+		return TypeKnowledge
+	}
+	return ""
+}
+
+// classifyByFrontmatter checks if a file's frontmatter opts into wiki
+// tracking via `wiki: true`. Called as a fallback when classifyPath returns "".
+func classifyByFrontmatter(fm map[string]any) ComponentType {
+	if fm == nil {
+		return ""
+	}
+	if v, ok := fm["wiki"]; ok {
+		if b, ok := v.(bool); ok && b {
+			return TypeKnowledge
+		}
 	}
 	return ""
 }
