@@ -5,7 +5,7 @@ import type { LintIssue } from '../api/types'
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 20
 
-export function LintPanel() {
+export function LintPanel({ onOpen }: { onOpen?: (path: string) => void }) {
   const [issues, setIssues] = useState<LintIssue[]>([])
   const [gaveUp, setGaveUp] = useState(false)
 
@@ -68,7 +68,9 @@ export function LintPanel() {
             <span className="text-[#6e6e73]">({items.length})</span>
           </div>
           <div className="space-y-1">
-            {items.map((i, idx) => <LintDetail key={idx} detail={i.detail} />)}
+            {items.map((i, idx) => (
+              <LintDetail key={idx} detail={i.detail} componentId={i.componentId} onOpen={onOpen} />
+            ))}
           </div>
         </section>
       ))}
@@ -96,24 +98,39 @@ function safeDecode(text: string): string {
 
 const DEAD_LINK_DETAIL_RE = /^(link to )(.+)( has no matching component)$/
 
-function LintDetail({ detail }: { detail: string }) {
+function LintDetail({ detail, componentId, onOpen }: { detail: string; componentId: string; onOpen?: (path: string) => void }) {
   const decodedDetail = safeDecode(detail)
   const match = detail.match(DEAD_LINK_DETAIL_RE)
+
+  // Source file button (the component that has the broken link)
+  const sourceButton = onOpen && componentId ? (
+    <button
+      type="button"
+      onClick={() => onOpen(componentId)}
+      className="shrink-0 ml-1 text-[#0063f8] hover:underline"
+      title={`打开来源: ${componentId}`}
+    >
+      📄
+    </button>
+  ) : null
+
   if (!match) {
     return (
-      <div className="text-[#6e6e73] truncate pl-1" title={decodedDetail}>
-        {decodedDetail}
+      <div className="flex items-center min-w-0 text-[#6e6e73] pl-1" title={decodedDetail}>
+        <span className="truncate">{decodedDetail}</span>
+        {sourceButton}
       </div>
     )
   }
   const [, prefix, path, suffix] = match
   return (
-    <div className="flex min-w-0 text-[#6e6e73] pl-1" title={decodedDetail}>
+    <div className="flex items-center min-w-0 text-[#6e6e73] pl-1" title={decodedDetail}>
       <span className="shrink-0 whitespace-nowrap">{prefix}</span>
       <span className="min-w-0 truncate" dir="rtl" style={{ textAlign: 'left' }}>
         {safeDecode(path)}
       </span>
       <span className="shrink-0 whitespace-nowrap">{suffix}</span>
+      {sourceButton}
     </div>
   )
 }
