@@ -27,7 +27,12 @@ function DiagramSvg({ svg }: { svg: string }) {
 }
 
 function DiagramFallback({ code }: { code: string }) {
-  return <pre className="font-mono text-sm whitespace-pre-wrap">{code}</pre>
+  return (
+    <div>
+      <div className="text-[10px] text-[#8e8e93] mb-1">⚠️ 图表语法无法渲染，显示源码：</div>
+      <pre className="font-mono text-xs whitespace-pre-wrap text-[#1d1d1f] bg-[#f0f0f2] rounded p-2 max-h-[200px] overflow-auto">{code}</pre>
+    </div>
+  )
 }
 
 function DiagramLoading() {
@@ -45,7 +50,15 @@ function MermaidRenderer({ code }: { code: string }) {
     setFailed(false)
     mermaid
       .render(idRef.current, code)
-      .then(({ svg }) => setSvg(svg))
+      .then(({ svg }) => {
+        // Mermaid 11.x sometimes returns an error SVG instead of throwing.
+        // Detect it and fall back to code display.
+        if (svg.includes('Syntax error') || svg.includes('Parse error')) {
+          setFailed(true)
+        } else {
+          setSvg(svg)
+        }
+      })
       .catch(() => setFailed(true))
   }, [code])
 
