@@ -1,278 +1,282 @@
 # Comet Panel
 
-> A graphical dashboard for the [Comet](https://github.com/rpamis/comet) development workflow — browse changes, inspect artifacts, and chat with AI about your documents.
+> 工程变更知识图谱 + AI 面板 — 可视化 OpenSpec 变更、语义搜索、知识图谱、自动报告生成。
 
-[English](#english) | [中文](#chinese)
-
----
-
-<a id="english"></a>
-## Overview
-
-Comet Panel is a **read-only desktop dashboard** that visualizes [Comet](https://github.com/rpamis/comet) change directories. It scans your OpenSpec `changes/` and `archive/` folders, presents them in a three-column layout, renders markdown artifacts, and lets you chat with an AI assistant about any document.
-
-**Zero dependencies.** A single Go binary with an embedded web frontend. Download, run, open your browser.
-
-## Screenshots
-
-| Dashboard | Detail + Chat |
-|-----------|--------------|
-| ![Dashboard](docs/screenshots/Snipaste_2026-06-05_18-22-22.png) | ![Detail](docs/screenshots/Snipaste_2026-06-05_18-23-31.png) |
-
-| AI Chat With Document Context |
-|-------------------------------|
-| ![Chat](docs/screenshots/Snipaste_2026-06-05_18-22-49.png) |
-
-## Features
-
-### Dashboard
-- **Change list** grouped by active/archived, with search and filter by workflow and phase
-- **Task progress** bar with completed/total counts parsed from `tasks.md`
-- **Artifact badges** showing which artifacts exist (proposal, design, tasks, plan, verify report)
-- **Verify status** badges (pass / pending / fail)
-
-### Detail View
-- **Phase-ordered artifact tree** — see every artifact organized by Comet's 5 phases (Open → Design → Build → Verify → Archive)
-- **Markdown rendering** with GFM tables, checkboxes, and code blocks
-- **Mermaid diagram rendering** — architecture diagrams and flowcharts render as SVGs inline
-- **Task progress bar** with percentage when viewing `tasks.md`
-
-### AI Chat Agent
-- **Document-aware** — automatically loads the currently-viewed artifact as context
-- **Multi-file context** — type `@` to index any artifact from the current change
-- **Streaming responses** — SSE streaming with token-by-token rendering
-- **Markdown + Mermaid** — AI-generated tables, diagrams, and code blocks render natively
-- **Multi-modal** — paste images (Ctrl+V) for visual analysis (MiniMax M3)
-- **Thinking display** — expandable reasoning blocks show the model's thought process
-- **Multi-turn conversations** — sessions are isolated per change, switch changes freely
-- **Export** — download entire conversation as a `.md` file
-- **Multi-provider** — configurable LLM backend (MiniMax, with OpenAI/Anthropic stubs)
-
-### Customization
-- **Configurable directory** — scan any OpenSpec directory at runtime
-- **Provider settings** — configure API Key, model, temperature, max tokens, and thinking mode in the UI
-- **Persistent config** — settings saved to `~/.comet-ui/config.json`
-
-## Quick Start
-
-### Prerequisites
-
-- **Go 1.22+** (1.26 recommended)
-- A [MiniMax API Key](https://platform.minimaxi.com/user-center/basic-information/interface-key) (for AI chat)
-
-### Install & Run
-
-```bash
-# Clone
-git clone https://github.com/sudashannon/comet-panel.git
-cd comet-panel
-
-# Run
-go run .
-```
-
-Your browser opens automatically at `http://localhost:8080`.
-
-### As a Submodule
-
-```bash
-# In your Comet project
-git submodule add https://github.com/sudashannon/comet-panel.git comet-panel
-cd comet-panel
-go run .
-```
-
-### CLI Options
-
-```
-comet-panel --port 8080 --dir openspec
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | `8080` | HTTP server port |
-| `--dir` | `openspec` | Path to OpenSpec directory (relative or absolute) |
-
-## Configuration
-
-### Directory
-
-The directory can be changed at runtime via the input field in the top bar. Supports both relative paths (`../my-project/openspec`) and absolute paths (`/home/user/project/openspec`).
-
-### AI Provider
-
-Click the ⚙ button in the Chat panel to configure:
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| Provider | `minimax` | LLM provider |
-| API Key | *(empty)* | Your MiniMax API key (starts with `sk-`) |
-| Model | `MiniMax-M3` | Model name |
-| API Base URL | `https://api.minimaxi.com` | API endpoint |
-| Temperature | `1.0` | Response randomness (0-2) |
-| Max Tokens | `4096` | Maximum output tokens |
-| Thinking | `auto` | Show/hide model reasoning |
-
-All settings are saved to `~/.comet-ui/config.json` with `0600` permissions.
-
-## Architecture
-
-```
-comet-panel/
-├── main.go                  # HTTP server, routing, embed
-├── scanner.go               # File system scanner, .comet.yaml parser
-├── chat/
-│   ├── config.go            # ~/.comet-ui/config.json management
-│   ├── session.go           # In-memory conversation sessions
-│   ├── handler.go           # HTTP handlers (SSE streaming, REST)
-│   └── provider/
-│       ├── provider.go      # Provider interface + registry
-│       └── minimax.go       # MiniMax Anthropic-compatible implementation
-├── static/
-│   ├── index.html           # SPA shell (three-column layout)
-│   ├── app.js               # Frontend logic (~450 LOC vanilla JS)
-│   └── style.css            # Stylesheet
-└── docs/
-    └── screenshots/         # Screenshots
-```
-
-### Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | Go 1.26 (stdlib only — no external dependencies) |
-| Frontend | Vanilla JavaScript (no framework) |
-| Markdown | [marked.js](https://marked.js.org) |
-| Diagrams | [mermaid.js](https://mermaid.js.org) |
-| AI API | MiniMax Anthropic-compatible Messages API |
-
-### API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/changes` | List all changes |
-| `GET` | `/api/changes/:name` | Get change detail with phase-structured artifacts |
-| `GET` | `/api/artifact` | Get artifact file content (query: `path`, `dir`) |
-| `POST` | `/api/chat/message` | Send message, SSE streaming response |
-| `GET` | `/api/chat/session` | Get conversation history (query: `change`) |
-| `DELETE` | `/api/chat/session` | Clear conversation (query: `change`) |
-| `GET` | `/api/chat/config` | Get provider configuration |
-| `PUT` | `/api/chat/config` | Update provider configuration |
-| `GET` | `/api/chat/providers` | List registered providers and models |
-
-## Development
-
-```bash
-# Run with hot-reload (rebuild frontend on changes)
-go run .
-
-# Build standalone binary
-go build -o comet-panel .
-
-# Run from any directory
-./comet-panel --dir /path/to/openspec
-```
-
-## Related
-
-- [Comet](https://github.com/rpamis/comet) — OpenSpec + Superpowers dual-star development workflow
-- [MiniMax API](https://platform.minimaxi.com/docs) — LLM API documentation
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE)
+**单 Go 二进制 + 嵌入式前端。下载即用。**
 
 ---
 
-<a id="chinese"></a>
-## 概述
+## 核心能力
 
-Comet Panel 是一个**只读桌面看板**，用于可视化 [Comet](https://github.com/rpamis/comet) 开发流程中的 change 目录。扫描 OpenSpec 的 `changes/` 和 `archive/` 文件夹，以三栏布局呈现，渲染 markdown 产物，并支持 AI 对话分析文档。
+| 模块 | 功能 |
+|------|------|
+| 🚀 **变更仪表盘** | KPI 卡片、变更列表、进度条、多 workspace 聚合 |
+| 🗺️ **知识图谱** | Cytoscape 力导向图、社区检测、分组染色、节点关系可视化 |
+| 📅 **时间线** | 按时间轴展示变更诞生/归档,workspace 分行,社区染色 |
+| 🔍 **语义搜索** | Ternlight 向量 embedding + cosine 相似度 + 关键词增强,分页 |
+| ✓ **Lint** | 死链检测、孤儿节点、lifecycle gap 规则,来源文件可点击查看 |
+| 📊 **报告生成** | LLM 驱动的周报/月报(Markdown + Swiss HTML),历史管理 |
+| 💬 **AI 对话** | 流式 Chat,图谱模式(注入 2-hop 邻域 + 社区综述) |
+| ⚙️ **设置面板** | Provider/Model/API Base 配置 |
+| 🤖 **MCP Server** | Streamable HTTP 端点,6 个 tools 供 AI agent 查询知识图谱 |
 
-**零依赖。** 单个 Go 二进制文件，内嵌前端。下载、运行、打开浏览器。
+---
 
-## 功能
+## 架构
 
-### 看板
-- **Change 列表** — 按活跃/归档分组，支持搜索、workflow 和 phase 筛选
-- **任务进度条** — 解析 `tasks.md` 复选框，显示完成数/总数
-- **产物徽章** — 显示 proposal、design、tasks、plan、verify report 的存在状态
-- **Verify 状态** — pass / pending / fail 标签
+```
+┌───────────────────────────────────────────────────┐
+│  Frontend (React + Vite + Tailwind)               │
+│  WikiGraph · WikiTimeline · SemanticSearch         │
+│  ChangeExplorer · ReportView · LintPanel · Chat   │
+└───────────────┬───────────────────────────────────┘
+                │ HTTP API
+┌───────────────┴───────────────────────────────────┐
+│  Go Backend (single binary, embedded frontend)    │
+│                                                   │
+│  ┌─────────────────────────────────────────────┐  │
+│  │  Wiki Engine                                │  │
+│  │  scan → links (4 layers) → graph → embed   │  │
+│  │  → similarity → Louvain → community labels │  │
+│  └─────────────────────────────────────────────┘  │
+│                                                   │
+│  ┌──────────────┐ ┌──────────┐ ┌──────────────┐  │
+│  │ Chat/LLM     │ │ Report   │ │ MCP Server   │  │
+│  │ (streaming)  │ │ (weekly/ │ │ (JSON-RPC    │  │
+│  │              │ │  monthly)│ │  over HTTP)  │  │
+│  └──────────────┘ └──────────┘ └──────────────┘  │
+│                                                   │
+│  fsnotify watcher → incremental rebuild → SSE     │
+└───────────────────────────────────────────────────┘
+                │
+     ┌──────────┴──────────┐
+     │  Ternlight (Bun)    │
+     │  @ternlight/base    │
+     │  384-dim embedding  │
+     └─────────────────────┘
+```
 
-### 详情视图
-- **阶段产物树** — 按 Comet 5 阶段组织产物（Open → Design → Build → Verify → Archive）
-- **Markdown 渲染** — GFM 表格、复选框、代码块
-- **Mermaid 图表** — 架构图和流程图作为 SVG 内联渲染
-- **任务进度** — 查看 `tasks.md` 时显示百分比进度条
+---
 
-### AI Chat Agent
-- **文档感知** — 自动以当前查看的产物为对话上下文
-- **@ 索引文件** — 输入 `@` 选择当前 change 的任意产物文件
-- **流式输出** — SSE 逐 token 渲染
-- **Markdown + Mermaid** — AI 生成的表格、图表、代码块原生渲染
-- **多模态** — Ctrl+V 粘贴图片（MiniMax M3 支持）
-- **思维链展示** — 可展开的推理过程块
-- **多轮对话** — 会话按 change 隔离
-- **导出** — 下载完整对话为 `.md` 文件
-- **多 Provider** — 可配置 LLM 后端
+## 知识图谱
 
-### 定制
-- **目录可配** — 运行时切换扫描目录
-- **Provider 设置** — 界面配置 API Key、模型、温度、最大 token、thinking 模式
-- **持久化** — 设置保存至 `~/.comet-ui/config.json`
+### 数据模型
+
+**10 种组件类型:**
+
+| 类型 | 来源 |
+|------|------|
+| `change` | `.comet.yaml` 文件 |
+| `proposal` | `proposal.md` |
+| `design` | `design.md` |
+| `tasks` | `tasks.md` |
+| `spec` | `specs/` 目录下 |
+| `plan` | `plans/` 目录下 |
+| `artifact` | `artifacts/` 目录下 |
+| `diagram` | `diagrams/` 目录下 |
+| `report` | `reports/` 目录下 |
+| `knowledge` | `knowledge/` 目录 或 frontmatter `wiki: true` |
+
+### 4 层边提取
+
+| 层 | 来源 | 置信度 |
+|---|------|--------|
+| **YAML** | `.comet.yaml` 的 design_doc/plan/verification_report | 最高 |
+| **Markdown** | 文件内 `[text](path)` 链接 | 高 |
+| **Convention-internal** | 同 change 内 proposal→design→tasks→specs 自动连线 | 中 |
+| **Vector** | Ternlight embedding cosine top-3 (阈值 0.5) | 语义 |
+
+### 社区检测
+
+- Louvain 算法自动聚类
+- 向量质心标签(最中心成员的标题)
+- 社区综述页(LLM 生成,带缓存)
+
+### 增量更新
+
+- fsnotify 监控所有 workspace 目录
+- 2s debounce → 自动 rebuild
+- embedding 缓存(只 embed 新增/变更文件)
+- SSE push → 前端自动刷新
+
+---
+
+## 语义搜索
+
+- **后端**: Ternlight (`@ternlight/base`, 7MB, 384 维) 通过 Bun 调用
+- **排序**: cosine similarity + 标题关键词 boost (+30%)
+- **Fallback**: 向量无结果时自动转标题子串匹配
+- **性能**: embedding 缓存命中后 rebuild 4s;搜索 <300ms
+
+---
+
+## 报告生成
+
+- **周报**: Markdown 格式,按 workspace×主题分组,列关键成果
+- **月报**: Swiss-style 单页 HTML,KPI 卡片 + 主题摘要
+- **LLM 驱动**: 使用已配置的 provider (MiniMax/Claude/OpenAI)
+- **历史管理**: 持久化到 `~/.comet-panel/reports/`,支持查看/下载/删除
+
+---
+
+## MCP Server
+
+Comet Panel 内嵌 MCP (Model Context Protocol) Streamable HTTP 端点,让 AI agent 直接查询知识图谱。
+
+**端点**: `POST http://localhost:8989/mcp`
+
+| Tool | 说明 |
+|------|------|
+| `wiki_search` | 语义搜索工程文档 |
+| `wiki_component` | 查看组件详情 + 引用关系 |
+| `wiki_neighbors` | 2-hop 图谱邻居 |
+| `wiki_overview` | 主题社区综述 |
+| `wiki_read` | 读取文档内容 |
+| `wiki_lint` | 文档健康检查 |
+
+**Agent 配置示例** (OpenCode `mcp.json`):
+```json
+{
+  "comet-wiki": {
+    "url": "http://localhost:8989/mcp"
+  }
+}
+```
+
+---
 
 ## 快速开始
 
-### 前提
-
-- Go 1.22+（推荐 1.26）
-- [MiniMax API Key](https://platform.minimaxi.com/user-center/basic-information/interface-key)（AI 对话需要）
-
-### 安装运行
+### 安装
 
 ```bash
+# 克隆
 git clone https://github.com/sudashannon/comet-panel.git
 cd comet-panel
-go run .
+
+# 安装 embedding 依赖
+bun install
+
+# 构建
+cd web && npm install && npx vite build && cd ..
+go build -o comet-panel .
 ```
 
-浏览器自动打开 `http://localhost:8080`。
-
-### 作为 Submodule
+### 运行
 
 ```bash
-git submodule add https://github.com/sudashannon/comet-panel.git comet-panel
-cd comet-panel && go run .
+./comet-panel --port 8989 --dir /path/to/openspec
 ```
 
-### CLI 参数
+浏览器打开 `http://localhost:8989`
 
+### Systemd 服务
+
+```bash
+cp comet-panel.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now comet-panel
 ```
-comet-panel --port 8080 --dir openspec
+
+### 配置 Workspace
+
+通过 UI 添加,或直接编辑 `~/.comet-panel/workspaces.yaml`:
+
+```yaml
+workspaces:
+  - alias: miao
+    path: /home/user/workspace/miao/openspec
+  - alias: lz100
+    path: /home/user/workspace/miao/lz100
+    color: '#10b981'
 ```
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--port` | `8080` | HTTP 服务端口 |
-| `--dir` | `openspec` | OpenSpec 目录路径（相对或绝对） |
+### 配置 LLM Provider
 
-## 配置
+UI 设置面板,或编辑 `~/.comet-ui/config.json`:
 
-目录可以在顶部输入框中随时修改，支持相对路径和绝对路径。
+```json
+{
+  "active_provider": "minimax",
+  "providers": {
+    "minimax": {
+      "api_key": "sk-...",
+      "api_base": "https://api.minimaxi.com",
+      "model": "MiniMax-M2.5",
+      "temperature": 1,
+      "max_tokens": 4096
+    }
+  }
+}
+```
 
-点击 Chat 面板右上角 ⚙ 配置 AI Provider：
+---
 
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| 模型 | `MiniMax-M3` | 支持 1M token 上下文窗口 |
-| API Key | *(空)* | MiniMax API 密钥 |
-| Temperature | `1.0` | 输出随机性 (0-2) |
-| Max Tokens | `4096` | 最大输出 token 数 |
-| Thinking | `auto` | 显示/隐藏推理过程 |
+## 知识产出归档
 
-所有设置保存至 `~/.comet-ui/config.json`（权限 0600）。
+Agent 产出的文档放到 workspace 的 `knowledge/` 目录即可被自动索引:
 
-## 相关
+```markdown
+---
+title: Orin INT8 量化调研
+tags: [orin, quantization]
+---
 
-- [Comet](https://github.com/rpamis/comet) — OpenSpec + Superpowers 双星开发流程
-- [MiniMax API](https://platform.minimaxi.com/docs) — LLM API 文档
+# 正文...
+```
+
+不在 `knowledge/` 目录的文件,加 `wiki: true` frontmatter 也可以被追踪:
+
+```markdown
+---
+title: 架构决策记录
+wiki: true
+tags: [architecture, decision]
+---
+```
+
+---
+
+## API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/workspaces` | GET/POST | 管理 workspace |
+| `/api/changes` | GET | 变更列表 |
+| `/api/changes/:name` | GET | 变更详情 |
+| `/api/artifact` | GET | 读取文档内容 |
+| `/api/chat/message` | POST | AI 对话(流式) |
+| `/api/chat/config` | GET/PUT | Chat 配置 |
+| `/api/report` | POST | 生成报告 |
+| `/api/reports` | GET | 报告历史 |
+| `/api/reports/get` | GET/DELETE | 查看/删除报告 |
+| `/api/wiki/graph` | GET | 完整图谱数据 |
+| `/api/wiki/index` | GET | 组件索引 |
+| `/api/wiki/component/:id` | GET | 组件详情 + 引用 |
+| `/api/wiki/search-semantic` | POST | 语义搜索 |
+| `/api/wiki/rebuild` | POST | 重建索引 |
+| `/api/wiki/lint` | GET | Lint 问题 |
+| `/api/wiki/overview` | GET | 社区综述 |
+| `/api/wiki/events` | GET (SSE) | 实时更新推送 |
+| `/mcp` | POST | MCP JSON-RPC 端点 |
+
+---
+
+## 技术栈
+
+| 层 | 技术 |
+|---|------|
+| 后端 | Go 1.22+, 单二进制 |
+| 前端 | React 18, Vite, Tailwind CSS, Cytoscape.js |
+| Embedding | Ternlight (@ternlight/base, Bun runtime) |
+| 图算法 | Louvain 社区检测, BM25 (标签), Cosine similarity |
+| 文件监控 | fsnotify |
+| LLM | MiniMax / Anthropic / OpenAI (可配置) |
+| 协议 | MCP Streamable HTTP (JSON-RPC 2.0) |
+| 实时推送 | Server-Sent Events (SSE) |
+
+---
+
+## License
+
+MIT
