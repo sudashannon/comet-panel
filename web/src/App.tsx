@@ -247,7 +247,6 @@ export default function App() {
             </main>
           </div>
 
-          {selectedChange && <ChatBubble key={selectedChange.name} changeName={selectedChange.name} workspace={selectedChange.workspace} />}
         </>
       )}
 
@@ -353,6 +352,14 @@ export default function App() {
             <SettingsPanel onClose={() => setSettingsOpen(false)} />
           </div>
         </div>
+      )}
+      {viewerPath && (
+        <ChatBubble
+          key={viewerPath}
+          changeName={selectedChange?.name}
+          workspace={selectedChange?.workspace}
+          documentPath={viewerPath}
+        />
       )}
     </div>
   )

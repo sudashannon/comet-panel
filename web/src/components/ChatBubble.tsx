@@ -28,7 +28,11 @@ function toChatMessage(msg: ChatSessionMessage): ChatMessage {
   return thinking ? { role, text, thinking } : { role, text }
 }
 
-export function ChatBubble({ changeName, workspace }: { changeName: string; workspace?: string }) {
+export function ChatBubble({ changeName, workspace, documentPath }: {
+  changeName?: string
+  workspace?: string
+  documentPath?: string
+}) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -43,13 +47,14 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
   // without this, the late resolve would stomp the just-sent message with
   // the (now stale) persisted history.
   const userActedRef = useRef(false)
+  const effectiveChange = changeName || (documentPath ? documentPath.split(/[\\/]/).pop() || documentPath : '')
 
-  // 会话按变更隔离：挂载时加载该变更持久化的历史消息，还原之前的对话；
-  // App.tsx 给 ChatBubble 加了 key={changeName}，切换变更会整体重新挂载
-  // 本组件（内存 state 清空），随后这里再从后端拉回该变更自己的历史。
+  // 会话按当前上下文隔离：App.tsx 以 viewerPath 作为 key，切换文档会整体
+  // 重新挂载本组件（内存 state 清空），随后这里再从后端拉回对应会话历史。
   useEffect(() => {
     let cancelled = false
-    fetchChatSession(changeName)
+    if (!effectiveChange) return
+    fetchChatSession(effectiveChange)
       .then((session) => {
         if (cancelled || userActedRef.current) return
         setMessages((session.messages ?? []).map(toChatMessage))
@@ -60,11 +65,12 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
     return () => {
       cancelled = true
     }
-  }, [changeName])
+  }, [effectiveChange])
 
   // 上下文文件注入：挂载时拉取该变更的产物清单，把已存在的产物文件路径
   // 作为可勾选的上下文文件展示；用户勾选后发送时会连同消息一起传给后端。
   useEffect(() => {
+    if (!changeName) return
     let cancelled = false
     fetchChangeDetail(changeName, workspace)
       .then((detail) => {
@@ -98,9 +104,8 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
     if (!text || sending) return
     userActedRef.current = true
 
-    // 上下文文件注入：把用户在选择器中勾选的产物路径作为 contextFiles 传给后端。
-    const filesToSend = selectedFiles
-
+    // 变更上下文发送用户勾选的产物；独立文档始终发送当前文件路径。
+    const filesToSend = changeName ? selectedFiles : documentPath ? [documentPath] : []
     setMessages((prev) => [...prev, { role: 'user', text }])
     setInput('')
     setSending(true)
@@ -110,7 +115,7 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
 
     try {
       await streamChat(
-        changeName,
+        effectiveChange,
         text,
         filesToSend,
         (event) => {
@@ -158,7 +163,7 @@ export function ChatBubble({ changeName, workspace }: { changeName: string; work
           className="fixed bottom-20 right-4 w-[440px] h-[min(80vh,720px)] bg-white rounded-lg shadow-2xl border border-[#e8e8ed] flex flex-col"
         >
           <div className="flex items-center justify-between p-3 border-b border-[#e8e8ed]">
-            <span className="text-sm font-semibold">Chat · {changeName}</span>
+            <span className="text-sm font-semibold">Chat · {effectiveChange}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"

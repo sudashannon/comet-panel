@@ -109,13 +109,28 @@ describe('App', () => {
   })
 
 
-  it('remounts ChatBubble per selected change so switching changes does not bleed chat history', async () => {
+  it('remounts ChatBubble per viewed change artifact so switching documents does not bleed chat history', async () => {
     const changes = [
       makeChange({ name: 'alpha' }),
       makeChange({ name: 'beta' }),
     ]
     vi.mocked(fetchWorkspaces).mockResolvedValueOnce([])
     vi.mocked(fetchChangesWithMeta).mockResolvedValueOnce({ changes, failedWorkspaces: [] })
+    vi.mocked(fetchChangeDetail).mockImplementation(async (name: string) => ({
+      name, workflow: 'full', phase: 'build', archived: false,
+      tasksCompleted: 0, tasksTotal: 0, verifyResult: 'pending', createdAt: '',
+      phases: [{
+        key: 'design',
+        label: '设计',
+        status: 'done',
+        artifacts: [{
+          file: `${name}.md`,
+          label: `${name} doc`,
+          exists: true,
+          path: `/x/${name}.md`,
+        }],
+      }],
+    }))
     vi.mocked(fetchChatSession).mockImplementation(async (change: string) => ({
       change,
       messages:
@@ -132,6 +147,7 @@ describe('App', () => {
     await screen.findByText('alpha')
 
     fireEvent.click(screen.getByText('alpha'))
+    fireEvent.click(await screen.findByText('alpha doc'))
     await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('alpha'))
     fireEvent.click(screen.getByTestId('chat-bubble-button'))
     await waitFor(() =>
@@ -139,6 +155,8 @@ describe('App', () => {
     )
 
     fireEvent.click(screen.getByText('beta'))
+    expect(screen.queryByTestId('chat-bubble-button')).toBeNull()
+    fireEvent.click(await screen.findByText('beta doc'))
     await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('beta'))
     // Freshly-mounted ChatBubble for beta starts collapsed again (state was
     // reset), and once opened must NOT show alpha's leaked history.
@@ -282,6 +300,27 @@ describe('App view switcher', () => {
     await waitFor(() => expect(fetchRecent).toHaveBeenCalled())
     await screen.findByText('A doc')
     expect(screen.queryByTestId('kpi-grid')).toBeNull()
+  })
+
+  it('shows ChatBubble only while a standalone recent document is open', async () => {
+    vi.mocked(fetchRecent).mockResolvedValueOnce([
+      { id: '/x/a.md', title: 'A doc', type: 'spec', workspace: 'ws', updatedAt: new Date().toISOString(), path: '/x/a.md' },
+    ])
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+
+    fireEvent.click(screen.getByRole('button', { name: '最近' }))
+    const recentDoc = await screen.findByText('A doc')
+    expect(screen.queryByTestId('chat-bubble-button')).toBeNull()
+
+    fireEvent.click(recentDoc)
+    await screen.findByText('✕ 关闭')
+    expect(screen.getByTestId('chat-bubble-button')).toBeTruthy()
+    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('a.md'))
+
+    fireEvent.click(screen.getByText('✕ 关闭'))
+    expect(screen.queryByTestId('chat-bubble-button')).toBeNull()
+    await screen.findByText('暂无最近变更')
   })
 
   it('switching back to 变更列表 restores KpiCards and ChangeExplorer', async () => {

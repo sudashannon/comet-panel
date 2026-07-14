@@ -229,6 +229,29 @@ describe('ChatBubble', () => {
     await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1))
   })
 
+  it('uses a standalone document as chat context without fetching change detail', async () => {
+    vi.mocked(streamChat).mockImplementation(async (change, message, contextFiles, onEvent) => {
+      expect(change).toBe('design.md')
+      expect(message).toBe('summarize this')
+      expect(contextFiles).toEqual(['/docs/design.md'])
+      onEvent({ type: 'done' })
+    })
+
+    render(<ChatBubble documentPath="/docs/design.md" />)
+
+    await waitFor(() => expect(fetchChatSession).toHaveBeenCalledWith('design.md'))
+    expect(fetchChangeDetail).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('chat-bubble-button'))
+    const textarea = screen.getByTestId('chat-input') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'summarize this' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('chat-send'))
+    })
+
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1))
+  })
+
   it('shows a labeled, collapsible context-file section that toggles visibility', async () => {
     vi.mocked(fetchChangeDetail).mockResolvedValue({
       name: 'rx101-x',
