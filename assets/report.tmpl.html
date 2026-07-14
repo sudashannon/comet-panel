@@ -11,21 +11,32 @@
   header{border-bottom:3px solid var(--ink);padding-bottom:24px;margin-bottom:32px}
   h1{font-size:32px;font-weight:800;letter-spacing:-.01em}
   .overview{color:var(--grey-3);font-size:15px;margin-top:8px;max-width:720px}
-  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:40px}
+  .mainline{margin-top:12px;padding:10px 14px;background:var(--grey-1);border-left:3px solid var(--accent);font-size:14px;color:var(--ink)}
+  .mainline .tag{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:3px;margin-right:8px;text-transform:uppercase;letter-spacing:.04em}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:40px}
   .stat{background:var(--grey-1);border-radius:8px;padding:16px}
   .stat .n{font-size:28px;font-weight:800;color:var(--accent)}
   .stat .l{font-size:12px;color:var(--grey-3);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
   section{margin-bottom:36px}
   h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--grey-3);border-bottom:1px solid var(--grey-2);padding-bottom:8px;margin-bottom:16px}
-  .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-  .theme{background:#fff;border:1px solid var(--grey-2);border-radius:8px;padding:14px}
+  .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .theme{background:#fff;border:1px solid var(--grey-2);border-top:2.5px solid var(--accent);border-radius:8px;padding:14px}
+  .theme-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .theme .t{font-weight:700;font-size:14px}
-  .theme .d{font-size:13px;color:var(--grey-3);margin-top:4px}
+  .theme .count{font-size:24px;font-weight:800;color:var(--accent)}
+  .theme-items{list-style:none;padding:0}
+  .theme-items li{font-size:13px;color:var(--grey-3);padding:2px 0;line-height:1.3}
+  .focus{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .focus-project h3{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--accent)}
+  .focus-project ul{list-style:none;padding:0}
+  .focus-project li{font-size:13px;padding:4px 0;border-bottom:1px solid var(--grey-1)}
+  .focus-project li:last-child{border-bottom:none}
   ul.list{list-style:none}
   ul.list li{padding:10px 0;border-bottom:1px solid var(--grey-1);font-size:14px}
   ul.list li:last-child{border-bottom:none}
   .milestones{border-left:2px solid var(--accent);padding-left:16px}
   .milestones li{list-style:none;padding:8px 0;font-size:14px}
+  .ms-date{display:inline-block;font-weight:700;color:var(--accent);min-width:90px;font-size:12px}
   footer{color:var(--grey-3);font-size:12px;margin-top:40px;padding-top:16px;border-top:1px solid var(--grey-2)}
 </style>
 </head>
@@ -33,17 +44,21 @@
 <header>
   <h1>{{TITLE}}</h1>
   <p class="overview">{{OVERVIEW}}</p>
+  <div class="mainline"><span class="tag">主线</span>{{MAINLINE}}</div>
 </header>
 <div class="stats">
   <div class="stat"><div class="n">{{TOTAL}}</div><div class="l">总计变更</div></div>
   <div class="stat"><div class="n">{{ACTIVE}}</div><div class="l">进行中</div></div>
   <div class="stat"><div class="n">{{THEMES}}</div><div class="l">主题</div></div>
   <div class="stat"><div class="n">{{REPORTS}}</div><div class="l">产出</div></div>
-  <div class="stat"><div class="n">{{PLATFORMS}}</div><div class="l">涉及平台</div></div>
 </div>
 <section>
   <h2>主题</h2>
   <div class="themes">{{THEMES_HTML}}</div>
+</section>
+<section>
+  <h2>重点项目</h2>
+  <div class="focus">{{FOCUS_HTML}}</div>
 </section>
 <section>
   <h2>关键成果</h2>

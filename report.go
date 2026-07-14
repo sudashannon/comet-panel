@@ -357,16 +357,61 @@ func weeklyPrompt(data *ReportData, start, end string) string {
 	}
 	corpus, _ := json.Marshal(dumpData(data))
 	var b strings.Builder
-	fmt.Fprintf(&b, "你是一名技术团队的周报撰写助手。请基于以下 %s 至 %s 的 comet 变更数据（范围：%s），撰写一份 Markdown 格式的周报。\n\n", start, end, scope)
-	fmt.Fprintf(&b, "统计：总计 %d 项，进行中 %d 项，已归档 %d 项，验证失败 %d 项。\n\n", data.Counts.Total, data.Counts.Active, data.Counts.Archived, data.Counts.WithVerifyFail)
-	b.WriteString("变更数据（JSON，每项含 date/name/phase/verify/tasksDone/tasksTotal/why/what/archived/workspace）：\n")
+	fmt.Fprintf(&b, `你是一名技术团队的周报撰写助手。请基于以下 %s 至 %s 的 comet 变更数据（范围：%s），撰写一份结构化 Markdown 周报。
+
+统计：总计 %d 项，进行中 %d 项，已归档 %d 项，验证失败 %d 项。
+
+变更数据（JSON，每项含 date/name/phase/verify/tasksDone/tasksTotal/why/what/archived/workspace）：
+`, start, end, scope, data.Counts.Total, data.Counts.Active, data.Counts.Archived, data.Counts.WithVerifyFail)
 	b.Write(corpus)
-	b.WriteString("\n\n请输出 Markdown，必须包含以下四个部分：\n")
-	b.WriteString("1. 概述：本区间整体进展摘要。\n")
-	b.WriteString("2. 主题表格：按 workspace/子系统分组，汇总每组的变更数量与状态。\n")
-	b.WriteString("3. 关键成果：列出本区间已完成或有显著进展的变更，附简要说明。\n")
-	b.WriteString("4. 下周计划：基于仍在 build/verify 阶段的变更，给出下周关注重点。\n")
-	b.WriteString("\n注意：数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录，请在概述中如实说明这一限制。\n")
+	b.WriteString(`
+
+请严格按以下模板输出 Markdown：
+
+---
+
+# 本周工作周报（{起始日期} ~ {结束日期}）
+
+## 概述
+一句话总结：完成 N 个 comet change，M 个 active，涵盖 [主题列表]。写完正文再回填这里的统计数字确保一致。
+
+---
+
+## {N}、{主题名}
+
+将所有变更按 workspace 或子系统/模块归类成若干主题（≤6 个）。每个主题包含：
+
+### 完成项（N changes）
+| Change | 日期 | 状态 | 要点 |
+|--------|------|------|------|
+| change-slug | YYYY-MM-DD | ✅已归档/🔄进行中/❌验证失败 | 基于 Why/What 的一句话概括 |
+
+### 关键成果
+- **粗体前缀**：数据驱动的结论，突出里程碑和量化指标（如完成率、测试通过数）
+- 3-5 条 bullet
+
+---
+
+（重复上述主题结构，直到所有主题覆盖完毕）
+
+---
+
+## 下周计划
+基于仍在 build/verify 阶段的变更，列出下周关注重点：
+1. **主题**：具体动作
+2. **主题**：具体动作
+
+---
+
+## 写作要求：
+1. 每个主题的完成项表格必须有日期列，格式 YYYY-MM-DD
+2. 状态列使用 ✅（已归档通过）、🔄（进行中/build/verify）、❌（验证失败）图标
+3. 关键成果要有具体数据——任务完成度 (done/total)、验证结果、关键决策
+4. Negative/abandoned 结果也是有价值的工作产出，必须记录（标 ❌ + 说明原因）
+5. 概述中的统计数字必须与正文一致
+6. 数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录，请在概述末尾如实说明
+7. 如果某个 change 跨多个主题，归到最相关的那个，不要重复出现
+`)
 	return b.String()
 }
 
@@ -374,27 +419,36 @@ func weeklyPrompt(data *ReportData, start, end string) string {
 var monthlyTemplate string
 
 // monthlyJSON is the strict-JSON contract the monthly LLM call must return.
-// Field names match the JSON keys the prompt instructs the model to emit.
+// Aligned with the writing-monthly-reports skill: themes include change count
+// and key items; milestones include dates; focusProjects provide depth.
 type monthlyJSON struct {
-	Title        string   `json:"title"`
-	Overview     string   `json:"overview"`
-	Total        int      `json:"total"`
-	Active       int      `json:"active"`
-	Themes       int      `json:"themes"`
-	Reports      int      `json:"reports"`
-	Platforms    int      `json:"platforms"`
+	Title    string `json:"title"`
+	Overview string `json:"overview"`
+	Total    int    `json:"total"`
+	Active   int    `json:"active"`
+	Themes   int    `json:"themes"`
+	Reports  int    `json:"reports"`
+	// Mainline is a 1-3 sentence executive summary (the "主线" tag line).
+	Mainline     string   `json:"mainline"`
 	Highlights   []string `json:"highlights"`
-	Milestones   []string `json:"milestones"`
+	Milestones   []struct {
+		Date string `json:"date"`
+		Text string `json:"text"`
+	} `json:"milestones"`
 	ThemesDetail []struct {
-		Name string `json:"name"`
-		Desc string `json:"desc"`
+		Name  string   `json:"name"`
+		Count int      `json:"count"`
+		Items []string `json:"items"`
 	} `json:"themesDetail"`
+	FocusProjects []struct {
+		Name   string   `json:"name"`
+		Points []string `json:"points"`
+	} `json:"focusProjects"`
 }
 
 // renderMonthlyFromJSON parses the LLM's structured monthly report JSON and
-// fills the embedded Swiss-style HTML template. Every string value is
-// HTML-escaped before insertion; an invalid/non-JSON payload is an error so
-// the caller can fall back to a raw-output HTML page instead of a broken one.
+// fills the embedded Swiss-style HTML template (aligned with writing-monthly-reports
+// skill: themes with count + items, milestones with dates, focus projects).
 func renderMonthlyFromJSON(raw []byte) ([]byte, error) {
 	var m monthlyJSON
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -403,30 +457,54 @@ func renderMonthlyFromJSON(raw []byte) ([]byte, error) {
 
 	var themesHTML strings.Builder
 	for _, t := range m.ThemesDetail {
-		fmt.Fprintf(&themesHTML, `<div class="theme"><div class="t">%s</div><div class="d">%s</div></div>`,
-			html.EscapeString(t.Name), html.EscapeString(t.Desc))
+		themesHTML.WriteString(`<div class="theme"><div class="theme-head">`)
+		fmt.Fprintf(&themesHTML, `<span class="t">%s</span>`, html.EscapeString(t.Name))
+		fmt.Fprintf(&themesHTML, `<span class="count">%d</span>`, t.Count)
+		themesHTML.WriteString(`</div><ul class="theme-items">`)
+		for _, item := range t.Items {
+			fmt.Fprintf(&themesHTML, `<li>%s</li>`, html.EscapeString(item))
+		}
+		themesHTML.WriteString(`</ul></div>`)
 	}
+
 	var highlightsHTML strings.Builder
 	for _, h := range m.Highlights {
 		fmt.Fprintf(&highlightsHTML, "<li>%s</li>", html.EscapeString(h))
 	}
+
 	var milestonesHTML strings.Builder
 	for _, ms := range m.Milestones {
-		fmt.Fprintf(&milestonesHTML, "<li>%s</li>", html.EscapeString(ms))
+		fmt.Fprintf(&milestonesHTML, `<li><span class="ms-date">%s</span> %s</li>`,
+			html.EscapeString(ms.Date), html.EscapeString(ms.Text))
+	}
+
+	var focusHTML strings.Builder
+	for _, fp := range m.FocusProjects {
+		fmt.Fprintf(&focusHTML, `<div class="focus-project"><h3>%s</h3><ul>`, html.EscapeString(fp.Name))
+		for _, pt := range fp.Points {
+			fmt.Fprintf(&focusHTML, `<li>%s</li>`, html.EscapeString(pt))
+		}
+		focusHTML.WriteString(`</ul></div>`)
+	}
+
+	mainline := m.Mainline
+	if mainline == "" {
+		mainline = m.Overview
 	}
 
 	out := monthlyTemplate
 	replacements := map[string]string{
 		"{{TITLE}}":           html.EscapeString(m.Title),
 		"{{OVERVIEW}}":        html.EscapeString(m.Overview),
+		"{{MAINLINE}}":        html.EscapeString(mainline),
 		"{{TOTAL}}":           fmt.Sprintf("%d", m.Total),
 		"{{ACTIVE}}":          fmt.Sprintf("%d", m.Active),
 		"{{THEMES}}":          fmt.Sprintf("%d", m.Themes),
 		"{{REPORTS}}":         fmt.Sprintf("%d", m.Reports),
-		"{{PLATFORMS}}":       fmt.Sprintf("%d", m.Platforms),
 		"{{THEMES_HTML}}":     themesHTML.String(),
 		"{{HIGHLIGHTS_HTML}}": highlightsHTML.String(),
 		"{{MILESTONES_HTML}}": milestonesHTML.String(),
+		"{{FOCUS_HTML}}":      focusHTML.String(),
 	}
 	for k, v := range replacements {
 		out = strings.ReplaceAll(out, k, v)
@@ -436,15 +514,43 @@ func renderMonthlyFromJSON(raw []byte) ([]byte, error) {
 
 // monthlySystemPrompt instructs the model to return strict JSON only — no
 // prose, no Markdown code fences — matching the monthlyJSON contract.
+// Aligned with writing-monthly-reports skill: themes with count+items,
+// milestones with dates, focus projects with data-driven points.
 func monthlySystemPrompt() string {
-	return "你是一名技术团队的月报数据助手。只输出严格合法的 JSON，不要输出任何 Markdown 代码块标记（如 ```），不要输出 JSON 之外的任何文字说明。" +
-		"JSON 必须且只能包含以下字段：title(string) overview(string) total(int) active(int) themes(int) reports(int) platforms(int) " +
-		"themesDetail(array of {name,desc}) highlights(array of string) milestones(array of string)。"
+	return `你是一名技术团队的月报数据助手。只输出严格合法的 JSON，不要输出任何 Markdown 代码块标记，不要输出 JSON 之外的任何文字说明。
+
+JSON schema（所有字段必填）：
+{
+  "title": "string - 月报标题，如 '2026年6月工作月报'",
+  "overview": "string - 2-3句概述，涵盖关键成就和覆盖范围",
+  "mainline": "string - 1-3句主线摘要，突出本月最重要的方向/决策",
+  "total": "int - 总变更数（取自输入统计）",
+  "active": "int - 进行中数量（取自输入统计）",
+  "themes": "int - 归纳出的主题数量（≤6）",
+  "reports": "int - 本区间产出的报告/文档数量估计",
+  "themesDetail": [{
+    "name": "string - 主题名（按模块/子系统分，如'通讯总线'、'云密钥服务'）",
+    "count": "int - 该主题下的变更数量",
+    "items": ["string - 5-6条明细，每条格式：change名 + 一句话成果/状态"]
+  }],
+  "focusProjects": [{
+    "name": "string - 重点项目名（占比最大的1-2个子系统）",
+    "points": ["string - 6条架构决策/成果要点，含具体数据（完成率/测试数/性能指标）"]
+  }],
+  "highlights": ["string - 5-8条关键成果，粗体前缀+数据驱动结论"],
+  "milestones": [{"date": "string - YYYY-MM-DD", "text": "string - 一句话里程碑"}]
 }
 
-// monthlyPrompt builds the user message for the monthly report LLM call: a
-// structured brief plus the change corpus as JSON, instructing the model to
-// emit the monthlyJSON contract described in monthlySystemPrompt.
+归类原则：
+- 按 workspace 或模块/子系统分成 ≤6 个主题
+- 小主题合并（如 '产线+打包+构建'）
+- Negative/abandoned 结果也是有价值的工作产出，标注到对应主题
+- focusProjects 取工作量最大的 1-2 个子系统，深入写架构决策和量化成果
+- milestones 按时间排序，选 6-9 个关键节点
+- 数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录，请在 overview 中如实说明`
+}
+
+// monthlyPrompt builds the user message for the monthly report LLM call.
 func monthlyPrompt(data *ReportData, start, end string) string {
 	scope := data.Workspace
 	if scope == "" {
@@ -452,13 +558,11 @@ func monthlyPrompt(data *ReportData, start, end string) string {
 	}
 	corpus, _ := json.Marshal(dumpData(data))
 	var b strings.Builder
-	fmt.Fprintf(&b, "请基于以下 %s 至 %s 的 comet 变更数据（范围：%s）生成月报的结构化数据。\n\n", start, end, scope)
+	fmt.Fprintf(&b, "请基于以下 %s 至 %s 的 comet 变更数据（范围：%s）生成月报结构化数据。\n\n", start, end, scope)
 	fmt.Fprintf(&b, "统计：总计 %d 项，进行中 %d 项，已归档 %d 项，验证失败 %d 项。\n\n", data.Counts.Total, data.Counts.Active, data.Counts.Archived, data.Counts.WithVerifyFail)
 	b.WriteString("变更数据（JSON，每项含 date/name/phase/verify/tasksDone/tasksTotal/why/what/archived/workspace）：\n")
 	b.Write(corpus)
-	b.WriteString("\n\n请归纳出 title/overview/total/active/themes/reports/platforms/themesDetail/highlights/milestones，")
-	b.WriteString("其中 total/active 取自上方统计，themes 为归纳出的主题数量，reports 为本区间产出的报告或文档数量估计，platforms 固定为 2（comet + docs）。")
-	b.WriteString("注意：数据源仅覆盖 comet 变更与文档，不包含飞书 MR/会议记录，请在 overview 中如实说明这一限制。\n")
+	b.WriteString("\n\n请按 system prompt 中的 JSON schema 输出。total 和 active 必须与上方统计一致。\n")
 	return b.String()
 }
 

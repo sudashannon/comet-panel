@@ -182,10 +182,12 @@ func TestRenderMonthlyJSON_ProducesHTML(t *testing.T) {
 	raw := []byte(`{
 		"title": "2026年6月工作月报",
 		"overview": "本月推进 3 个 workspace 的变更，聚焦 <script>报告</script> 生成与 UI 打磨。",
-		"total": 12, "active": 4, "themes": 3, "reports": 5, "platforms": 2,
-		"themesDetail": [{"name": "报告生成", "desc": "周报/月报 M1 落地"}],
+		"mainline": "报告系统 M1 全通路验证完成",
+		"total": 12, "active": 4, "themes": 3, "reports": 5,
+		"themesDetail": [{"name": "报告生成", "count": 4, "items": ["周报 M1 落地", "月报模板渲染"]}],
+		"focusProjects": [{"name": "报告引擎", "points": ["chatStreamDrain 注入点完成", "JSON 契约冻结"]}],
 		"highlights": ["完成 chatStreamDrain 注入点", "月报模板渲染通路打通"],
-		"milestones": ["2026-06-10: 周报端到端跑通", "2026-06-25: 月报 JSON 契约冻结"]
+		"milestones": [{"date": "2026-06-10", "text": "周报端到端跑通"}, {"date": "2026-06-25", "text": "月报 JSON 契约冻结"}]
 	}`)
 	out, err := renderMonthlyFromJSON(raw)
 	if err != nil {
@@ -218,10 +220,12 @@ func TestSynthesizeMonthly_MockDrain(t *testing.T) {
 		return `{
 			"title": "月报 Mock",
 			"overview": "mock overview",
-			"total": 5, "active": 2, "themes": 1, "reports": 1, "platforms": 1,
-			"themesDetail": [{"name": "Mock主题", "desc": "mock desc"}],
+			"mainline": "mock mainline",
+			"total": 5, "active": 2, "themes": 1, "reports": 1,
+			"themesDetail": [{"name": "Mock主题", "count": 2, "items": ["item1", "item2"]}],
+			"focusProjects": [{"name": "MockProject", "points": ["point1"]}],
 			"highlights": ["mock highlight"],
-			"milestones": ["2026-06-01: mock milestone"]
+			"milestones": [{"date": "2026-06-01", "text": "mock milestone"}]
 		}`, nil
 	}
 	t.Cleanup(func() { chatStreamDrain = orig })
@@ -244,12 +248,17 @@ func TestMonthlyDemo_VisualGate(t *testing.T) {
 	raw := []byte(`{
 		"title": "2026年6月工作月报 · comet-panel",
 		"overview": "本月围绕 comet-panel 报告生成能力（周报/月报）与前端 UI 视觉升级展开，覆盖 12 项变更，聚焦数据组装、LLM 合成通路与瑞士风格模板渲染。",
-		"total": 18, "active": 5, "themes": 4, "reports": 6, "platforms": 2,
+		"mainline": "报告引擎 M1 完整通路打通：数据组装 → LLM 合成 → Swiss 模板渲染",
+		"total": 18, "active": 5, "themes": 4, "reports": 6,
 		"themesDetail": [
-			{"name": "报告生成", "desc": "周报 Markdown 直出 + 月报 JSON→模板渲染"},
-			{"name": "UI 视觉升级", "desc": "KpiCards 图标卡、SideRail 设置入口"},
-			{"name": "设置迁移", "desc": "SettingsPanel 从 ChatBubble 抽出"},
-			{"name": "测试基建", "desc": "chatStreamDrain mock 注入 + 路径穿越校验"}
+			{"name": "报告生成", "count": 5, "items": ["周报 Markdown 直出", "月报 JSON→模板渲染", "gatherReportData 数据组装", "chatStreamDrain 注入", "saveReport 落盘"]},
+			{"name": "UI 视觉升级", "count": 4, "items": ["KpiCards 图标卡", "SideRail 设置入口", "DiagramBlock 降级", "SemanticSearch 分页"]},
+			{"name": "设置迁移", "count": 3, "items": ["SettingsPanel 从 ChatBubble 抽出", "Provider 配置迁移", "同步面板"]},
+			{"name": "测试基建", "count": 6, "items": ["chatStreamDrain mock", "路径穿越校验", "BuildIndex 测试", "wiki scan 测试", "report 端到端", "provider gate"]}
+		],
+		"focusProjects": [
+			{"name": "报告引擎", "points": ["gatherReportData 纯函数设计，可独立测试", "chatStreamDrain 注入点支持 mock/真实 provider", "月报 JSON 契约冻结，模板与数据解耦", "Swiss 风格模板内嵌 embed 无外部依赖", "落盘路径: ~/.comet-panel/reports/", "全链路: API → gather → prompt → LLM → render → save"]},
+			{"name": "前端重构", "points": ["SettingsPanel 独立组件化", "ChatBubble 绑定 MarkdownViewer", "KpiCards 4 列图标 chip 布局", "DiagramBlock mermaid 降级显示", "SemanticSearch 去抖 + 分页", "SideRail 5 按钮精简"]}
 		],
 		"highlights": [
 			"完成 gatherReportData 数据组装与 provider gate",
@@ -258,9 +267,9 @@ func TestMonthlyDemo_VisualGate(t *testing.T) {
 			"KpiCards 升级为图标 chip + 大数字布局"
 		],
 		"milestones": [
-			"2026-06-05: report.go 数据组装 + 端点上线",
-			"2026-06-18: 周报端到端验证通过",
-			"2026-06-30: 月报 M1 视觉验收"
+			{"date": "2026-06-05", "text": "report.go 数据组装 + 端点上线"},
+			{"date": "2026-06-18", "text": "周报端到端验证通过"},
+			{"date": "2026-06-30", "text": "月报 M1 视觉验收"}
 		]
 	}`)
 	out, err := renderMonthlyFromJSON(raw)
