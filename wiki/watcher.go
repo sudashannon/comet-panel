@@ -64,7 +64,23 @@ func (w *Watcher) Start(paths []string) error {
 				return nil
 			}
 			name := info.Name()
-			if name == ".git" || name == "node_modules" || (strings.HasPrefix(name, ".") && name != "." && name != "..") {
+			switch {
+			case name == ".git" || name == "node_modules" || name == "rootfs":
+				return filepath.SkipDir
+			case strings.HasPrefix(name, ".") && name != "." && name != "..":
+				return filepath.SkipDir
+			// Skip large SDK/BSP/vendor trees that contain no wiki-relevant content.
+			// These can have 100k+ subdirectories and exhaust inotify watches.
+			case name == "orin_bsp" || name == "qcom_bsp":
+				return filepath.SkipDir
+			case name == "argos-sdk" || name == "x5_sdk":
+				return filepath.SkipDir
+			case name == "mondo-ai":
+				return filepath.SkipDir
+			// Generic: skip any directory that looks like a vendored SDK tree
+			// (contains "sdk" or "bsp" in name AND is deep inside a workspace).
+			// Only skip if it's not a scan root itself (depth > 1 from workspace root).
+			case (strings.Contains(name, "_sdk") || strings.Contains(name, "_bsp")) && filepath.Dir(path) != root:
 				return filepath.SkipDir
 			}
 			if addErr := fw.Add(path); addErr != nil {

@@ -56,7 +56,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 		var scanRoots []string
 		if dirExists(filepath.Join(openspecPath, "changes")) {
 			// It's an openspec dir. Scan it for changes.
-			// Also scan sibling docs/ and knowledge/ if present.
+			// Also scan sibling docs/, knowledge/, and *_docs/ if present.
 			scanRoots = append(scanRoots, openspecPath)
 			parent := filepath.Dir(openspecPath)
 			docsDir := filepath.Join(parent, "docs")
@@ -67,6 +67,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 			if dirExists(knowledgeDir) {
 				scanRoots = append(scanRoots, knowledgeDir)
 			}
+			scanRoots = append(scanRoots, FindDocsDirs(parent)...)
 		} else if dirExists(filepath.Join(openspecPath, "openspec", "changes")) {
 			openspecPath = filepath.Join(openspecPath, "openspec")
 			scanRoots = append(scanRoots, openspecPath)
@@ -79,6 +80,7 @@ func BuildIndex(workspaces []WorkspaceConfig, indexCacheDir string) (*Graph, err
 			if dirExists(knowledgeDir) {
 				scanRoots = append(scanRoots, knowledgeDir)
 			}
+			scanRoots = append(scanRoots, FindDocsDirs(parent)...)
 		} else {
 			// No openspec structure — plain docs directory
 			scanRoots = append(scanRoots, ws.Path)
@@ -290,4 +292,26 @@ func persistIndexCache(dir string, components []Component, edges []Edge) {
 func dirExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+// FindDocsDirs returns directories under parent that should be scanned for
+// wiki content: "design_docs" and any directory ending in "_docs" (e.g.
+// nv_docs, qcom_docs, x5_docs). These are sibling to openspec/docs/knowledge
+// but were previously not included in scan roots.
+func FindDocsDirs(parent string) []string {
+	entries, err := os.ReadDir(parent)
+	if err != nil {
+		return nil
+	}
+	var dirs []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name == "design_docs" || (strings.HasSuffix(name, "_docs") && len(name) > 5) {
+			dirs = append(dirs, filepath.Join(parent, name))
+		}
+	}
+	return dirs
 }

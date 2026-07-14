@@ -91,10 +91,10 @@ func main() {
 		}
 		watcher.SyncMirror()
 	}()
-	workspacePaths := make([]string, 0, len(reg.List())*3)
+	workspacePaths := make([]string, 0, len(reg.List())*5)
 	for _, ws := range reg.List() {
 		workspacePaths = append(workspacePaths, ws.Path)
-		// Also watch sibling docs/ and knowledge/ (same as BuildIndex scanRoots)
+		// Also watch sibling docs/, knowledge/, and *_docs/ (same as BuildIndex scanRoots)
 		parent := filepath.Dir(ws.Path)
 		if docsDir := filepath.Join(parent, "docs"); dirExists(docsDir) {
 			workspacePaths = append(workspacePaths, docsDir)
@@ -102,6 +102,7 @@ func main() {
 		if knowledgeDir := filepath.Join(parent, "knowledge"); dirExists(knowledgeDir) {
 			workspacePaths = append(workspacePaths, knowledgeDir)
 		}
+		workspacePaths = append(workspacePaths, wiki.FindDocsDirs(parent)...)
 	}
 	if err := watcher.Start(workspacePaths); err != nil {
 		log.Printf("wiki watcher start failed (non-fatal): %v", err)

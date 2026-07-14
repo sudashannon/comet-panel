@@ -52,6 +52,15 @@ func ScanComponents(workspaceRoot, workspaceAlias string) ([]Component, error) {
 				return filepath.SkipDir
 			case strings.HasPrefix(name, ".") && name != ".":
 				return filepath.SkipDir
+			// Skip large SDK/BSP/vendor trees with no wiki-relevant content.
+			case name == "orin_bsp" || name == "qcom_bsp":
+				return filepath.SkipDir
+			case name == "argos-sdk" || name == "x5_sdk":
+				return filepath.SkipDir
+			case name == "mondo-ai":
+				return filepath.SkipDir
+			case (strings.Contains(name, "_sdk") || strings.Contains(name, "_bsp")) && path != workspaceRoot:
+				return filepath.SkipDir
 			}
 			return nil
 		}
@@ -110,21 +119,39 @@ func classifyPath(path string) ComponentType {
 	case "tasks.md":
 		return TypeTasks
 	}
+	sep := string(filepath.Separator)
 	switch {
-	case strings.Contains(path, string(filepath.Separator)+"specs"+string(filepath.Separator)):
+	case strings.Contains(path, sep+"specs"+sep):
 		return TypeSpec
-	case strings.Contains(path, string(filepath.Separator)+"plans"+string(filepath.Separator)):
+	case strings.Contains(path, sep+"plans"+sep):
 		return TypePlan
-	case strings.Contains(path, string(filepath.Separator)+"artifacts"+string(filepath.Separator)):
+	case strings.Contains(path, sep+"artifacts"+sep):
 		return TypeArtifact
-	case strings.Contains(path, string(filepath.Separator)+"diagrams"+string(filepath.Separator)):
+	case strings.Contains(path, sep+"diagrams"+sep):
 		return TypeDiagram
-	case strings.Contains(path, string(filepath.Separator)+"reports"+string(filepath.Separator)):
+	case strings.Contains(path, sep+"reports"+sep):
 		return TypeReport
-	case strings.Contains(path, string(filepath.Separator)+"knowledge"+string(filepath.Separator)):
+	case strings.Contains(path, sep+"knowledge"+sep):
+		return TypeKnowledge
+	case strings.Contains(path, sep+"design_docs"+sep):
+		return TypeKnowledge
+	case containsDocsSuffix(path, sep):
 		return TypeKnowledge
 	}
 	return ""
+}
+
+// containsDocsSuffix returns true if path contains a directory component ending
+// in "_docs" (e.g. nv_docs/, qcom_docs/, x5_docs/). These are platform/vendor
+// documentation directories that should be indexed as knowledge.
+func containsDocsSuffix(path, sep string) bool {
+	parts := strings.Split(path, sep)
+	for _, p := range parts {
+		if strings.HasSuffix(p, "_docs") && len(p) > 5 {
+			return true
+		}
+	}
+	return false
 }
 
 // classifyByFrontmatter checks if a file's frontmatter opts into wiki
