@@ -10,18 +10,20 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"comet-ui/chat"
 )
 
 type API struct {
-	mu            sync.RWMutex
-	graph         *Graph
-	ws            []WorkspaceConfig
-	indexCacheDir string
-	lister        WorkspaceLister
-	SSE           *SSEHub
+	mu              sync.RWMutex
+	graph           *Graph
+	ws              []WorkspaceConfig
+	indexCacheDir   string
+	lister          WorkspaceLister
+	dirtyStructural int32
+	SSE             *SSEHub
 }
 
 // WorkspaceLister exposes the CURRENT workspace registry, decoupling
@@ -61,6 +63,22 @@ func (a *API) SetLister(lister WorkspaceLister) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.lister = lister
+}
+
+// DirtyCount returns the number of structural graph changes accumulated
+// since the last community detection pass.
+func (a *API) DirtyCount() int {
+	return int(atomic.LoadInt32(&a.dirtyStructural))
+}
+
+// ResetDirty marks the current graph structure as reflected in communities.
+func (a *API) ResetDirty() {
+	atomic.StoreInt32(&a.dirtyStructural, 0)
+}
+
+// AddDirty records structural graph changes for deferred community detection.
+func (a *API) AddDirty(n int) {
+	atomic.AddInt32(&a.dirtyStructural, int32(n))
 }
 
 type componentResponse struct {
@@ -371,6 +389,7 @@ func (a *API) Rebuild() error {
 	}
 	a.mu.Lock()
 	a.graph = newGraph
+	a.ResetDirty()
 	a.mu.Unlock()
 	return nil
 }

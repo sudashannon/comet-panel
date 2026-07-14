@@ -12,6 +12,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+const communityDirtyThreshold = 5
+
 // Watcher watches a set of workspace directories for changes to markdown
 // and .comet.yaml files and triggers incremental wiki index updates.
 //
@@ -31,16 +33,15 @@ type Watcher struct {
 	mirror         *Mirror
 }
 
-// NewWatcher constructs a Watcher bound to api. scriptPath is currently
-// unused by the rebuild path (BuildIndex resolves the embed script itself
-// via findEmbedScript) but is kept on the struct so callers can wire it
-// through once per-file incremental embedding lands.
+// NewWatcher constructs a Watcher bound to api. IncrementalUpdate resolves
+// the embedding script through the same findEmbedScript path as BuildIndex;
+// scriptPath remains available for callers that override watcher wiring.
 func NewWatcher(api *API, scriptPath string) *Watcher {
 	return &Watcher{
 		api:            api,
 		scriptPath:     scriptPath,
-		debounce:       2 * time.Second,
-		communityDelay: 10 * time.Second,
+		debounce:       5 * time.Second,
+		communityDelay: 30 * time.Second,
 		stop:           make(chan struct{}),
 	}
 }
@@ -121,12 +122,14 @@ func (w *Watcher) loop() {
 				return
 			}
 			w.processBatch(files)
-			if communityTimer != nil {
-				communityTimer.Stop()
+			if w.api.DirtyCount() > communityDirtyThreshold {
+				if communityTimer != nil {
+					communityTimer.Stop()
+				}
+				communityTimer = time.AfterFunc(w.communityDelay, func() {
+					w.redetectCommunities()
+				})
 			}
-			communityTimer = time.AfterFunc(w.communityDelay, func() {
-				w.redetectCommunities()
-			})
 		})
 	}
 
@@ -162,20 +165,17 @@ func isWikiFile(path string) bool {
 	return strings.HasSuffix(base, ".md") || base == ".comet.yaml"
 }
 
-// processBatch handles a debounced batch of file changes by triggering an
-// index rebuild. BuildIndex already re-scans every workspace and
-// re-embeds via the ternlight script, so a full Rebuild here re-scans and
-// re-embeds only what changed on disk since the last build in terms of
-// wall-clock cost (unchanged files are still cheap to re-read) while
-// keeping the update path simple and correct; a true per-file patch
-// (re-scan just the changed component, re-extract its edges, re-embed
-// only that vector, and recompute only its similarity edges) is a
-// follow-up optimization once this path is exercised in production.
+// processBatch handles a debounced batch with a per-file graph update. A full
+// rebuild remains the correctness fallback if classification, embedding, link
+// extraction, or cache persistence fails.
 func (w *Watcher) processBatch(files []string) {
-	log.Printf("wiki watcher: %d file(s) changed, rebuilding index", len(files))
-	if err := w.api.Rebuild(); err != nil {
-		log.Printf("wiki watcher: rebuild failed: %v", err)
-		return
+	log.Printf("wiki watcher: %d file(s) changed, updating index incrementally", len(files))
+	if err := w.api.IncrementalUpdate(files); err != nil {
+		log.Printf("wiki watcher: incremental update failed, falling back to full rebuild: %v", err)
+		if rebuildErr := w.api.Rebuild(); rebuildErr != nil {
+			log.Printf("wiki watcher: fallback rebuild failed: %v", rebuildErr)
+			return
+		}
 	}
 	if w.api.SSE != nil {
 		w.api.SSE.Broadcast(fmt.Sprintf(`{"changed":%d}`, len(files)))
@@ -216,6 +216,9 @@ func (w *Watcher) SyncMirror() {
 // debounce than processBatch since Louvain community detection is more
 // expensive than a single rescan and doesn't need to run on every edit.
 func (w *Watcher) redetectCommunities() {
+	if w.api.DirtyCount() <= communityDirtyThreshold {
+		return
+	}
 	w.api.mu.Lock()
 	defer w.api.mu.Unlock()
 	g := w.api.graph
@@ -226,5 +229,6 @@ func (w *Watcher) redetectCommunities() {
 		comps = append(comps, c)
 	}
 	g.SetCommunityLabels(CommunityLabels(comps, g.Communities(), g.Embeddings()))
+	w.api.ResetDirty()
 	log.Printf("wiki watcher: communities re-detected")
 }

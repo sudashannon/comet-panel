@@ -25,6 +25,94 @@ func BuildGraph(components []Component, edges []Edge) *Graph {
 	return g
 }
 
+// AddComponent inserts or replaces a component by its stable ID.
+func (g *Graph) AddComponent(c Component) {
+	if g.components == nil {
+		g.components = make(map[string]Component)
+	}
+	g.components[c.ID] = c
+}
+
+// RemoveComponent removes a component and all graph state keyed by its ID.
+func (g *Graph) RemoveComponent(id string) {
+	g.RemoveEdgesFrom(id)
+	g.RemoveEdgesTo(id)
+	delete(g.components, id)
+	delete(g.communities, id)
+	g.RemoveEmbedding(id)
+}
+
+// AddEdges adds edges to both the forward and backlink indexes.
+func (g *Graph) AddEdges(edges []Edge) {
+	if g.forward == nil {
+		g.forward = make(map[string][]Edge)
+	}
+	if g.backward == nil {
+		g.backward = make(map[string][]Edge)
+	}
+	for _, e := range edges {
+		g.forward[e.From] = append(g.forward[e.From], e)
+		g.backward[e.To] = append(g.backward[e.To], e)
+	}
+}
+
+// RemoveEdgesFrom removes every outgoing edge from id and its backlink entry.
+func (g *Graph) RemoveEdgesFrom(id string) {
+	edges := g.forward[id]
+	delete(g.forward, id)
+	for _, removed := range edges {
+		backlinks := g.backward[removed.To]
+		filtered := backlinks[:0]
+		for _, edge := range backlinks {
+			if !sameEdge(edge, removed) {
+				filtered = append(filtered, edge)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(g.backward, removed.To)
+		} else {
+			g.backward[removed.To] = filtered
+		}
+	}
+}
+
+// RemoveEdgesTo removes every incoming edge to id and its forward entry.
+func (g *Graph) RemoveEdgesTo(id string) {
+	edges := g.backward[id]
+	delete(g.backward, id)
+	for _, removed := range edges {
+		forward := g.forward[removed.From]
+		filtered := forward[:0]
+		for _, edge := range forward {
+			if !sameEdge(edge, removed) {
+				filtered = append(filtered, edge)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(g.forward, removed.From)
+		} else {
+			g.forward[removed.From] = filtered
+		}
+	}
+}
+
+func sameEdge(a, b Edge) bool {
+	return a.From == b.From && a.To == b.To && a.Kind == b.Kind && a.Source == b.Source
+}
+
+// UpdateEmbedding inserts or replaces the vector for id.
+func (g *Graph) UpdateEmbedding(id string, vec []float32) {
+	if g.embeddings == nil {
+		g.embeddings = make(map[string][]float32)
+	}
+	g.embeddings[id] = vec
+}
+
+// RemoveEmbedding removes the cached vector for id.
+func (g *Graph) RemoveEmbedding(id string) {
+	delete(g.embeddings, id)
+}
+
 func (g *Graph) Component(id string) (Component, bool) {
 	c, ok := g.components[id]
 	return c, ok
