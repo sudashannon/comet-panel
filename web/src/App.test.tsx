@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import App from './App'
 import { fetchWorkspaces, fetchChangesWithMeta, fetchWikiIndex, fetchLintIssues, fetchRecent, fetchChatSession, fetchChangeDetail, fetchBookmarks, addBookmark } from './api/client'
 import type { ChangeSummary, WorkspaceConfig } from './api/types'
@@ -63,6 +63,11 @@ function makeChange(overrides: Partial<ChangeSummary>): ChangeSummary {
     ...overrides,
   }
 }
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('App', () => {
   it('does not crash when fetchChangesWithMeta resolves with changes: null, and still renders the warning banner', async () => {
@@ -365,5 +370,46 @@ describe('App view switcher', () => {
     // The viewer must be gone immediately on view switch, not just hidden
     // behind the newly-mounted 图谱 view.
     expect(screen.queryByText('✕ 关闭')).toBeNull()
+  })
+
+  it('shows a temporary indexing-status banner while watcher updates the search index', async () => {
+    class MockEventSource {
+      static instance: MockEventSource | null = null
+      listeners: Record<string, Array<(event?: { data?: string }) => void>> = {}
+      constructor(public url: string) {
+        MockEventSource.instance = this
+      }
+      addEventListener(type: string, cb: (event?: { data?: string }) => void) {
+        ;(this.listeners[type] ??= []).push(cb)
+      }
+      close() {}
+      emit(type: string, data?: string) {
+        for (const cb of this.listeners[type] ?? []) cb({ data })
+      }
+    }
+    vi.stubGlobal('EventSource', MockEventSource)
+
+    render(<App />)
+    await screen.findByTestId('workspace-warning-banner')
+    vi.useFakeTimers()
+    expect(screen.queryByTestId('wiki-indexing-banner')).toBeNull()
+
+    await act(async () => {
+      MockEventSource.instance!.emit('indexing-started', '{"changed":2}')
+    })
+    expect(screen.getByTestId('wiki-indexing-banner').textContent).toContain('检测到 2 个文件更新')
+
+    await act(async () => {
+      MockEventSource.instance!.emit('graph-updated', '{"changed":2}')
+    })
+    expect(screen.queryByTestId('wiki-indexing-banner')).toBeNull()
+
+    await act(async () => {
+      MockEventSource.instance!.emit('indexing-started', '{"changed":1}')
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(9000)
+    })
+    expect(screen.queryByTestId('wiki-indexing-banner')).toBeNull()
   })
 })

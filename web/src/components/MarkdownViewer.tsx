@@ -63,6 +63,25 @@ function extractToc(markdown: string): TocEntry[] {
   return entries
 }
 
+function isExternalHref(href: string) {
+  return /^(https?:|data:|mailto:|tel:|#|\/)/i.test(href)
+}
+
+function resolveArtifactHref(docPath: string | null, href: string | undefined, workspace?: string) {
+  if (!href) return href
+  if (!docPath || isExternalHref(href)) return href
+  const base = docPath.split('/').slice(0, -1).filter(Boolean)
+  const parts = href.split('/').filter((part) => part && part !== '.')
+  for (const part of parts) {
+    if (part === '..') base.pop()
+    else base.push(part)
+  }
+  const absPath = '/' + base.join('/')
+  const params = new URLSearchParams({ path: absPath })
+  if (workspace) params.set('workspace', workspace)
+  return '/api/artifact?' + params.toString()
+}
+
 const markdownComponents: Components = {
   h1: ({ node, ...rest }) => <h1 className="text-2xl font-bold mt-5 mb-3" {...rest} />,
   h2: ({ node, ...rest }) => <h2 className="text-xl font-semibold mt-5 mb-2" {...rest} />,
@@ -90,7 +109,6 @@ const markdownComponents: Components = {
     <th className="border border-[#e8e8ed] px-3 py-2 font-semibold whitespace-nowrap" {...rest} />
   ),
   td: ({ node, ...rest }) => <td className="border border-[#e8e8ed] px-3 py-2 align-top" {...rest} />,
-  // Inline `code` is different from block code; react-markdown nests the
   // inline case inside <code> only, and the block case inside <pre><code>.
   code: ({ node, className, children, ...rest }) => {
     const language = getDiagramLanguage(className)
@@ -109,7 +127,6 @@ const markdownComponents: Components = {
       {...rest}
     />
   ),
-  a: ({ node, ...rest }) => <a className="text-[#0063f8] underline" {...rest} />,
 }
 
 interface Artifact {
@@ -172,22 +189,34 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
 
   const toc = useMemo(() => (content ? extractToc(content) : []), [content])
 
-  // Override img so raster images AND external SVGs open in a zoom lightbox on
-  // click; everything else reuses the shared markdownComponents styling.
+  // Override img/link so relative markdown assets resolve against the current
+  // document's directory via the artifact API; images still open in a lightbox.
   const components = useMemo<Components>(
     () => ({
       ...markdownComponents,
-      img: ({ node, src, alt, ...rest }) => (
-        <img
+      a: ({ node, href, ...rest }) => (
+        <a
           {...rest}
-          src={src}
-          alt={alt}
-          className="max-w-full rounded-lg cursor-zoom-in"
-          onClick={() => typeof src === 'string' && setZoomed({ src, alt: alt ?? '' })}
+          href={resolveArtifactHref(path, href, workspace)}
+          className="text-[#0063f8] underline"
+          target="_blank"
+          rel="noreferrer"
         />
       ),
+      img: ({ node, src, alt, ...rest }) => {
+        const resolvedSrc = typeof src === 'string' ? resolveArtifactHref(path, src, workspace) : src
+        return (
+          <img
+            {...rest}
+            src={resolvedSrc}
+            alt={alt}
+            className="max-w-full rounded-lg cursor-zoom-in"
+            onClick={() => typeof resolvedSrc === 'string' && setZoomed({ src: resolvedSrc, alt: alt ?? '' })}
+          />
+        )
+      },
     }),
-    [],
+    [path, workspace],
   )
 
   if (!path && body === undefined) return null

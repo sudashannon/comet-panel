@@ -6,23 +6,34 @@ import (
 	"sync"
 )
 
-// SSEHub manages server-sent event connections for wiki graph updates.
+// SSEHub manages server-sent event connections for wiki graph updates and
+// watcher lifecycle signals like indexing-started.
 type SSEHub struct {
 	mu      sync.Mutex
-	clients map[chan string]struct{}
+	clients map[chan sseMessage]struct{}
+}
+
+type sseMessage struct {
+	event string
+	data  string
 }
 
 func NewSSEHub() *SSEHub {
-	return &SSEHub{clients: make(map[chan string]struct{})}
+	return &SSEHub{clients: make(map[chan sseMessage]struct{})}
 }
 
-// Broadcast sends an event to all connected clients.
+// Broadcast sends a graph-updated event to all connected clients.
 func (h *SSEHub) Broadcast(event string) {
+	h.BroadcastNamed("graph-updated", event)
+}
+
+// BroadcastNamed sends a named SSE event with the provided data payload.
+func (h *SSEHub) BroadcastNamed(name, data string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch := range h.clients {
 		select {
-		case ch <- event:
+		case ch <- sseMessage{event: name, data: data}:
 		default: // drop if client is slow
 		}
 	}
@@ -42,7 +53,7 @@ func (h *SSEHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	flusher.Flush()
 
-	ch := make(chan string, 8)
+	ch := make(chan sseMessage, 8)
 	h.mu.Lock()
 	h.clients[ch] = struct{}{}
 	h.mu.Unlock()
@@ -59,7 +70,7 @@ func (h *SSEHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case msg := <-ch:
-			fmt.Fprintf(w, "event: graph-updated\ndata: %s\n\n", msg)
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.event, msg.data)
 			flusher.Flush()
 		}
 	}

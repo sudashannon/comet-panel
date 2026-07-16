@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchBookmarks, addBookmark, removeBookmark } from './api/client'
 import type { ChangeSummary, WorkspaceConfig, WikiComponent, Bookmark } from './api/types'
 import { KpiCards, classifyChanges } from './components/KpiCards'
@@ -16,6 +16,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { ReportView } from './components/ReportView'
 import { BookmarkPanel } from './components/BookmarkPanel'
 import { SemanticSearch } from './components/SemanticSearch'
+import { useWikiEvents } from './hooks/useWikiEvents'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
 // internal counts and the KPI-filter classification below so the two can
@@ -47,6 +48,8 @@ export default function App() {
   const [changeArtifacts, setChangeArtifacts] = useState<{ path: string; label: string }[]>([])
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false)
+  const [wikiIndexing, setWikiIndexing] = useState(false)
+  const [wikiIndexingChanged, setWikiIndexingChanged] = useState<number | null>(null)
 
   // Every SideRail view switch must close any open MarkdownViewer first —
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
@@ -72,17 +75,42 @@ export default function App() {
       .catch(() => setChanges([]))
   }, [])
 
-  useEffect(() => {
+  const refreshWikiIndex = useCallback(() => {
     fetchWikiIndex()
       .then(setWikiComponents)
       .catch(() => setWikiComponents([]))
   }, [])
 
   useEffect(() => {
+    refreshWikiIndex()
+  }, [refreshWikiIndex])
+
+  useEffect(() => {
     fetchBookmarks()
       .then(setBookmarks)
       .catch(() => setBookmarks([]))
   }, [])
+
+  useWikiEvents({
+    onIndexingStarted: (changed) => {
+      setWikiIndexingChanged(changed)
+      setWikiIndexing(true)
+    },
+    onUpdate: () => {
+      setWikiIndexing(false)
+      setWikiIndexingChanged(null)
+      refreshWikiIndex()
+    },
+  })
+
+  useEffect(() => {
+    if (!wikiIndexing) return
+    const timer = window.setTimeout(() => {
+      setWikiIndexing(false)
+      setWikiIndexingChanged(null)
+    }, 8000)
+    return () => window.clearTimeout(timer)
+  }, [wikiIndexing])
 
   const isBookmarked = (path: string) => bookmarks.some((b) => b.path === path)
 
@@ -160,6 +188,12 @@ export default function App() {
       {failedWorkspaces.length > 0 && (
         <div data-testid="workspace-warning-banner" className="text-xs bg-[#fdeeee] text-[#dc2626] rounded p-2 m-3 shrink-0">
           ⚠ 以下 workspace 无法读取，已跳过：{failedWorkspaces.join(', ')}
+        </div>
+      )}
+
+      {wikiIndexing && (
+        <div data-testid="wiki-indexing-banner" className="text-xs bg-[#eef4ff] text-[#0063f8] rounded p-2 mx-3 mb-3 shrink-0">
+          ℹ {typeof wikiIndexingChanged === 'number' ? `检测到 ${wikiIndexingChanged} 个文件更新，正在进入搜索库…` : '已检测到文档更新，正在进入搜索库…'} 几秒后即可检索
         </div>
       )}
 

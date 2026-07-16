@@ -125,6 +125,47 @@ describe('MarkdownViewer', () => {
     expect(screen.getByText('2')).toBeTruthy()
   })
 
+  it('rebases relative image paths to the artifact API under the current markdown directory', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '![架构图](diagrams/arch.png)',
+    } as Response)
+
+    const { container } = render(
+      <MarkdownViewer
+        path="/repo/knowledge/2026-07-15-nvstream-middleware-design.md"
+        workspace="rx101"
+        onClose={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull())
+    const img = container.querySelector('img')!
+    expect(img.getAttribute('src')).toBe(
+      '/api/artifact?path=%2Frepo%2Fknowledge%2Fdiagrams%2Farch.png&workspace=rx101',
+    )
+  })
+
+  it('rebases relative file links to the artifact API under the current markdown directory', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => '[查看 SVG 源图](diagrams/arch.svg)',
+    } as Response)
+
+    render(
+      <MarkdownViewer
+        path="/repo/knowledge/2026-07-15-nvstream-middleware-design.md"
+        workspace="rx101"
+        onClose={vi.fn()}
+      />,
+    )
+
+    const link = await screen.findByRole('link', { name: '查看 SVG 源图' })
+    expect(link.getAttribute('href')).toBe(
+      '/api/artifact?path=%2Frepo%2Fknowledge%2Fdiagrams%2Farch.svg&workspace=rx101',
+    )
+  })
+
   it('calls onClose when Escape is pressed', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,

@@ -108,6 +108,7 @@ func (w *Watcher) loop() {
 	defer w.wg.Done()
 
 	var pending []string
+	var pendingNotified bool
 	var timer *time.Timer
 	var communityTimer *time.Timer
 
@@ -118,6 +119,7 @@ func (w *Watcher) loop() {
 		timer = time.AfterFunc(w.debounce, func() {
 			files := pending
 			pending = nil
+			pendingNotified = false
 			if len(files) == 0 {
 				return
 			}
@@ -146,6 +148,10 @@ func (w *Watcher) loop() {
 			}
 			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove|fsnotify.Rename) == 0 {
 				continue
+			}
+			if !pendingNotified && w.api.SSE != nil {
+				w.api.SSE.BroadcastNamed("indexing-started", `{"changed":1}`)
+				pendingNotified = true
 			}
 			pending = append(pending, event.Name)
 			resetTimer()
