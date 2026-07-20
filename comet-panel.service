@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=shanl
 WorkingDirectory=/home/shanl/workspace/comet-panel
-ExecStart=/home/shanl/workspace/comet-panel/comet-panel --port 8989 --dir ../miao/openspec
+ExecStart=/home/shanl/workspace/comet-panel/comet-panel --port 8989 --bind 0.0.0.0 --share-url http://10.0.28.45:8989 --dir ../miao/openspec
 Restart=on-failure
 RestartSec=3
 
