@@ -164,6 +164,7 @@ func main() {
 	mux.HandleFunc("/api/reports", handleListReports)
 	mux.HandleFunc("/api/reports/get", handleGetReport)
 mux.HandleFunc("/api/share/create", func(w http.ResponseWriter, r *http.Request) { handleCreateShare(w, r, shareManager) })
+	mux.HandleFunc("/api/share/list", func(w http.ResponseWriter, r *http.Request) { handleListShares(w, r, shareManager) })
 	mux.HandleFunc("/api/share/revoke", func(w http.ResponseWriter, r *http.Request) { handleRevokeShare(w, r, shareManager) })
 	mux.HandleFunc("/share/", func(w http.ResponseWriter, r *http.Request) { handleSharePage(w, r, shareManager) })
 
@@ -504,6 +505,18 @@ func handleCreateShare(w http.ResponseWriter, r *http.Request, mgr *ShareManager
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"url": url})
 }
+
+// handleListShares returns all active share tokens.
+func handleListShares(w http.ResponseWriter, r *http.Request, mgr *ShareManager) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "method not allowed", 405)
+		return
+	}
+	shares := mgr.ListShares()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(shares)
+}
+
 
 // handleRevokeShare removes a share token.
 func handleRevokeShare(w http.ResponseWriter, r *http.Request, mgr *ShareManager) {
