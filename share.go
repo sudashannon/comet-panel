@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -124,4 +126,31 @@ func generateToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// detectLANIP returns the primary non-loopback IPv4 address of this host,
+// or "" if no LAN interface is found. Used to construct share URLs that
+// are reachable from other machines on the same network.
+func detectLANIP() string {
+	// The "net" package is in the standard library but we need to import it.
+	// For now, shell out to "ip" which is always available on Linux.
+	// This is called once at startup so the subprocess cost is negligible.
+	out, err := exec.Command("ip", "-4", "-br", "addr", "show").Output()
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		if strings.HasPrefix(fields[1], "lo") {
+			continue
+		}
+		ip := strings.SplitN(fields[2], "/", 2)[0]
+		if ip != "" && !strings.HasPrefix(ip, "127.") {
+			return ip
+		}
+	}
+	return ""
 }

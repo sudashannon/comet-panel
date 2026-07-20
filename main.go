@@ -50,7 +50,16 @@ func main() {
 	}
 	workspaceRegistryAliasSnapshot = reg.List
 
-	shareManager := NewShareManager("")
+	// Auto-detect LAN IP for share link URLs. If --bind is set to a
+	// routable IP, use that; otherwise detect the primary non-loopback
+	// interface. Falls back to localhost when no LAN IP is available.
+	shareBaseURL := fmt.Sprintf("http://%s:%d", *bind, *port)
+	if *bind == "localhost" || *bind == "127.0.0.1" || *bind == "0.0.0.0" {
+		if ip := detectLANIP(); ip != "" {
+			shareBaseURL = fmt.Sprintf("http://%s:%d", ip, *port)
+		}
+	}
+	shareManager := NewShareManager(shareBaseURL)
 
 	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
