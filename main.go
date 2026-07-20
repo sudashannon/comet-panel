@@ -23,6 +23,7 @@ import (
 	"comet-ui/wiki"
 
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 )
 
 //go:embed web/dist
