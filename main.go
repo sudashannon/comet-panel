@@ -40,6 +40,7 @@ func staticHandler() http.Handler {
 func main() {
 	port := flag.Int("port", 8989, "port to listen on")
 	bind := flag.String("bind", "localhost", "address to bind to (use 0.0.0.0 for LAN access)")
+	shareURL := flag.String("share-url", "", "public base URL for share links (default: auto-detect or localhost)")
 	baseDir := flag.String("dir", "openspec", "path to openspec directory")
 	flag.Parse()
 
@@ -51,14 +52,12 @@ func main() {
 	}
 	workspaceRegistryAliasSnapshot = reg.List
 
-	// Auto-detect LAN IP for share link URLs. If --bind is set to a
-	// routable IP, use that; otherwise detect the primary non-loopback
-	// interface. Falls back to localhost when no LAN IP is available.
-	shareBaseURL := fmt.Sprintf("http://%s:%d", *bind, *port)
-	if *bind == "localhost" || *bind == "127.0.0.1" || *bind == "0.0.0.0" {
-		if ip := detectLANIP(); ip != "" {
-			shareBaseURL = fmt.Sprintf("http://%s:%d", ip, *port)
-		}
+	// Share URL precedence: --share-url flag > auto-detected LAN IP > localhost.
+	shareBaseURL := fmt.Sprintf("http://localhost:%d", *port)
+	if *shareURL != "" {
+		shareBaseURL = *shareURL
+	} else if ip := detectLANIP(); ip != "" {
+		shareBaseURL = fmt.Sprintf("http://%s:%d", ip, *port)
 	}
 	shareManager := NewShareManager(shareBaseURL)
 
@@ -535,13 +534,19 @@ func handleSharePage(w http.ResponseWriter, r *http.Request, mgr *ShareManager) 
 	entry, err := mgr.ValidateShare(token)
 	if err != nil {
 		w.WriteHeader(404)
-		w.Write([]byte(`<html><body><h1>链接已失效</h1><p>该分享链接不存在或已过期。</p></body></html>`))
+		w.Write([]byte(`<html><body><h1>链接已失效</h1><p>该分享链接不存在或已过期。</p>
+<script src="//cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>document.querySelectorAll("code.language-mermaid").forEach(c=>{c.parentElement.className="mermaid";c.parentElement.innerHTML=c.textContent});mermaid.initialize({startOnLoad:true,theme:"neutral"})</script>
+</body></html>`))
 		return
 	}
 	content, readErr := os.ReadFile(entry.Path)
 	if readErr != nil {
 		w.WriteHeader(404)
-		w.Write([]byte(`<html><body><h1>文档不可用</h1><p>原文档已被移动或删除。</p></body></html>`))
+		w.Write([]byte(`<html><body><h1>文档不可用</h1><p>原文档已被移动或删除。</p>
+<script src="//cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>document.querySelectorAll("code.language-mermaid").forEach(c=>{c.parentElement.className="mermaid";c.parentElement.innerHTML=c.textContent});mermaid.initialize({startOnLoad:true,theme:"neutral"})</script>
+</body></html>`))
 		return
 	}
 	html := renderMarkdownToHTML(entry.Path, string(content))
@@ -553,9 +558,13 @@ func handleSharePage(w http.ResponseWriter, r *http.Request, mgr *ShareManager) 
 func renderMarkdownToHTML(path, src string) string {
 	var buf bytes.Buffer
 	title := filepath.Base(path)
-	if err := goldmark.Convert([]byte(src), &buf); err != nil {
+		md := goldmark.New(goldmark.WithExtensions(extension.GFM))
+	if err := md.Convert([]byte(src), &buf); err != nil {
 		log.Printf("share render: goldmark error for %s: %v", path, err)
-		return fmt.Sprintf(`<html><body><pre>%s</pre></body></html>`, html.EscapeString(src))
+		return fmt.Sprintf(`<html><body><pre>%s</pre>
+<script src="//cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>document.querySelectorAll("code.language-mermaid").forEach(c=>{c.parentElement.className="mermaid";c.parentElement.innerHTML=c.textContent});mermaid.initialize({startOnLoad:true,theme:"neutral"})</script>
+</body></html>`, html.EscapeString(src))
 	}
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="zh-CN">
@@ -563,6 +572,7 @@ func renderMarkdownToHTML(path, src string) string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>%s</title>
+
 <style>
   :root{--paper:#fafaf8;--ink:#1d1d1f;--grey-3:#6e6e73;--accent:#002FA7;--border:#e8e8ed}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -588,6 +598,9 @@ func renderMarkdownToHTML(path, src string) string {
 <body>
 <div class="content">%s</div>
 <footer>通过 Comet-Panel 分享 · 原文路径: %s</footer>
+
+<script src="//cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>document.querySelectorAll("code.language-mermaid").forEach(c=>{c.parentElement.className="mermaid";c.parentElement.innerHTML=c.textContent});mermaid.initialize({startOnLoad:true,theme:"neutral"})</script>
 </body>
 </html>`, html.EscapeString(title), buf.String(), html.EscapeString(path))
 }
