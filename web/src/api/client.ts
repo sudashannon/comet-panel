@@ -289,3 +289,25 @@ export async function searchSemantic(query: string, topK = 10): Promise<Semantic
   if (!res.ok) return []
   return res.json()
 }
+
+// Share
+
+interface CreateShareResponse {
+  url: string
+}
+
+export async function createShareLink(path: string, workspace?: string, ttl?: number): Promise<CreateShareResponse> {
+  const res = await fetch('/api/share/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, workspace, ttl }),
+  })
+  if (!res.ok) throw new Error(`Create share link failed: ${res.status}`)
+  return res.json()
+}
+
+export async function revokeShareLink(token: string): Promise<void> {
+  const tokenParam = encodeURIComponent(token)
+  const res = await fetch(`/api/share/revoke?token=${tokenParam}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Revoke share link failed: ${res.status}`)
+}

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"io"
 	"io/fs"
 	"log"
@@ -15,9 +17,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"comet-ui/chat"
 	"comet-ui/wiki"
+
+	"github.com/yuin/goldmark"
 )
 
 //go:embed web/dist
@@ -33,6 +38,7 @@ func staticHandler() http.Handler {
 
 func main() {
 	port := flag.Int("port", 8989, "port to listen on")
+	bind := flag.String("bind", "localhost", "address to bind to (use 0.0.0.0 for LAN access)")
 	baseDir := flag.String("dir", "openspec", "path to openspec directory")
 	flag.Parse()
 
@@ -43,6 +49,8 @@ func main() {
 		log.Fatalf("workspace registry: %v", err)
 	}
 	workspaceRegistryAliasSnapshot = reg.List
+
+	shareManager := NewShareManager("")
 
 	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -146,11 +154,14 @@ func main() {
 	mux.HandleFunc("/api/report", func(w http.ResponseWriter, r *http.Request) { handleReport(w, r, reg) })
 	mux.HandleFunc("/api/reports", handleListReports)
 	mux.HandleFunc("/api/reports/get", handleGetReport)
+mux.HandleFunc("/api/share/create", func(w http.ResponseWriter, r *http.Request) { handleCreateShare(w, r, shareManager) })
+	mux.HandleFunc("/api/share/revoke", func(w http.ResponseWriter, r *http.Request) { handleRevokeShare(w, r, shareManager) })
+	mux.HandleFunc("/share/", func(w http.ResponseWriter, r *http.Request) { handleSharePage(w, r, shareManager) })
 
 	mux.Handle("/", staticHandler())
 
-	addr := fmt.Sprintf(":%d", *port)
-	url := fmt.Sprintf("http://localhost:%d", *port)
+	addr := fmt.Sprintf("%s:%d", *bind, *port)
+	url := fmt.Sprintf("http://%s:%d", *bind, *port)
 	fmt.Printf("Comet UI Dashboard → %s\n", url)
 
 	go openBrowser(url)
@@ -451,4 +462,122 @@ func handleGetArtifact(w http.ResponseWriter, r *http.Request, baseDir string, r
 	}
 	w.Header().Set("Content-Type", ct)
 	w.Write(content)
+}
+
+// handleCreateShare generates a share token for a document and returns the link.
+func handleCreateShare(w http.ResponseWriter, r *http.Request, mgr *ShareManager) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, "method not allowed", 405)
+		return
+	}
+	var req struct {
+		Path      string `json:"path"`
+		Workspace string `json:"workspace"`
+		TTL       int    `json:"ttl"` // seconds; 0 = no expiry
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, "invalid body", 400)
+		return
+	}
+	if req.Path == "" {
+		writeJSONError(w, "missing path", 400)
+		return
+	}
+	var ttl time.Duration
+	if req.TTL > 0 {
+		ttl = time.Duration(req.TTL) * time.Second
+	}
+	_, url, err := mgr.CreateShare(req.Path, req.Workspace, ttl)
+	if err != nil {
+		writeJSONError(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"url": url})
+}
+
+// handleRevokeShare removes a share token.
+func handleRevokeShare(w http.ResponseWriter, r *http.Request, mgr *ShareManager) {
+	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
+		writeJSONError(w, "method not allowed", 405)
+		return
+	}
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		writeJSONError(w, "missing token", 400)
+		return
+	}
+	if err := mgr.RevokeShare(token); err != nil {
+		writeJSONError(w, err.Error(), 404)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "revoked"})
+}
+
+// handleSharePage serves a minimal read-only HTML page for a shared document.
+func handleSharePage(w http.ResponseWriter, r *http.Request, mgr *ShareManager) {
+	token := strings.TrimPrefix(r.URL.Path, "/share/")
+	if token == "" {
+		writeJSONError(w, "missing token", 400)
+		return
+	}
+	entry, err := mgr.ValidateShare(token)
+	if err != nil {
+		w.WriteHeader(404)
+		w.Write([]byte(`<html><body><h1>链接已失效</h1><p>该分享链接不存在或已过期。</p></body></html>`))
+		return
+	}
+	content, readErr := os.ReadFile(entry.Path)
+	if readErr != nil {
+		w.WriteHeader(404)
+		w.Write([]byte(`<html><body><h1>文档不可用</h1><p>原文档已被移动或删除。</p></body></html>`))
+		return
+	}
+	html := renderMarkdownToHTML(entry.Path, string(content))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(html))
+}
+
+// renderMarkdownToHTML converts markdown source to a styled HTML page using goldmark.
+func renderMarkdownToHTML(path, src string) string {
+	var buf bytes.Buffer
+	title := filepath.Base(path)
+	if err := goldmark.Convert([]byte(src), &buf); err != nil {
+		log.Printf("share render: goldmark error for %s: %v", path, err)
+		return fmt.Sprintf(`<html><body><pre>%s</pre></body></html>`, html.EscapeString(src))
+	}
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>%s</title>
+<style>
+  :root{--paper:#fafaf8;--ink:#1d1d1f;--grey-3:#6e6e73;--accent:#002FA7;--border:#e8e8ed}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Inter","PingFang SC",system-ui,sans-serif;padding:48px;max-width:860px;margin:0 auto;line-height:1.75}
+  h1{font-size:28px;font-weight:800;margin-bottom:24px;padding-bottom:12px;border-bottom:2px solid var(--ink)}
+  h2{font-size:20px;font-weight:700;margin:32px 0 12px}
+  h3{font-size:16px;font-weight:600;margin:24px 0 8px}
+  p,li{font-size:15px;margin-bottom:8px}
+  ul,ol{padding-left:24px;margin-bottom:12px}
+  blockquote{border-left:3px solid var(--border);padding-left:14px;color:var(--grey-3);margin:12px 0}
+  code{background:#f0f0ee;padding:1px 4px;border-radius:3px;font-size:13px}
+  pre{background:#f0f0ee;padding:14px;border-radius:6px;overflow-x:auto;font-size:13px;margin:12px 0}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%%;margin:12px 0}
+  th,td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  th{background:#f5f5f7;font-weight:600}
+  img{max-width:100%%;border-radius:6px}
+  a{color:var(--accent)}
+  hr{border:none;border-top:1px solid var(--border);margin:24px 0}
+  footer{margin-top:48px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--grey-3)}
+</style>
+</head>
+<body>
+<div class="content">%s</div>
+<footer>通过 Comet-Panel 分享 · 原文路径: %s</footer>
+</body>
+</html>`, html.EscapeString(title), buf.String(), html.EscapeString(path))
 }

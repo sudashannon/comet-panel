@@ -5,6 +5,7 @@ import rehypeSlug from 'rehype-slug'
 import GithubSlugger from 'github-slugger'
 import { fetchArtifactContent } from '../api/client'
 import { DiagramBlock } from './DiagramBlock'
+import { ShareModal } from './ShareModal'
 
 // Fenced code blocks carry their language as `language-xxx` in the code
 // element's className (e.g. ```mermaid -> "language-mermaid"). Only these two
@@ -156,6 +157,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
   const [content, setContent] = useState<string | null>(body ?? null)
   const [error, setError] = useState(false)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -256,6 +258,15 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
               onClick={onClose}
               className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
             >
+            <button
+              type="button"
+              aria-label="分享"
+              onClick={() => setShareOpen(true)}
+              data-testid="share-open-btn"
+              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+            >
+              分享
+            </button>
               ✕ 关闭
             </button>
           </div>
@@ -341,6 +352,10 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
             onClick={(e) => e.stopPropagation()}
           />
         </div>
+      )}
+
+      {shareOpen && (
+        <ShareModal path={path} workspace={workspace} onClose={() => setShareOpen(false)} />
       )}
     </div>
   )
