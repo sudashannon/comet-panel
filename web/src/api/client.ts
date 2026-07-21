@@ -296,7 +296,24 @@ interface CreateShareResponse {
   url: string
 }
 
-export async function createShareLink(path: string, workspace?: string, ttl?: number): Promise<CreateShareResponse> {
+export async function createShareLink(path: string, workspace?: string, ttl?: number, baseUrl?: string): Promise<CreateShareResponse> {
+  if (baseUrl) {
+    const params = new URLSearchParams()
+    params.set('url', baseUrl)
+    const res = await fetch('/api/share/create?' + params.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, workspace, ttl }),
+    })
+    if (!res.ok) throw new Error(`Create share link failed: ${res.status}`)
+    const data = await res.json()
+    // Replace base URL with the provided one
+    if (data.url) {
+      const path = data.url.split('/share/')[1]
+      if (path) data.url = baseUrl + '/share/' + path
+    }
+    return data
+  }
   const res = await fetch('/api/share/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

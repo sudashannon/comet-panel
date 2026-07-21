@@ -59,6 +59,7 @@ func main() {
 	} else if ip := detectLANIP(); ip != "" {
 		shareBaseURL = fmt.Sprintf("http://%s:%d", ip, *port)
 	}
+	// Always prefer explicit --share-url; auto-detection is unreliable on WSL2.
 	shareManager := NewShareManager(shareBaseURL)
 
 	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {

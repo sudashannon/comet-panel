@@ -21,6 +21,7 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editableUrl, setEditableUrl] = useState<string | null>(null)
 
   const handleCreate = useCallback(async () => {
     if (!path) return
@@ -28,8 +29,9 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
     setError(null)
     try {
       // createShareLink returns {url}, we extract token from the URL
-      const resp = await createShareLink(path, workspace, ttl)
+      const resp = await createShareLink(path, workspace, ttl, window.location.origin)
       setLink(resp.url)
+      setEditableUrl(resp.url)
       const parts = resp.url.split('/share/')
       if (parts.length === 2) setToken(parts[1])
     } catch (e) {
@@ -46,6 +48,7 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
       await revokeShareLink(token)
       setLink(null)
       setToken(null)
+      setEditableUrl(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : '撤销失败')
     } finally {
@@ -54,15 +57,16 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
   }, [token])
 
   const handleCopy = useCallback(async () => {
-    if (!link) return
+    const urlToCopy = editableUrl ?? link
+    if (!urlToCopy) return
     try {
-      await navigator.clipboard.writeText(link)
+      await navigator.clipboard.writeText(urlToCopy)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
       // fallback for non-HTTPS contexts
       const el = document.createElement('textarea')
-      el.value = link
+      el.value = urlToCopy
       document.body.appendChild(el)
       el.select()
       document.execCommand('copy')
@@ -117,8 +121,8 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
             <div className="flex items-center gap-2 mb-4">
               <input
                 type="text"
-                readOnly
-                value={link}
+                value={editableUrl ?? link}
+                onChange={(e) => setEditableUrl(e.target.value)}
                 data-testid="share-link-input"
                 className="flex-1 text-xs bg-[#f5f5f7] rounded-lg px-3 py-2 border border-[#e8e8ed] text-[#1d1d1f] overflow-hidden text-ellipsis"
               />
