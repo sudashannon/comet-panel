@@ -253,20 +253,22 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 {isStarred ? '⭐' : '☆'}
               </button>
             )}
+            {path && (
+              <button
+                type="button"
+                aria-label="分享"
+                onClick={() => setShareOpen(true)}
+                data-testid="share-open-btn"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+              >
+                🔗
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
               className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
             >
-            <button
-              type="button"
-              aria-label="分享"
-              onClick={() => setShareOpen(true)}
-              data-testid="share-open-btn"
-              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
-            >
-              分享
-            </button>
               ✕ 关闭
             </button>
           </div>
