@@ -158,6 +158,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
   const [error, setError] = useState(false)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -251,6 +252,17 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
               >
                 {isStarred ? '⭐' : '☆'}
+              </button>
+            )}
+            {path && (
+              <button
+                type="button"
+                aria-label="刷新"
+                onClick={() => { setContent(null); setRefreshKey(k => k + 1) }}
+                data-testid="refresh-btn"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+              >
+                🔄
               </button>
             )}
             {path && (
