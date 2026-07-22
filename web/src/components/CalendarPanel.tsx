@@ -86,7 +86,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
         </div>
         <div className="grid grid-cols-7 text-center px-1 pb-1.5">
           {days.map((d, i) => {
-            if (d === null) return <span key={`e${i}`} className="aspect-square" />
+            if (d === null) return <span key={`e${i}`} className="py-1" />
             const dateKey = `${data.year}-${String(data.month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
             const hasArtifact = (data.days[dateKey] ?? 0) > 0
             const isToday = dateKey === today
@@ -96,7 +96,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                 key={d}
                 type="button"
                 onClick={() => handleSelect(dateKey)}
-                className={`aspect-square flex flex-col items-center justify-center text-[13px] rounded-md relative transition-colors
+                className={`flex flex-col items-center justify-center text-[13px] rounded-md relative transition-colors py-1
                   ${isSel ? 'bg-[#0063f8] text-white font-bold' : isToday ? 'text-[#0063f8] font-bold' : 'hover:bg-[#f0f5ff]'}
                 `}
               >
@@ -114,12 +114,12 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
 
   return (
     <div className="p-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <button onClick={prevQuarter} className="text-sm px-3 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">← 上一季度</button>
+      <div className="flex items-center justify-between mb-1">
+        <button onClick={prevQuarter} className="text-xs px-2 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">← 上一季度</button>
         <h2 className="text-sm font-bold text-[#1d1d1f]">
           📅 {year}年 第{quarter}季度
         </h2>
-        <button onClick={nextQuarter} className="text-sm px-3 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">下一季度 →</button>
+        <button onClick={nextQuarter} className="text-xs px-2 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">下一季度 →</button>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
