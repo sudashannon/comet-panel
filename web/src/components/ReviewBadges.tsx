@@ -5,7 +5,7 @@ interface Props {
 }
 
 function Pill({ testId, tone, label }: { testId: string; tone: 'ok' | 'neutral'; label: string }) {
-  const cls =
+  const toneClass =
     tone === 'ok'
       ? 'bg-[color-mix(in_srgb,var(--color-success)_12%,var(--color-surface))] text-[var(--color-success)]'
       : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'
@@ -13,7 +13,7 @@ function Pill({ testId, tone, label }: { testId: string; tone: 'ok' | 'neutral';
     <span
       data-testid={testId}
       data-tone={tone}
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${cls}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass}`}
     >
       {tone === 'ok' ? '✓ ' : '○ '}
       {label}

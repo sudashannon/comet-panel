@@ -1,45 +1,96 @@
 @import "tailwindcss";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/600.css";
-@import "@fontsource/inter/700.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/400-italic.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+
+/*
+ * IBM Carbon Design System tokens
+ * https://carbondesignsystem.com/guidelines/color/overview
+ */
 
 html {
-  /* ── Semantic colors ── */
-  --color-accent: #0063f8;
-  --color-accent-hover: #004ec6;
-  --color-success: #16a34a;
+  /* ── Carbon semantic colors ── */
+  --color-accent: #0f62fe;
+  --color-accent-hover: #0043ce;
+  --color-accent-active: #002d9c;
+  --color-success: #24a148;
   --color-danger: #da1e28;
-  --color-warn: #c47a06;
+  --color-warn: #f1c21b;
 
-  /* ── Neutral palette ── */
-  --color-bg: #f5f5f7;
+  /* ── Neutral palette (Carbon gray scale) ── */
+  --color-bg: #f4f4f4;
   --color-surface: #ffffff;
-  --color-border: #e8e8ed;
-  --color-border-hover: #c6c6cc;
-  --color-text-primary: #1d1d1f;
-  --color-text-secondary: #8e8e93;
-  --color-text-tertiary: #aeaeb2;
+  --color-layer: #f4f4f4;
+  --color-layer-accent: #e0e0e0;
+  --color-border: #c6c6c6;
+  --color-border-subtle: #e0e0e0;
+  --color-border-hover: #8d8d8d;
+  --color-text-primary: #161616;
+  --color-text-secondary: #525252;
+  --color-text-tertiary: #8d8d8d;
+  --color-text-on-color: #ffffff;
+  --color-link: #0f62fe;
+  --color-link-hover: #0043ce;
 
-  /* ── Radii ── */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  /* ── Carbon radii (sharp, 0-4px) ── */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
 
-  /* ── Shadows ── */
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.12);
+  /* ── Carbon elevation shadows ── */
+  --shadow-1: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  --shadow-2: 0 2px 6px 0 rgba(0, 0, 0, 0.1);
+  --shadow-3: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
+  --shadow-4: 0 6px 12px 0 rgba(0, 0, 0, 0.12);
+  --shadow-overlay: 0 8px 24px 0 rgba(0, 0, 0, 0.16);
 
-  /* ── Palette ── */
-  --palette-bg: rgba(0, 0, 0, 0.3);
+  /* ── Legacy aliases for existing code ── */
+  --shadow-card: var(--shadow-1);
+  --shadow-modal: var(--shadow-overlay);
+
+  /* ── Palette (command palette + overlay tokens) ── */
+  --palette-bg: rgba(22, 22, 22, 0.5);
   --palette-surface: #ffffff;
-  --palette-input-border: #d0d0d5;
-  --palette-highlight: #f0f5ff;
-  --palette-match-bg: #cce0ff;
-  --palette-match-text: #004ec6;
-  --palette-separator: #e8e8ed;
+  --palette-input-border: #c6c6c6;
+  --palette-highlight: #e8e8e8;
+  --palette-match-bg: #d0e2ff;
+  --palette-match-text: #0043ce;
+  --palette-separator: #e0e0e0;
+
+  /* ── Carbon spacing scale (4px grid) ── */
+  --spacing-01: 0.125rem;  /* 2px  */
+  --spacing-02: 0.25rem;   /* 4px  */
+  --spacing-03: 0.5rem;    /* 8px  */
+  --spacing-04: 0.75rem;   /* 12px */
+  --spacing-05: 1rem;      /* 16px */
+  --spacing-06: 1.5rem;    /* 24px */
+  --spacing-07: 2rem;      /* 32px */
+  --spacing-08: 2.5rem;    /* 40px */
+  --spacing-09: 3rem;      /* 48px */
+
+  /* ── Carbon type scale (16px base) ── */
+  --type-body: 0.875rem;     /* 14px — Carbon body-01 */
+  --type-body-short: 1rem;   /* 16px — Carbon body-02 */
 }
 
 body {
-  font-family: Inter, sans-serif;
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: var(--type-body);
+  line-height: 1.42857;       /* Carbon body-01 line-height: 20px / 14px */
+  color: var(--color-text-primary);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Carbon-style focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Remove default focus ring for mouse clicks */
+:focus:not(:focus-visible) {
+  outline: none;
 }

@@ -445,7 +445,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             {/* 类型图例 — 左下角 */}
             <div
               data-testid="wiki-graph-legend"
-              className="absolute left-2 bottom-2 z-10 w-28 max-h-[50vh] overflow-y-auto rounded border border-[var(--color-border)] bg-white/95 px-2 py-1.5 text-xs text-[var(--color-text-primary)] shadow-sm"
+              className="absolute left-2 bottom-2 z-10 w-28 max-h-[50vh] overflow-y-auto border border-[var(--color-border)] bg-white/95 px-2 py-1.5 text-xs text-[var(--color-text-primary)] shadow-sm"
             >
               <div className="mb-1 font-medium text-[var(--color-text-secondary)]">类型</div>
               <ul className="space-y-0.5">
@@ -461,7 +461,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             {topCommunities.length > 0 && (
               <div
                 data-testid="wiki-graph-community-legend"
-                className="absolute right-2 bottom-2 z-10 w-44 max-h-[50vh] overflow-y-auto rounded border border-[var(--color-border)] bg-white/95 px-2 py-1.5 text-xs text-[var(--color-text-primary)] shadow-sm"
+                className="absolute right-2 bottom-2 z-10 w-44 max-h-[50vh] overflow-y-auto border border-[var(--color-border)] bg-white/95 px-2 py-1.5 text-xs text-[var(--color-text-primary)] shadow-sm"
               >
                 <div className="mb-1 font-medium text-[var(--color-text-secondary)]">社区</div>
                 <ul className="space-y-0.5">
@@ -476,8 +476,8 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
                           onClick={() => setActiveCommunity(active ? null : id)}
                           className={
                             active
-                              ? 'flex w-full items-center gap-1 rounded bg-[color-mix(in_srgb,var(--color-text-primary)_10%,var(--color-surface))] px-1 py-0.5 text-left'
-                              : 'flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-[var(--color-bg)]'
+                              ? 'flex w-full items-center gap-1 bg-[color-mix(in_srgb,var(--color-text-primary)_10%,var(--color-surface))] px-1 py-0.5 text-left'
+                              : 'flex w-full items-center gap-1 px-1 py-0.5 text-left hover:bg-[var(--color-bg)]'
                           }
                         >
                           <span

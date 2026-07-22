@@ -145,7 +145,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               data-testid="chat-settings-provider"
               value={providerName}
               onChange={(e) => handleProviderChange(e.target.value)}
-              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] p-1.5 text-sm"
             >
               {providers.map((p) => (
                 <option key={p.name} value={p.name}>
@@ -160,7 +160,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               data-testid="chat-settings-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] p-1.5 text-sm"
             >
               {(providers.find((p) => p.name === providerName)?.models ?? []).map((m) => (
                 <option key={m} value={m}>
@@ -177,7 +177,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               value={apiBase}
               onChange={(e) => setApiBase(e.target.value)}
               placeholder="https://api.minimaxi.com"
-              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm font-mono"
+              className="w-full border border-[var(--color-border)] p-1.5 text-sm font-mono"
             />
           </label>
           <label className="block">
@@ -188,7 +188,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
               placeholder={apiKeyPlaceholder || '未配置'}
-              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] p-1.5 text-sm"
             />
           </label>
           <div className="flex gap-2">
@@ -202,7 +202,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 max="2"
                 value={temperature}
                 onChange={(e) => setTemperature(Number(e.target.value))}
-                className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+                className="w-full border border-[var(--color-border)] p-1.5 text-sm"
               />
             </label>
             <label className="block flex-1">
@@ -213,7 +213,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 min="1"
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(Number(e.target.value))}
-                className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+                className="w-full border border-[var(--color-border)] p-1.5 text-sm"
               />
             </label>
           </div>
@@ -223,7 +223,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               data-testid="chat-settings-thinking"
               value={thinking}
               onChange={(e) => setThinking(e.target.value)}
-              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] p-1.5 text-sm"
             >
               <option value="auto">auto</option>
               <option value="disabled">disabled</option>
@@ -239,7 +239,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-testid="chat-settings-cancel"
               onClick={onClose}
-              className="text-sm text-[var(--color-text-secondary)] px-3 py-1.5 rounded-md hover:bg-[var(--color-bg)]"
+              className="text-sm text-[var(--color-text-secondary)] px-3 py-1.5 hover:bg-[var(--color-bg)]"
             >
               取消
             </button>
@@ -247,7 +247,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-testid="chat-settings-save"
               onClick={handleSaveSettings}
-              className="bg-[var(--color-accent)] text-white rounded-md px-3 py-1.5 text-sm"
+              className="bg-[var(--color-accent)] text-white px-3 py-1.5 text-sm"
             >
               保存
             </button>
@@ -264,14 +264,14 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   value={syncRemoteInput}
                   onChange={(e) => setSyncRemoteInput(e.target.value)}
                   placeholder="git@github.com:user/repo.git"
-                  className="flex-1 border border-[var(--color-border)] rounded-md p-1.5 text-sm font-mono"
+                  className="flex-1 border border-[var(--color-border)] p-1.5 text-sm font-mono"
                 />
                 <button
                   type="button"
                   data-testid="sync-remote-save"
                   onClick={handleSaveSyncRemote}
                   disabled={syncSaving || syncRemoteInput.trim() === syncRemote}
-                  className="text-sm text-[var(--color-accent)] px-3 py-1.5 rounded-md hover:bg-[var(--color-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm text-[var(--color-accent)] px-3 py-1.5 hover:bg-[var(--color-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {syncSaving ? '保存中…' : '保存'}
                 </button>
@@ -287,7 +287,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               data-testid="sync-trigger-button"
               onClick={handleTriggerSync}
               disabled={syncing}
-              className="w-full bg-[var(--color-bg)] text-[var(--color-text-primary)] rounded-md px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[var(--color-bg)] text-[var(--color-text-primary)] px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {syncing ? '同步中…' : '🔄 同步知识库'}
             </button>

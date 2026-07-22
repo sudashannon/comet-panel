@@ -47,7 +47,7 @@ export function ChangeDetail({
   }, [change.name, onArtifactsChanged])
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-[0_8px_26px_rgba(30,32,60,0.06),0_1px_2px_rgba(0,0,0,0.03)] space-y-4">
+    <div className="bg-white p-5 shadow-[0_8px_26px_rgba(30,32,60,0.06),0_1px_2px_rgba(0,0,0,0.03)] space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">{change.name}</h3>
         <ReviewBadges
@@ -89,11 +89,11 @@ export function ChangeDetail({
         )
       })()}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border border-[var(--color-border)] rounded-lg p-3">
+        <div className="border border-[var(--color-border)] p-3">
           <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">产出物</h4>
           <ArtifactList changeName={change.name} workspace={change.workspace} onSelectArtifact={onOpenArtifact} />
         </div>
-        <div className="border border-[var(--color-border)] rounded-lg p-3">
+        <div className="border border-[var(--color-border)] p-3">
           <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">文档关联</h4>
           <BacklinksPanel componentId={change.componentId ?? change.name} />
         </div>

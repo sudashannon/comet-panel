@@ -68,7 +68,7 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="按含义搜索组件…"
         aria-label="语义搜索"
-        className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+        className="w-full border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
       />
       {loadError && <div className="text-[var(--color-danger)]">搜索失败</div>}
       {!loadError && query.trim() !== '' && results.length === 0 && (
@@ -113,10 +113,10 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
             <button
               type="button"
               onClick={() => onNodeClick(item.id)}
-              className="w-full flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--color-bg)]"
+              className="w-full flex items-center gap-2 border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--color-bg)]"
             >
               <span
-                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium text-white"
                 style={{ backgroundColor: TYPE_COLORS[item.type] ?? 'var(--color-text-secondary)' }}
               >
                 {item.type}
@@ -136,7 +136,7 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
             type="button"
             disabled={page === 0}
             onClick={() => setPage(page - 1)}
-            className="rounded border border-[var(--color-border)] px-2 py-1 disabled:opacity-30"
+            className="border border-[var(--color-border)] px-2 py-1 disabled:opacity-30"
           >
             ← 上一页
           </button>
@@ -147,7 +147,7 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
             type="button"
             disabled={page >= totalPages - 1}
             onClick={() => setPage(page + 1)}
-            className="rounded border border-[var(--color-border)] px-2 py-1 disabled:opacity-30"
+            className="border border-[var(--color-border)] px-2 py-1 disabled:opacity-30"
           >
             下一页 →
           </button>

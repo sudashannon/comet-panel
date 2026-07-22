@@ -63,7 +63,7 @@ function ChangeCard({
     <div
       onClick={() => onSelect(change.name)}
       className={
-        'rounded-xl px-2.5 py-2.5 border cursor-pointer ' +
+        'px-2.5 py-2.5 border cursor-pointer ' +
         (selected
           ? 'border-transparent bg-blue-50 shadow-[inset_0_0_0_1px_var(--color-border)]'
           : 'border-[var(--color-border)] hover:bg-[var(--color-bg)]')
@@ -151,14 +151,14 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索变更名称…"
-          className="w-full rounded-lg border border-[var(--color-border)] px-2 py-1 text-sm"
+          className="w-full border border-[var(--color-border)] px-2 py-1 text-sm"
         />
         <div className="flex gap-2">
           <select
             aria-label="状态"
             value={status}
             onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs"
+            className="flex-1 border border-[var(--color-border)] px-2 py-1 text-xs"
           >
             <option value="all">全部状态</option>
             <option value="active">活跃</option>
@@ -168,7 +168,7 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
             aria-label="工作流"
             value={workflow}
             onChange={(e) => setWorkflow(e.target.value as WorkflowFilter)}
-            className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs"
+            className="flex-1 border border-[var(--color-border)] px-2 py-1 text-xs"
           >
             <option value="all">全部工作流</option>
             <option value="full">full</option>
@@ -179,7 +179,7 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
             aria-label="阶段"
             value={phase}
             onChange={(e) => setPhase(e.target.value as PhaseFilter)}
-            className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs"
+            className="flex-1 border border-[var(--color-border)] px-2 py-1 text-xs"
           >
             <option value="all">全部阶段</option>
             <option value="open">open</option>
@@ -191,14 +191,14 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
         </div>
       </div>
       {active.length === 0 && archived.length === 0 && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[var(--color-border)] py-8 text-center">
+        <div className="flex flex-col items-center gap-2 border border-dashed border-[var(--color-border)] py-8 text-center">
           <span className="text-2xl text-[var(--color-text-tertiary)]" aria-hidden="true">🔍</span>
           <div className="text-sm font-medium text-[var(--color-text-secondary)]">无匹配的变更</div>
           <div className="text-xs text-[var(--color-text-tertiary)]">尝试调整搜索关键词或筛选条件</div>
           <button
             type="button"
             onClick={clearFilters}
-            className="mt-1 rounded-lg border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-accent)] hover:bg-blue-50"
+            className="mt-1 border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-accent)] hover:bg-blue-50"
           >
             清除筛选
           </button>

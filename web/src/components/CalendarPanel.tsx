@@ -77,7 +77,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
     const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
 
     return (
-      <div key={data.month} className="bg-white border border-[var(--color-border)] rounded-xl overflow-hidden">
+      <div key={data.month} className="bg-white border border-[var(--color-border)] overflow-hidden">
         <div className="text-center text-[13px] font-bold py-2 bg-[var(--color-bg)] border-b border-[var(--color-border)]">
           {data.year}年{monthNames[data.month-1]}
         </div>
@@ -96,7 +96,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                 key={d}
                 type="button"
                 onClick={() => handleSelect(dateKey)}
-                className={`flex flex-col items-center justify-center text-[13px] rounded-md relative transition-colors py-1
+                className={`flex flex-col items-center justify-center text-[13px] relative transition-colors py-1
                   ${isSel ? 'bg-[var(--color-accent)] text-white font-bold' : isToday ? 'text-[var(--color-accent)] font-bold' : 'hover:bg-[var(--palette-highlight)]'}
                 `}
               >
@@ -115,11 +115,11 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between mb-1">
-        <button onClick={prevQuarter} className="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)]">← 上一季度</button>
+        <button onClick={prevQuarter} className="text-xs px-2 py-1 border border-[var(--color-border)] hover:bg-[var(--palette-highlight)]">← 上一季度</button>
         <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
           📅 {year}年 第{quarter}季度
         </h2>
-        <button onClick={nextQuarter} className="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)]">下一季度 →</button>
+        <button onClick={nextQuarter} className="text-xs px-2 py-1 border border-[var(--color-border)] hover:bg-[var(--palette-highlight)]">下一季度 →</button>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -127,7 +127,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
       </div>
 
       {selected && (
-        <div className="bg-white border border-[var(--color-border)] rounded-xl p-4">
+        <div className="bg-white border border-[var(--color-border)] p-4">
           <h3 className="text-[13px] font-semibold mb-3">
             📅 {selected}
             <span className="text-[var(--color-text-secondary)] font-normal ml-1">({items.length} 个产物)</span>
@@ -141,7 +141,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                   key={item.id}
                   type="button"
                   onClick={() => onOpen(item.path)}
-                  className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)] text-xs"
+                  className="flex items-center gap-2 border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)] text-xs"
                 >
                   <span
                     className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"

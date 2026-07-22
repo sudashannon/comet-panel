@@ -15,7 +15,7 @@ export function BookmarkPanel({ bookmarks, onOpen, onRemove, onClose }: Bookmark
       data-testid="bookmark-panel"
       role="region"
       aria-label="收藏"
-      className="w-80 max-h-[70vh] bg-white rounded-xl flex flex-col overflow-hidden"
+      className="w-80 max-h-[70vh] bg-white flex flex-col overflow-hidden"
       style={{ boxShadow: 'var(--shadow-modal)' }}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">

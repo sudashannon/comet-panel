@@ -123,7 +123,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
     return (
       <div
         data-testid="report-gate"
-        className="flex flex-col items-center justify-center gap-3 text-center rounded-2xl border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
+        className="flex flex-col items-center justify-center gap-3 text-center border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
         style={{ boxShadow: 'var(--shadow-modal)' }}
       >
         <span className="text-4xl text-[var(--color-text-tertiary)]" aria-hidden="true">
@@ -135,7 +135,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
           <button
             type="button"
             onClick={onOpenSettings}
-            className="mt-1 text-sm font-medium px-3 py-1.5 rounded-lg bg-[var(--color-accent)] text-white"
+            className="mt-1 text-sm font-medium px-3 py-1.5 bg-[var(--color-accent)] text-white"
             style={{ boxShadow: '0 6px 14px color-mix(in_srgb,var(--color-accent)_35%,transparent)' }}
           >
             去设置
@@ -149,7 +149,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
     <div className="flex flex-col gap-4 h-full min-h-0">
       <div
         data-testid="report-params"
-        className="rounded-2xl bg-white p-4 flex flex-col gap-3 shrink-0"
+        className="bg-white p-4 flex flex-col gap-3 shrink-0"
         style={{ boxShadow: 'var(--shadow-modal)' }}
       >
         <div className="flex items-center gap-3">
@@ -182,7 +182,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
               type="date"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              className="border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="border border-[var(--color-border)] p-1.5 text-sm"
             />
           </label>
           <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
@@ -192,7 +192,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
               type="date"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              className="border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="border border-[var(--color-border)] p-1.5 text-sm"
             />
           </label>
           <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
@@ -201,7 +201,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
               data-testid="report-workspace"
               value={reportWorkspace}
               onChange={(e) => setReportWorkspace(e.target.value)}
-              className="border border-[var(--color-border)] rounded-md p-1.5 text-sm"
+              className="border border-[var(--color-border)] p-1.5 text-sm"
             >
               <option value="">全部</option>
               {workspaces.map((w) => (
@@ -216,7 +216,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
             data-testid="report-generate"
             disabled={generating}
             onClick={handleGenerate}
-            className="text-sm font-medium px-3 py-1.5 rounded-lg bg-[var(--color-accent)] text-white disabled:opacity-50"
+            className="text-sm font-medium px-3 py-1.5 bg-[var(--color-accent)] text-white disabled:opacity-50"
             style={{ boxShadow: '0 6px 14px color-mix(in_srgb,var(--color-accent)_35%,transparent)' }}
           >
             生成
@@ -243,7 +243,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
                   type="button"
                   data-testid="report-download"
                   onClick={handleDownload}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-accent)] hover:bg-[var(--color-bg)]"
+                  className="text-xs font-medium px-3 py-1.5 border border-[var(--color-border)] text-[var(--color-accent)] hover:bg-[var(--color-bg)]"
                 >
                   ⬇ 下载
                 </button>
@@ -252,7 +252,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
                     type="button"
                     data-testid="report-delete"
                     onClick={handleDelete}
-                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-danger)] hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))]"
+                    className="text-xs font-medium px-3 py-1.5 border border-[var(--color-border)] text-[var(--color-danger)] hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))]"
                   >
                     🗑 删除
                   </button>
@@ -260,7 +260,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
               </div>
               <div className="flex-1 min-h-0">
                 {result.format === 'html' ? (
-                  <iframe data-testid="report-result-frame" srcDoc={result.body} className="w-full h-full rounded-2xl border border-[var(--color-border)] bg-white" />
+                  <iframe data-testid="report-result-frame" srcDoc={result.body} className="w-full h-full border border-[var(--color-border)] bg-white" />
                 ) : (
                   <MarkdownViewer path={null} body={result.body} onClose={() => setResult(null)} />
                 )}
@@ -269,7 +269,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
           ) : (
             <div
               data-testid="report-empty-state"
-              className="h-full flex flex-col items-center justify-center gap-2 text-center rounded-2xl border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
+              className="h-full flex flex-col items-center justify-center gap-2 text-center border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
             >
               <p className="text-sm text-[var(--color-text-secondary)]">选择参数后点击「生成」，或从右侧历史记录中选择</p>
             </div>
@@ -278,7 +278,7 @@ export function ReportView({ workspace, workspaces, onOpenSettings }: Props) {
 
         <aside
           data-testid="report-history"
-          className="w-56 shrink-0 rounded-2xl bg-white p-3 overflow-y-auto"
+          className="w-56 shrink-0 bg-white p-3 overflow-y-auto"
           style={{ boxShadow: 'var(--shadow-modal)' }}
         >
           <div className="text-xs font-semibold text-[var(--color-text-secondary)] mb-2">历史记录</div>

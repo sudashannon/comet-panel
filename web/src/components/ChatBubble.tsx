@@ -160,7 +160,7 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
       {open && (
         <div
           data-testid="chat-overlay"
-          className="fixed bottom-20 right-4 w-[440px] h-[min(80vh,720px)] bg-white rounded-lg shadow-2xl border border-[var(--color-border)] flex flex-col"
+          className="fixed bottom-20 right-4 w-[440px] h-[min(80vh,720px)] bg-white shadow-2xl border border-[var(--color-border)] flex flex-col"
         >
           <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)]">
             <span className="text-sm font-semibold">Chat · {effectiveChange}</span>
@@ -195,10 +195,10 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
                 data-testid={`chat-msg-${msg.role}`}
                 className={
                   msg.role === 'user'
-                    ? 'bg-[var(--color-accent)] text-white rounded-lg px-3 py-2 ml-auto max-w-[85%] whitespace-pre-wrap'
+                    ? 'bg-[var(--color-accent)] text-white px-3 py-2 ml-auto max-w-[85%] whitespace-pre-wrap'
                     : msg.role === 'error'
-                      ? 'bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 max-w-[85%]'
-                      : 'bg-[var(--color-bg)] text-[var(--color-text-primary)] rounded-lg px-3 py-2 max-w-[85%]'
+                      ? 'bg-red-50 text-red-700 border border-red-200 px-3 py-2 max-w-[85%]'
+                      : 'bg-[var(--color-bg)] text-[var(--color-text-primary)] px-3 py-2 max-w-[85%]'
                 }
               >
                 {msg.role === 'assistant' ? (
@@ -267,13 +267,13 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="询问关于此变更的问题…"
-              className="flex-1 resize-none border border-[var(--color-border)] rounded-md p-2 text-sm h-10"
+              className="flex-1 resize-none border border-[var(--color-border)] p-2 text-sm h-10"
             />
             <button
               data-testid="chat-send"
               onClick={handleSend}
               disabled={sending || !input.trim()}
-              className="bg-[var(--color-accent)] text-white rounded-md px-3 text-sm disabled:opacity-50"
+              className="bg-[var(--color-accent)] text-white px-3 text-sm disabled:opacity-50"
             >
               发送
             </button>

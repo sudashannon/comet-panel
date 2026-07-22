@@ -30,7 +30,7 @@ function DiagramFallback({ code }: { code: string }) {
   return (
     <div>
       <div className="text-[10px] text-[var(--color-text-secondary)] mb-1">⚠️ 图表语法无法渲染，显示源码：</div>
-      <pre className="font-mono text-xs whitespace-pre-wrap text-[var(--color-text-primary)] bg-[var(--color-bg)] rounded p-2 max-h-[200px] overflow-auto">{code}</pre>
+      <pre className="font-mono text-xs whitespace-pre-wrap text-[var(--color-text-primary)] bg-[var(--color-bg)] p-2 max-h-[200px] overflow-auto">{code}</pre>
     </div>
   )
 }
@@ -96,7 +96,7 @@ interface Props {
 
 export function DiagramBlock({ language, code }: Props) {
   return (
-    <div className="bg-[var(--color-bg)] rounded-lg p-4 mb-3 overflow-x-auto">
+    <div className="bg-[var(--color-bg)] p-4 mb-3 overflow-x-auto">
       {language === 'mermaid' ? <MermaidRenderer code={code} /> : <PlantUmlRenderer code={code} />}
     </div>
   )

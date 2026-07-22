@@ -117,13 +117,13 @@ export function KpiCards({
               }
             }}
             className={
-              'bg-white rounded-2xl px-4 py-4 shadow-[var(--shadow-card)] cursor-pointer flex flex-col gap-2.5' +
+              'bg-white px-4 py-4 shadow-[var(--shadow-card)] cursor-pointer flex flex-col gap-2.5' +
               (c.warn ? ' outline outline-[1.5px] outline-[var(--color-warn)] bg-[color-mix(in_srgb,var(--color-warn)_4%,white)]' : '') +
               (isFilterActive ? ' ring-2 ring-[var(--color-accent)]' : '')
             }
           >
             <div className="flex items-center gap-2.5">
-              <div className={'w-[34px] h-[34px] rounded-[10px] grid place-items-center text-base ' + c.chip}>
+              <div className={'w-[34px] h-[34px] grid place-items-center text-base ' + c.chip}>
                 <span aria-hidden="true">{c.icon}</span>
               </div>
               <div className={'text-[13px] ' + (c.warn ? 'text-[var(--color-warn)] font-semibold' : 'text-[var(--color-text-secondary)]')}>

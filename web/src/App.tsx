@@ -273,13 +273,13 @@ export default function App() {
         </div>
 
       {failedWorkspaces.length > 0 && (
-        <div data-testid="workspace-warning-banner" className="text-xs bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))] text-[var(--color-danger)] rounded p-2 m-3 shrink-0">
+        <div data-testid="workspace-warning-banner" className="text-xs bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))] text-[var(--color-danger)] p-2 m-3 shrink-0">
           ⚠ 以下 workspace 无法读取，已跳过：{failedWorkspaces.join(', ')}
         </div>
       )}
 
       {wikiIndexing && (
-        <div data-testid="wiki-indexing-banner" className="text-xs bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-surface))] text-[var(--color-accent)] rounded p-2 mx-3 mb-3 shrink-0">
+        <div data-testid="wiki-indexing-banner" className="text-xs bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-surface))] text-[var(--color-accent)] p-2 mx-3 mb-3 shrink-0">
           ℹ {typeof wikiIndexingChanged === 'number' ? `检测到 ${wikiIndexingChanged} 个文件更新，正在进入搜索库…` : '已检测到文档更新，正在进入搜索库…'} 几秒后即可检索
         </div>
       )}
@@ -352,7 +352,7 @@ export default function App() {
                   ) : (
                     <div
                       data-testid="change-empty-state"
-                      className="flex flex-col items-center justify-center gap-2 text-center rounded-lg border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
+                      className="flex flex-col items-center justify-center gap-2 text-center border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
                     >
                       <span className="text-4xl text-[var(--color-text-tertiary)]" aria-hidden="true">
                         ◇
@@ -494,7 +494,7 @@ export default function App() {
       )}
       {settingsOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+          <div className="bg-white shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto">
             <SettingsPanel onClose={() => setSettingsOpen(false)} />
           </div>
         </div>

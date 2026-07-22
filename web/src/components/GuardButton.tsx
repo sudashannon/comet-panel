@@ -89,7 +89,7 @@ export function GuardButton({ changeName, targetPhase, onComplete, blockedReason
 
       {confirming && (
         <div data-testid="guard-confirm-dialog" className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-lg p-4 w-96">
+          <div className="bg-white p-4 w-96">
             <p className="text-sm mb-3">
               即将执行: <code>comet-guard {changeName} {targetPhase} --apply</code>
             </p>
@@ -109,7 +109,7 @@ export function GuardButton({ changeName, targetPhase, onComplete, blockedReason
           data-testid="guard-output"
           data-tone={tone}
           className={
-            'text-xs p-2 rounded mt-2 max-h-40 overflow-y-auto ' +
+            'text-xs p-2 mt-2 max-h-40 overflow-y-auto ' +
             (tone === 'danger'
               ? 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]'
               : 'bg-[var(--color-text-primary)] text-[var(--color-bg)]')

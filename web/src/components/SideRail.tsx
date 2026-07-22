@@ -25,7 +25,7 @@ const items: { key: View; label: string; icon: string }[] = [
 export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bookmarkPanelOpen, onOpenPalette, zoomPercent }: SideRailProps) {
   return (
     <nav
-      className="h-full w-[52px] shrink-0 bg-white/55 backdrop-blur-[22px] border-r border-[var(--color-border)] flex flex-col items-center gap-1 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.04)]"
+      className="h-full w-[52px] shrink-0 bg-white/55 backdrop-blur-[22px] border-r border-[var(--color-border)] flex flex-col items-center gap-1 py-3 shadow-sm"
       aria-label="主导航"
     >
       {items.map((item) => {
@@ -38,9 +38,9 @@ export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bo
             onClick={() => onSelect(item.key)}
             title={item.label}
             className={
-              'w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] ' +
+              'w-[38px] h-[38px] grid place-items-center text-[17px] ' +
               (active
-                ? 'bg-[var(--color-accent)] text-white shadow-[0_6px_14px_rgba(0,99,248,0.35)]'
+                ? 'bg-[var(--color-accent)] text-white shadow-md'
                 : 'text-[var(--color-text-secondary)] hover:bg-[var(--palette-highlight)]')
             }
           >
@@ -58,9 +58,9 @@ export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bo
         disabled={!onToggleBookmarks}
         title={onToggleBookmarks ? (bookmarkPanelOpen ? '关闭收藏夹' : '打开收藏夹') : '即将推出'}
         className={
-          'w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] ' +
+          'w-[38px] h-[38px] grid place-items-center text-[17px] ' +
           (bookmarkPanelOpen
-            ? 'bg-[var(--color-accent)] text-white shadow-[0_6px_14px_rgba(0,99,248,0.35)]'
+            ? 'bg-[var(--color-accent)] text-white shadow-md'
             : onToggleBookmarks
               ? 'text-[var(--color-text-secondary)] hover:bg-[var(--palette-highlight)]'
               : 'text-[var(--color-text-tertiary)] cursor-not-allowed')
@@ -74,7 +74,7 @@ export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bo
         aria-label="命令面板"
         onClick={onOpenPalette}
         title="命令面板 (Ctrl+K)"
-        className="w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] text-[var(--color-text-secondary)] hover:bg-[var(--palette-highlight)]"
+        className="w-[38px] h-[38px] grid place-items-center text-[17px] text-[var(--color-text-secondary)] hover:bg-[var(--palette-highlight)]"
       >
         <span aria-hidden="true">⌨️</span>
       </button>
@@ -86,7 +86,7 @@ export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bo
         disabled={!onOpenSettings}
         title={onOpenSettings ? '设置' : '即将推出'}
         className={
-          'w-[38px] h-[38px] rounded-xl grid place-items-center text-[17px] ' +
+          'w-[38px] h-[38px] grid place-items-center text-[17px] ' +
           (onOpenSettings ? 'text-[var(--color-text-secondary)] hover:bg-[var(--palette-highlight)]' : 'text-[var(--color-text-tertiary)] cursor-not-allowed')
         }
       >

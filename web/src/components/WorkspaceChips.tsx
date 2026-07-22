@@ -69,20 +69,20 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
         + 添加
       </button>
       {adding && (
-        <div className="absolute top-full left-0 mt-2 z-10 w-64 rounded-xl border border-[var(--color-border)] bg-white p-3 shadow-lg flex flex-col gap-2">
+        <div className="absolute top-full left-0 mt-2 z-10 w-64 border border-[var(--color-border)] bg-white p-3 shadow-lg flex flex-col gap-2">
           <input
             data-testid="add-ws-alias"
             placeholder="alias"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
-            className="w-full border border-[var(--color-border)] rounded px-2 py-1.5 text-sm"
+            className="w-full border border-[var(--color-border)] px-2 py-1.5 text-sm"
           />
           <input
             data-testid="add-ws-path"
             placeholder="path"
             value={path}
             onChange={(e) => setPath(e.target.value)}
-            className="w-full border border-[var(--color-border)] rounded px-2 py-1.5 text-sm"
+            className="w-full border border-[var(--color-border)] px-2 py-1.5 text-sm"
           />
           {error && (
             <div data-testid="add-ws-error" className="text-xs text-[var(--color-danger)] leading-snug">

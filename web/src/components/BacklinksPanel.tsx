@@ -35,7 +35,7 @@ function EdgeSection({
         {heading}（{edges.length} 处引用）
       </div>
       {edges.length === 0 ? (
-        <div className="flex items-center gap-2 text-[var(--color-text-secondary)] bg-[var(--color-bg)] rounded p-2">
+        <div className="flex items-center gap-2 text-[var(--color-text-secondary)] bg-[var(--color-bg)] p-2">
           <span className="text-[var(--color-text-tertiary)]">—</span>
           <span>{emptyText}</span>
         </div>

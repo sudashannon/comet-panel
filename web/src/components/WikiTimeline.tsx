@@ -236,7 +236,7 @@ export function WikiTimeline() {
               没有匹配当前筛选条件的变更
             </div>
           ) : (
-            <div data-testid="wiki-timeline" className="flex flex-1 overflow-auto rounded border border-[var(--color-border)] bg-white">
+            <div data-testid="wiki-timeline" className="flex flex-1 overflow-auto border border-[var(--color-border)] bg-white">
               <div
                 className="sticky left-0 z-10 shrink-0 border-r border-[var(--color-border)] bg-white"
                 style={{ width: LEFT_LABEL_WIDTH }}
@@ -313,7 +313,7 @@ export function WikiTimeline() {
       {hover && (
         <div
           data-testid="wiki-timeline-tooltip"
-          className="pointer-events-none fixed z-20 -translate-x-1/2 -translate-y-full rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm"
+          className="pointer-events-none fixed z-20 -translate-x-1/2 -translate-y-full border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm"
           style={{ left: hover.x, top: hover.y - 10 }}
         >
           <div className="font-medium">{hover.title}</div>

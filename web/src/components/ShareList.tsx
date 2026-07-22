@@ -73,7 +73,7 @@ export function ShareList() {
       ) : (
         <div className="space-y-2">
           {shares.map((s) => (
-            <div key={s.token} className="bg-white border border-[var(--color-border)] rounded-lg p-3 text-sm">
+            <div key={s.token} className="bg-white border border-[var(--color-border)] p-3 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-[var(--color-text-primary)] truncate" title={s.path}>
@@ -90,7 +90,7 @@ export function ShareList() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleCopy(s.url)}
-                    className="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] hover:border-[var(--color-accent)]"
+                    className="text-xs px-2 py-1 border border-[var(--color-border)] hover:bg-[var(--color-bg)] hover:border-[var(--color-accent)]"
                     title="复制链接"
                   >
                     {copied === s.url ? '✓' : '复制'}

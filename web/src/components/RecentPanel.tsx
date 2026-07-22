@@ -57,7 +57,7 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
             <button
               type="button"
               onClick={() => onOpen?.(item.path)}
-              className="w-full flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)]"
+              className="w-full flex items-center gap-2 border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)]"
             >
               <span
                 className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
@@ -79,7 +79,7 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
         <button
           type="button"
           onClick={() => { setLoading(true); load(items.length) }}
-          className="w-full text-xs py-2 text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] rounded mt-1"
+          className="w-full text-xs py-2 text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] mt-1"
         >
           加载更多
         </button>

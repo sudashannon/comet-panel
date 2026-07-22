@@ -138,14 +138,14 @@ const markdownComponents: Components = {
       return <DiagramBlock language={language} code={String(children).replace(/\n$/, '')} />
     }
     return (
-      <code className="bg-[var(--color-bg)] rounded px-1 py-0.5 font-mono text-sm break-words" {...rest}>
+      <code className="bg-[var(--color-bg)] px-1 py-0.5 font-mono text-sm break-words" {...rest}>
         {children}
       </code>
     )
   },
   pre: ({ node, ...rest }) => (
     <pre
-      className="bg-[var(--color-bg)] rounded-lg p-4 overflow-x-auto font-mono text-sm mb-3 whitespace-pre-wrap break-words"
+      className="bg-[var(--color-bg)] p-4 overflow-x-auto font-mono text-sm mb-3 whitespace-pre-wrap break-words"
       {...rest}
     />
   ),
@@ -236,7 +236,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
             {...rest}
             src={resolvedSrc}
             alt={alt}
-            className="max-w-full rounded-lg cursor-zoom-in"
+            className="max-w-full cursor-zoom-in"
             onClick={() => typeof resolvedSrc === 'string' && setZoomed({ src: resolvedSrc, alt: alt ?? '' })}
           />
         )
@@ -262,7 +262,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
 
   return (
     <div
-      className="h-full min-h-0 flex flex-col bg-white rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+      className="h-full min-h-0 flex flex-col bg-white shadow-sm"
       role="region"
       aria-label={filename}
     >
@@ -281,7 +281,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label={isStarred ? '取消收藏' : '收藏'}
                 aria-pressed={!!isStarred}
                 onClick={() => onToggleStar(path, filename)}
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
               >
                 {isStarred ? '⭐' : '☆'}
               </button>
@@ -292,7 +292,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label="刷新"
                 onClick={() => { setContent(null); setRefreshKey(k => k + 1) }}
                 data-testid="refresh-btn"
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
               >
                 🔄
               </button>
@@ -303,7 +303,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label="跳转到变更"
                 onClick={() => onNavigateToChange(changeName)}
                 data-testid="navigate-change-btn"
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
                 title="跳转到变更视图"
               >
                 📋
@@ -315,7 +315,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label="分享"
                 onClick={() => setShareOpen(true)}
                 data-testid="share-open-btn"
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
               >
                 🔗
               </button>
@@ -323,7 +323,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[var(--color-border)] text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
+              className="shrink-0 text-sm font-medium px-3 py-1.5 border border-[var(--color-border)] text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
             >
               ✕ 关闭
             </button>
@@ -367,7 +367,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                   <button
                     type="button"
                     onClick={() => jumpTo(entry.id)}
-                    className="w-full text-left text-xs text-[var(--color-text-primary)] hover:text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] rounded px-2 py-1 truncate"
+                    className="w-full text-left text-xs text-[var(--color-text-primary)] hover:text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] px-2 py-1 truncate"
                     style={{ paddingLeft: `${(entry.level - 1) * 12 + 8}px` }}
                     title={entry.text}
                   >
