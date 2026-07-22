@@ -57,6 +57,14 @@ export default function App() {
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
   // reading changeArtifacts/wikiComponents state from the view being left)
   // after switching to a sibling view, e.g. lingering into 报告 or Lint.
+  // Navigate to the changes view and select a specific change by name.
+  // Extracts the change name from a document path (e.g. .../changes/<name>/proposal.md).
+  function navigateToChange(changeName: string) {
+    setView('changes')
+    setSelected(changeName)
+    setViewerPath(null)
+  }
+
   function handleViewChange(v: 'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares' | 'calendar') {
     setViewerPath(null)
     setView(v)
@@ -328,6 +336,7 @@ export default function App() {
               onClose={() => setViewerPath(null)}
               onToggleStar={handleToggleStar}
               isStarred={isBookmarked(viewerPath)}
+              onNavigateToChange={navigateToChange}
             />
           </div>
         )}
@@ -347,6 +356,7 @@ export default function App() {
               onClose={() => setViewerPath(null)}
               onToggleStar={handleToggleStar}
               isStarred={isBookmarked(viewerPath)}
+              onNavigateToChange={navigateToChange}
             />
           ) : (
             <LintPanel onOpen={(path) => setViewerPath(path)} />
@@ -362,6 +372,7 @@ export default function App() {
               onClose={() => setViewerPath(null)}
               onToggleStar={handleToggleStar}
               isStarred={isBookmarked(viewerPath)}
+              onNavigateToChange={navigateToChange}
             />
           ) : (
             <RecentPanel onOpen={(path) => setViewerPath(path)} />
@@ -377,7 +388,17 @@ export default function App() {
 
       {view === 'calendar' && (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <CalendarPanel onOpen={(path) => setViewerPath(path)} />
+          {viewerPath ? (
+            <MarkdownViewer
+              path={viewerPath}
+              onClose={() => setViewerPath(null)}
+              onToggleStar={handleToggleStar}
+              isStarred={isBookmarked(viewerPath)}
+              onNavigateToChange={navigateToChange}
+            />
+          ) : (
+            <CalendarPanel onOpen={(path) => setViewerPath(path)} />
+          )}
         </div>
       )}
       </div>

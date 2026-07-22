@@ -172,9 +172,10 @@ interface Props {
   // and the star button doesn't render.
   onToggleStar?: (path: string, title: string) => void
   isStarred?: boolean
+  onNavigateToChange?: (changeName: string) => void
 }
 
-export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtifact, onClose, onToggleStar, isStarred }: Props) {
+export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtifact, onClose, onToggleStar, isStarred, onNavigateToChange }: Props) {
   const [content, setContent] = useState<string | null>(body ?? null)
   const [error, setError] = useState(false)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
@@ -248,6 +249,11 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
 
   const filename = path ? path.split('/').pop() ?? path : '报告'
   const displayTitle = docTitle && docTitle !== filename ? docTitle : filename
+  const changeName = useMemo(() => {
+    if (!path) return null
+    const m = path.match(/\/changes\/([^\/]+)\//)
+    return m ? m[1] : null
+  }, [path])
 
   const jumpTo = (id: string) => {
     const el = scrollRef.current?.querySelector(`#${CSS.escape(id)}`)
@@ -289,6 +295,18 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
               >
                 🔄
+              </button>
+            )}
+            {changeName && onNavigateToChange && (
+              <button
+                type="button"
+                aria-label="跳转到变更"
+                onClick={() => onNavigateToChange(changeName)}
+                data-testid="navigate-change-btn"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+                title="跳转到变更视图"
+              >
+                📋
               </button>
             )}
             {path && (
