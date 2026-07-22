@@ -16,6 +16,27 @@ function getDiagramLanguage(className?: string): 'mermaid' | 'plantuml' | null {
   return null
 }
 
+
+// extractTitle reads the document title from either YAML frontmatter
+// (title: "...") or the first "# " ATX heading. Falls back to filename.
+function extractTitle(rawText: string, fallbackPath: string | null): string {
+  if (!rawText) return fallbackPath ? (fallbackPath.split("/").pop() ?? "") : ""
+  // Try frontmatter title field
+  if (rawText.startsWith("---")) {
+    const end = rawText.indexOf("\n---", 3)
+    if (end !== -1) {
+      const fm = rawText.slice(3, end)
+      const m = fm.match(/^title:\s*(.+)$/m)
+      if (m) return m[1].trim().replace(/^["']|["']$/g, "")
+    }
+  }
+  // Try first "# " heading in the content (after stripping frontmatter)
+  const body = stripFrontmatter(rawText)
+  const heading = body.match(/^#\s+(.+)$/m)
+  if (heading) return heading[1].trim()
+  return fallbackPath ? (fallbackPath.split("/").pop() ?? "") : ""
+}
+
 // Strips a leading YAML frontmatter block (---\n...\n---). Real design-doc
 // artifacts from the API start with this metadata, but it's noise inside the
 // rendered document.
@@ -159,6 +180,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const docTitle = path ? extractTitle(content ?? "", path) : ""
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -225,6 +247,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
   if (!path && body === undefined) return null
 
   const filename = path ? path.split('/').pop() ?? path : '报告'
+  const displayTitle = docTitle && docTitle !== filename ? docTitle : filename
 
   const jumpTo = (id: string) => {
     const el = scrollRef.current?.querySelector(`#${CSS.escape(id)}`)
@@ -239,8 +262,11 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
     >
       <header className="sticky top-0 z-10 bg-white border-b border-[#e8e8ed] px-6 py-3 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
-          <div className="text-sm font-semibold text-[#1d1d1f] truncate" title={path ?? undefined}>
-            {filename}
+          <div className="text-sm min-w-0" title={path ?? undefined}>
+            <span className="font-semibold text-[#1d1d1f]">{displayTitle}</span>
+            {displayTitle !== filename && (
+              <span className="text-[#8e8e93] ml-2 text-xs font-normal truncate">{path}</span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {onToggleStar && path && (
