@@ -77,11 +77,11 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
     const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
 
     return (
-      <div key={data.month} className="bg-white border border-[#e8e8ed] rounded-xl overflow-hidden">
-        <div className="text-center text-[13px] font-bold py-2 bg-[#f5f5f7] border-b border-[#e8e8ed]">
+      <div key={data.month} className="bg-white border border-[var(--color-border)] rounded-xl overflow-hidden">
+        <div className="text-center text-[13px] font-bold py-2 bg-[var(--color-bg)] border-b border-[var(--color-border)]">
           {data.year}年{monthNames[data.month-1]}
         </div>
-        <div className="grid grid-cols-7 text-center text-[10px] text-[#8e8e93] pt-1 pb-0">
+        <div className="grid grid-cols-7 text-center text-[10px] text-[var(--color-text-secondary)] pt-1 pb-0">
           {WEEKDAYS.map((w) => <span key={w}>{w}</span>)}
         </div>
         <div className="grid grid-cols-7 text-center px-1 pb-1.5">
@@ -97,12 +97,12 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                 type="button"
                 onClick={() => handleSelect(dateKey)}
                 className={`flex flex-col items-center justify-center text-[13px] rounded-md relative transition-colors py-1
-                  ${isSel ? 'bg-[#0063f8] text-white font-bold' : isToday ? 'text-[#0063f8] font-bold' : 'hover:bg-[#f0f5ff]'}
+                  ${isSel ? 'bg-[var(--color-accent)] text-white font-bold' : isToday ? 'text-[var(--color-accent)] font-bold' : 'hover:bg-[var(--palette-highlight)]'}
                 `}
               >
                 {d}
                 {hasArtifact && !isSel && (
-                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[#dc2626]" />
+                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[var(--color-danger)]" />
                 )}
               </button>
             )
@@ -115,11 +115,11 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between mb-1">
-        <button onClick={prevQuarter} className="text-xs px-2 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">← 上一季度</button>
-        <h2 className="text-sm font-bold text-[#1d1d1f]">
+        <button onClick={prevQuarter} className="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)]">← 上一季度</button>
+        <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
           📅 {year}年 第{quarter}季度
         </h2>
-        <button onClick={nextQuarter} className="text-xs px-2 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">下一季度 →</button>
+        <button onClick={nextQuarter} className="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)]">下一季度 →</button>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -127,13 +127,13 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
       </div>
 
       {selected && (
-        <div className="bg-white border border-[#e8e8ed] rounded-xl p-4">
+        <div className="bg-white border border-[var(--color-border)] rounded-xl p-4">
           <h3 className="text-[13px] font-semibold mb-3">
             📅 {selected}
-            <span className="text-[#8e8e93] font-normal ml-1">({items.length} 个产物)</span>
+            <span className="text-[var(--color-text-secondary)] font-normal ml-1">({items.length} 个产物)</span>
           </h3>
           {items.length === 0 ? (
-            <p className="text-sm text-[#8e8e93]">当天无产物</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">当天无产物</p>
           ) : (
             <div className="flex flex-col gap-1.5">
               {items.map((item) => (
@@ -141,14 +141,14 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                   key={item.id}
                   type="button"
                   onClick={() => onOpen(item.path)}
-                  className="flex items-center gap-2 rounded-lg border border-[#e4e4e8] px-3 py-2 text-left hover:bg-[#f0f5ff] text-xs"
+                  className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)] text-xs"
                 >
                   <span
                     className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                    style={{ backgroundColor: TYPE_COLORS[item.type] ?? '#6e6e73' }}
+                    style={{ backgroundColor: TYPE_COLORS[item.type] ?? 'var(--color-text-secondary)' }}
                   >{item.type}</span>
                   <span className="flex-1 truncate font-medium">{item.title}</span>
-                  <span className="shrink-0 text-[#8e8e93]">{item.workspace}</span>
+                  <span className="shrink-0 text-[var(--color-text-secondary)]">{item.workspace}</span>
                 </button>
               ))}
             </div>
@@ -157,7 +157,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
       )}
 
       {!selected && (
-        <div className="text-center text-[#8e8e93] text-sm py-8">点击日期查看当天产物</div>
+        <div className="text-center text-[var(--color-text-secondary)] text-sm py-8">点击日期查看当天产物</div>
       )}
     </div>
   )

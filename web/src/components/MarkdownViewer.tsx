@@ -114,23 +114,23 @@ const markdownComponents: Components = {
   li: ({ node, ...rest }) => <li className="mb-1" {...rest} />,
   blockquote: ({ node, ...rest }) => (
     <blockquote
-      className="border-l-4 border-[#e8e8ed] pl-4 py-1 mb-3 text-[#6e6e73] italic"
+      className="border-l-4 border-[var(--color-border)] pl-4 py-1 mb-3 text-[var(--color-text-secondary)] italic"
       {...rest}
     />
   ),
-  hr: ({ node, ...rest }) => <hr className="my-6 border-[#e8e8ed]" {...rest} />,
+  hr: ({ node, ...rest }) => <hr className="my-6 border-[var(--color-border)]" {...rest} />,
   table: ({ node, ...rest }) => (
     <div className="overflow-x-auto mb-4">
       <table className="border-collapse w-full text-left" {...rest} />
     </div>
   ),
-  thead: ({ node, ...rest }) => <thead className="bg-[#f5f5f7]" {...rest} />,
+  thead: ({ node, ...rest }) => <thead className="bg-[var(--color-bg)]" {...rest} />,
   tbody: ({ node, ...rest }) => <tbody {...rest} />,
-  tr: ({ node, ...rest }) => <tr className="border-b border-[#e8e8ed]" {...rest} />,
+  tr: ({ node, ...rest }) => <tr className="border-b border-[var(--color-border)]" {...rest} />,
   th: ({ node, ...rest }) => (
-    <th className="border border-[#e8e8ed] px-3 py-2 font-semibold whitespace-nowrap" {...rest} />
+    <th className="border border-[var(--color-border)] px-3 py-2 font-semibold whitespace-nowrap" {...rest} />
   ),
-  td: ({ node, ...rest }) => <td className="border border-[#e8e8ed] px-3 py-2 align-top" {...rest} />,
+  td: ({ node, ...rest }) => <td className="border border-[var(--color-border)] px-3 py-2 align-top" {...rest} />,
   // inline case inside <code> only, and the block case inside <pre><code>.
   code: ({ node, className, children, ...rest }) => {
     const language = getDiagramLanguage(className)
@@ -138,14 +138,14 @@ const markdownComponents: Components = {
       return <DiagramBlock language={language} code={String(children).replace(/\n$/, '')} />
     }
     return (
-      <code className="bg-[#f5f5f7] rounded px-1 py-0.5 font-mono text-sm break-words" {...rest}>
+      <code className="bg-[var(--color-bg)] rounded px-1 py-0.5 font-mono text-sm break-words" {...rest}>
         {children}
       </code>
     )
   },
   pre: ({ node, ...rest }) => (
     <pre
-      className="bg-[#f5f5f7] rounded-lg p-4 overflow-x-auto font-mono text-sm mb-3 whitespace-pre-wrap break-words"
+      className="bg-[var(--color-bg)] rounded-lg p-4 overflow-x-auto font-mono text-sm mb-3 whitespace-pre-wrap break-words"
       {...rest}
     />
   ),
@@ -224,7 +224,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
         <a
           {...rest}
           href={resolveArtifactHref(path, href, workspace)}
-          className="text-[#0063f8] underline"
+          className="text-[var(--color-accent)] underline"
           target="_blank"
           rel="noreferrer"
         />
@@ -266,12 +266,12 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
       role="region"
       aria-label={filename}
     >
-      <header className="sticky top-0 z-10 bg-white border-b border-[#e8e8ed] px-6 py-3 flex flex-col gap-2">
+      <header className="sticky top-0 z-10 bg-white border-b border-[var(--color-border)] px-6 py-3 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
           <div className="text-sm min-w-0" title={path ?? undefined}>
-            <span className="font-semibold text-[#1d1d1f]">{displayTitle}</span>
+            <span className="font-semibold text-[var(--color-text-primary)]">{displayTitle}</span>
             {displayTitle !== filename && (
-              <span className="text-[#8e8e93] ml-2 text-xs font-normal truncate">{path}</span>
+              <span className="text-[var(--color-text-secondary)] ml-2 text-xs font-normal truncate">{path}</span>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -281,7 +281,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label={isStarred ? '取消收藏' : '收藏'}
                 aria-pressed={!!isStarred}
                 onClick={() => onToggleStar(path, filename)}
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
               >
                 {isStarred ? '⭐' : '☆'}
               </button>
@@ -292,7 +292,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label="刷新"
                 onClick={() => { setContent(null); setRefreshKey(k => k + 1) }}
                 data-testid="refresh-btn"
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
               >
                 🔄
               </button>
@@ -303,7 +303,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label="跳转到变更"
                 onClick={() => onNavigateToChange(changeName)}
                 data-testid="navigate-change-btn"
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
                 title="跳转到变更视图"
               >
                 📋
@@ -315,7 +315,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                 aria-label="分享"
                 onClick={() => setShareOpen(true)}
                 data-testid="share-open-btn"
-                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+                className="shrink-0 text-lg leading-none px-2 py-1.5 rounded border border-[var(--color-border)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
               >
                 🔗
               </button>
@@ -323,7 +323,7 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[#e8e8ed] text-[#0063f8] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded border border-[var(--color-border)] text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] hover:border-[var(--color-accent)]"
             >
               ✕ 关闭
             </button>
@@ -342,8 +342,8 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
                   className={
                     'shrink-0 text-xs px-2.5 py-1 rounded-full border whitespace-nowrap ' +
                     (active
-                      ? 'bg-[#0063f8] text-white border-[#0063f8]'
-                      : 'text-[#1d1d1f] border-[#e8e8ed] hover:border-[#0063f8] hover:text-[#0063f8]')
+                      ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                      : 'text-[var(--color-text-primary)] border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]')
                   }
                 >
                   {artifact.label}
@@ -358,16 +358,16 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
           <nav
             data-testid="markdown-toc"
             aria-label="文档目录"
-            className="hidden lg:block w-60 shrink-0 overflow-y-auto border-r border-[#e8e8ed] py-6 px-3"
+            className="hidden lg:block w-60 shrink-0 overflow-y-auto border-r border-[var(--color-border)] py-6 px-3"
           >
-            <div className="text-xs font-semibold text-[#6e6e73] px-2 mb-2">目录</div>
+            <div className="text-xs font-semibold text-[var(--color-text-secondary)] px-2 mb-2">目录</div>
             <ul className="space-y-0.5">
               {toc.map((entry, i) => (
                 <li key={`${entry.id}-${i}`}>
                   <button
                     type="button"
                     onClick={() => jumpTo(entry.id)}
-                    className="w-full text-left text-xs text-[#1d1d1f] hover:text-[#0063f8] hover:bg-[#f0f5ff] rounded px-2 py-1 truncate"
+                    className="w-full text-left text-xs text-[var(--color-text-primary)] hover:text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] rounded px-2 py-1 truncate"
                     style={{ paddingLeft: `${(entry.level - 1) * 12 + 8}px` }}
                     title={entry.text}
                   >
@@ -380,8 +380,8 @@ export function MarkdownViewer({ path, body, artifacts, workspace, onSelectArtif
         )}
         <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
           <div className="max-w-5xl mx-auto px-6 py-8 text-base leading-relaxed">
-            {error && <div className="text-[#dc2626]">加载失败</div>}
-            {!error && content === null && <div className="text-[#6e6e73]">加载中…</div>}
+            {error && <div className="text-[var(--color-danger)]">加载失败</div>}
+            {!error && content === null && <div className="text-[var(--color-text-secondary)]">加载中…</div>}
             {!error && content !== null && (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}

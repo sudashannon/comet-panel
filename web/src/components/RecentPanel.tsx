@@ -43,10 +43,10 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
   }, [load])
 
   if (loadError) {
-    return <div className="text-xs text-[#dc2626]">加载失败</div>
+    return <div className="text-xs text-[var(--color-danger)]">加载失败</div>
   }
   if (items.length === 0) {
-    return <div className="text-xs text-[#6e6e73]">暂无最近变更</div>
+    return <div className="text-xs text-[var(--color-text-secondary)]">暂无最近变更</div>
   }
 
   return (
@@ -57,29 +57,29 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
             <button
               type="button"
               onClick={() => onOpen?.(item.path)}
-              className="w-full flex items-center gap-2 rounded-lg border border-[#e4e4e8] px-3 py-2 text-left hover:bg-[#f0f5ff]"
+              className="w-full flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)]"
             >
               <span
                 className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                style={{ backgroundColor: TYPE_COLORS[item.type] ?? '#6e6e73' }}
+                style={{ backgroundColor: TYPE_COLORS[item.type] ?? 'var(--color-text-secondary)' }}
               >
                 {item.type}
               </span>
               <span className="flex-1 truncate font-medium">{item.title}</span>
-              <span className="shrink-0 text-[#6e6e73]">{item.workspace}</span>
-              <span className="shrink-0 tabular-nums text-[#6e6e73]">
+              <span className="shrink-0 text-[var(--color-text-secondary)]">{item.workspace}</span>
+              <span className="shrink-0 tabular-nums text-[var(--color-text-secondary)]">
                 {formatRelativeTime(item.updatedAt)}
               </span>
             </button>
           </li>
         ))}
       </ul>
-      {loading && <div className="text-center py-2 text-xs text-[#6e6e73]">加载中…</div>}
+      {loading && <div className="text-center py-2 text-xs text-[var(--color-text-secondary)]">加载中…</div>}
       {hasMore && !loading && (
         <button
           type="button"
           onClick={() => { setLoading(true); load(items.length) }}
-          className="w-full text-xs py-2 text-[#0063f8] hover:bg-[#f0f5ff] rounded mt-1"
+          className="w-full text-xs py-2 text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] rounded mt-1"
         >
           加载更多
         </button>

@@ -13,18 +13,18 @@ function ArtifactRow({ artifact, onSelectArtifact }: { artifact: ArtifactInfo; o
     <div className="flex items-center gap-2 py-0.5">
       <span
         data-testid={`artifact-dot-${artifact.file}`}
-        className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${artifact.exists ? 'bg-[#16a34a]' : 'bg-[#d2d2d7]'}`}
+        className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${artifact.exists ? 'bg-[var(--color-success)]' : 'bg-[var(--color-border-hover)]'}`}
       />
       {artifact.exists && artifact.path ? (
         <button
           type="button"
           onClick={() => onSelectArtifact(artifact.path!)}
-          className="text-[#0063f8] hover:underline truncate text-left text-xs"
+          className="text-[var(--color-accent)] hover:underline truncate text-left text-xs"
         >
           {artifact.label}
         </button>
       ) : (
-        <span className="text-[#6e6e73] truncate text-xs">{artifact.label}</span>
+        <span className="text-[var(--color-text-secondary)] truncate text-xs">{artifact.label}</span>
       )}
     </div>
   )
@@ -33,7 +33,7 @@ function ArtifactRow({ artifact, onSelectArtifact }: { artifact: ArtifactInfo; o
 function PhaseSection({ phase, onSelectArtifact }: { phase: PhaseInfo; onSelectArtifact: (path: string) => void }) {
   return (
     <details data-testid={`artifact-phase-${phase.key}`} open>
-      <summary className="text-[#6e6e73] text-xs font-semibold cursor-pointer select-none">
+      <summary className="text-[var(--color-text-secondary)] text-xs font-semibold cursor-pointer select-none">
         {phase.label}
       </summary>
       <div className="pl-3 mt-1">
@@ -59,7 +59,7 @@ export function ArtifactList({ changeName, workspace, onSelectArtifact }: Props)
   const visiblePhases = phases.filter((p) => p.artifacts.some((a) => a.exists))
 
   if (visiblePhases.length === 0) {
-    return <div className="text-xs text-[#6e6e73]">暂无产出物</div>
+    return <div className="text-xs text-[var(--color-text-secondary)]">暂无产出物</div>
   }
 
   return (

@@ -83,17 +83,17 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
     >
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6" data-testid="share-modal">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-[#1d1d1f]">分享文档</h2>
+          <h2 className="text-base font-bold text-[var(--color-text-primary)]">分享文档</h2>
           <button
             onClick={onClose}
-            className="text-[#8e8e93] hover:text-[#1d1d1f] text-lg leading-none"
+            className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-lg leading-none"
             aria-label="关闭"
           >✕</button>
         </div>
 
         {!link ? (
           <>
-            <label className="block text-xs text-[#6e6e73] mb-1">链接有效期</label>
+            <label className="block text-xs text-[var(--color-text-secondary)] mb-1">链接有效期</label>
             <div className="flex gap-2 mb-4">
               {TTL_OPTIONS.map((opt) => (
                 <button
@@ -103,8 +103,8 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
                   onClick={() => setTtl(opt.value)}
                   className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
                     ttl === opt.value
-                      ? 'bg-[#0063f8] text-white border-[#0063f8]'
-                      : 'bg-white text-[#1d1d1f] border-[#e8e8ed] hover:border-[#0063f8]'
+                      ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
+                      : 'bg-white text-[var(--color-text-primary)] border-[var(--color-border)] hover:border-[var(--color-accent)]'
                   }`}
                 >{opt.label}</button>
               ))}
@@ -113,7 +113,7 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
               onClick={handleCreate}
               disabled={loading}
               data-testid="share-create-btn"
-              className="w-full py-2 rounded-lg bg-[#0063f8] text-white text-sm font-semibold disabled:opacity-50 hover:bg-[#0052d4] transition-colors"
+              className="w-full py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-semibold disabled:opacity-50 hover:bg-[var(--color-accent-hover)] transition-colors"
             >{loading ? '创建中…' : '生成分享链接'}</button>
           </>
         ) : (
@@ -124,13 +124,13 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
                 value={editableUrl ?? link}
                 onChange={(e) => setEditableUrl(e.target.value)}
                 data-testid="share-link-input"
-                className="flex-1 text-xs bg-[#f5f5f7] rounded-lg px-3 py-2 border border-[#e8e8ed] text-[#1d1d1f] overflow-hidden text-ellipsis"
+                className="flex-1 text-xs bg-[var(--color-bg)] rounded-lg px-3 py-2 border border-[var(--color-border)] text-[var(--color-text-primary)] overflow-hidden text-ellipsis"
               />
               <button
                 onClick={handleCopy}
                 data-testid="share-copy-btn"
                 className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  copied ? 'bg-[#10b981] text-white' : 'bg-[#0063f8] text-white hover:bg-[#0052d4]'
+                  copied ? 'bg-[var(--color-success)] text-white' : 'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)]'
                 }`}
               >{copied ? '已复制' : '复制'}</button>
             </div>
@@ -138,18 +138,18 @@ export function ShareModal({ path, workspace, onClose }: ShareModalProps) {
               <button
                 onClick={handleCreate}
                 disabled={loading}
-                className="flex-1 py-2 rounded-lg border border-[#e8e8ed] text-[#1d1d1f] text-xs font-semibold hover:bg-[#f5f5f7] transition-colors"
+                className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-text-primary)] text-xs font-semibold hover:bg-[var(--color-bg)] transition-colors"
               >重新生成</button>
               <button
                 onClick={handleRevoke}
                 disabled={loading}
                 data-testid="share-revoke-btn"
-                className="flex-1 py-2 rounded-lg border border-[#dc2626] text-[#dc2626] text-xs font-semibold hover:bg-[#fdeeee] transition-colors"
+                className="flex-1 py-2 rounded-lg border border-[var(--color-danger)] text-[var(--color-danger)] text-xs font-semibold hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))] transition-colors"
               >撤销分享</button>
             </div>
           </>
         )}
-        {error && <p className="mt-3 text-xs text-[#dc2626]">{error}</p>}
+        {error && <p className="mt-3 text-xs text-[var(--color-danger)]">{error}</p>}
       </div>
     </div>
   )

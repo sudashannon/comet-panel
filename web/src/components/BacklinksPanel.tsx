@@ -3,15 +3,15 @@ import { fetchWikiComponent } from '../api/client'
 import type { WikiEdge } from '../api/types'
 
 const KIND_BADGE_STYLES: Record<string, string> = {
-  implements: 'bg-[#e6f0ff] text-[#0063f8]',
-  references: 'bg-[#f0eaff] text-[#7c3aed]',
-  generates: 'bg-[#e6f7ec] text-[#0a7a3d]',
+  implements: 'bg-blue-50 text-[var(--color-accent)]',
+  references: 'bg-violet-50 text-violet-600',
+  generates: 'bg-green-50 text-[var(--color-success)]',
 }
 
 function EdgeKindBadge({ kind }: { kind: string }) {
   return (
     <span
-      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_BADGE_STYLES[kind] ?? 'bg-[#f5f5f7] text-[#6e6e73]'}`}
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_BADGE_STYLES[kind] ?? 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}
     >
       {kind}
     </span>
@@ -31,12 +31,12 @@ function EdgeSection({
 }) {
   return (
     <div>
-      <div className="text-[#6e6e73] font-semibold mb-2">
+      <div className="text-[var(--color-text-secondary)] font-semibold mb-2">
         {heading}（{edges.length} 处引用）
       </div>
       {edges.length === 0 ? (
-        <div className="flex items-center gap-2 text-[#6e6e73] bg-[#f5f5f7] rounded p-2">
-          <span className="text-[#a1a1a6]">—</span>
+        <div className="flex items-center gap-2 text-[var(--color-text-secondary)] bg-[var(--color-bg)] rounded p-2">
+          <span className="text-[var(--color-text-tertiary)]">—</span>
           <span>{emptyText}</span>
         </div>
       ) : (
@@ -45,7 +45,7 @@ function EdgeSection({
             const path = e[pathKey]
             return (
               <li key={i} className="flex items-center gap-1.5 truncate">
-                <span className="text-[#0063f8] truncate" title={path}>
+                <span className="text-[var(--color-accent)] truncate" title={path}>
                   {path}
                 </span>
                 <EdgeKindBadge kind={e.kind} />

@@ -29,14 +29,14 @@ function DiagramSvg({ svg }: { svg: string }) {
 function DiagramFallback({ code }: { code: string }) {
   return (
     <div>
-      <div className="text-[10px] text-[#8e8e93] mb-1">⚠️ 图表语法无法渲染，显示源码：</div>
-      <pre className="font-mono text-xs whitespace-pre-wrap text-[#1d1d1f] bg-[#f0f0f2] rounded p-2 max-h-[200px] overflow-auto">{code}</pre>
+      <div className="text-[10px] text-[var(--color-text-secondary)] mb-1">⚠️ 图表语法无法渲染，显示源码：</div>
+      <pre className="font-mono text-xs whitespace-pre-wrap text-[var(--color-text-primary)] bg-[var(--color-bg)] rounded p-2 max-h-[200px] overflow-auto">{code}</pre>
     </div>
   )
 }
 
 function DiagramLoading() {
-  return <div className="text-[#6e6e73]">渲染中…</div>
+  return <div className="text-[var(--color-text-secondary)]">渲染中…</div>
 }
 
 function MermaidRenderer({ code }: { code: string }) {
@@ -96,7 +96,7 @@ interface Props {
 
 export function DiagramBlock({ language, code }: Props) {
   return (
-    <div className="bg-[#f5f5f7] rounded-lg p-4 mb-3 overflow-x-auto">
+    <div className="bg-[var(--color-bg)] rounded-lg p-4 mb-3 overflow-x-auto">
       {language === 'mermaid' ? <MermaidRenderer code={code} /> : <PlantUmlRenderer code={code} />}
     </div>
   )

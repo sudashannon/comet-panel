@@ -153,16 +153,16 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
       <button
         data-testid="chat-bubble-button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 w-10 h-10 rounded-full bg-[#0063f8] text-white shadow-lg flex items-center justify-center text-lg"
+        className="fixed bottom-4 right-4 w-10 h-10 rounded-full bg-[var(--color-accent)] text-white shadow-lg flex items-center justify-center text-lg"
       >
         💬
       </button>
       {open && (
         <div
           data-testid="chat-overlay"
-          className="fixed bottom-20 right-4 w-[440px] h-[min(80vh,720px)] bg-white rounded-lg shadow-2xl border border-[#e8e8ed] flex flex-col"
+          className="fixed bottom-20 right-4 w-[440px] h-[min(80vh,720px)] bg-white rounded-lg shadow-2xl border border-[var(--color-border)] flex flex-col"
         >
-          <div className="flex items-center justify-between p-3 border-b border-[#e8e8ed]">
+          <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)]">
             <span className="text-sm font-semibold">Chat · {effectiveChange}</span>
             <div className="flex items-center gap-2">
               <button
@@ -173,8 +173,8 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
                 title="图谱模式：将当前变更在知识图谱中的关联上下文注入对话"
                 className={
                   graphMode
-                    ? 'text-xs rounded-full px-2 py-0.5 bg-[#0063f8] text-white font-medium'
-                    : 'text-xs rounded-full px-2 py-0.5 bg-[#f5f5f7] text-[#6e6e73] border border-[#e8e8ed]'
+                    ? 'text-xs rounded-full px-2 py-0.5 bg-[var(--color-accent)] text-white font-medium'
+                    : 'text-xs rounded-full px-2 py-0.5 bg-[var(--color-bg)] text-[var(--color-text-secondary)] border border-[var(--color-border)]'
                 }
               >
                 📊 图谱模式
@@ -195,16 +195,16 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
                 data-testid={`chat-msg-${msg.role}`}
                 className={
                   msg.role === 'user'
-                    ? 'bg-[#0063f8] text-white rounded-lg px-3 py-2 ml-auto max-w-[85%] whitespace-pre-wrap'
+                    ? 'bg-[var(--color-accent)] text-white rounded-lg px-3 py-2 ml-auto max-w-[85%] whitespace-pre-wrap'
                     : msg.role === 'error'
                       ? 'bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 max-w-[85%]'
-                      : 'bg-[#f5f5f7] text-[#1d1d1f] rounded-lg px-3 py-2 max-w-[85%]'
+                      : 'bg-[var(--color-bg)] text-[var(--color-text-primary)] rounded-lg px-3 py-2 max-w-[85%]'
                 }
               >
                 {msg.role === 'assistant' ? (
                   <>
                     {msg.thinking && !msg.text && (
-                      <div className="text-xs text-[#6e6e73] italic mb-1">💭 {msg.thinking}</div>
+                      <div className="text-xs text-[var(--color-text-secondary)] italic mb-1">💭 {msg.thinking}</div>
                     )}
                     <div className="prose prose-sm max-w-none [&_p]:my-1">
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
@@ -217,12 +217,12 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
             ))}
           </div>
           {contextFiles.length > 0 && (
-            <div className="border-t border-[#e8e8ed]">
+            <div className="border-t border-[var(--color-border)]">
               <button
                 type="button"
                 data-testid="context-panel-toggle"
                 onClick={() => setContextPanelOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-[#6e6e73] hover:text-[#1d1d1f]"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               >
                 <span>
                   上下文文件
@@ -247,8 +247,8 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
                         title={path}
                         className={
                           selected
-                            ? 'text-xs rounded-full px-2 py-0.5 bg-[#0063f8] text-white font-medium flex items-center gap-1'
-                            : 'text-xs rounded-full px-2 py-0.5 bg-white text-[#6e6e73] border border-[#e8e8ed] hover:border-[#0063f8] hover:text-[#0063f8] flex items-center gap-1'
+                            ? 'text-xs rounded-full px-2 py-0.5 bg-[var(--color-accent)] text-white font-medium flex items-center gap-1'
+                            : 'text-xs rounded-full px-2 py-0.5 bg-white text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] flex items-center gap-1'
                         }
                       >
                         {selected && <span aria-hidden="true">✓</span>}
@@ -260,20 +260,20 @@ export function ChatBubble({ changeName, workspace, documentPath }: {
               )}
             </div>
           )}
-          <div className="p-3 border-t border-[#e8e8ed] flex gap-2">
+          <div className="p-3 border-t border-[var(--color-border)] flex gap-2">
             <textarea
               data-testid="chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="询问关于此变更的问题…"
-              className="flex-1 resize-none border border-[#e8e8ed] rounded-md p-2 text-sm h-10"
+              className="flex-1 resize-none border border-[var(--color-border)] rounded-md p-2 text-sm h-10"
             />
             <button
               data-testid="chat-send"
               onClick={handleSend}
               disabled={sending || !input.trim()}
-              className="bg-[#0063f8] text-white rounded-md px-3 text-sm disabled:opacity-50"
+              className="bg-[var(--color-accent)] text-white rounded-md px-3 text-sm disabled:opacity-50"
             >
               发送
             </button>

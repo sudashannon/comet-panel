@@ -27,7 +27,7 @@ export function GraphFilters({
     .sort((a, b) => a - b)
 
   return (
-    <div data-testid="graph-filters" className="flex flex-wrap items-center gap-3 border-b border-[#e8e8ed] px-2 py-1.5">
+    <div data-testid="graph-filters" className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] px-2 py-1.5">
       {(activeCommunity !== null || activeWorkspaces.size < workspaces.length) && (
         <button
           type="button"
@@ -36,14 +36,14 @@ export function GraphFilters({
             onSelectCommunity(null)
             workspaces.forEach((ws) => { if (!activeWorkspaces.has(ws)) onToggleWorkspace(ws) })
           }}
-          className="rounded-full border border-[#dc2626] bg-[#fef2f2] px-2 py-0.5 text-[11px] text-[#dc2626]"
+          className="rounded-full border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-2 py-0.5 text-[11px] text-[var(--color-danger)]"
         >
           ✕ 重置筛选
         </button>
       )}
       {workspaces.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-[10px] font-medium text-[#6e6e73]">工作区</span>
+          <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">工作区</span>
           {workspaces.map((ws) => {
             const active = activeWorkspaces.has(ws)
             return (
@@ -55,8 +55,8 @@ export function GraphFilters({
                 onClick={() => onToggleWorkspace(ws)}
                 className={
                   active
-                    ? 'rounded-full border border-[#0063f8] bg-[#0063f8]/10 px-2 py-0.5 text-[11px] text-[#0063f8]'
-                    : 'rounded-full border border-[#e8e8ed] bg-white px-2 py-0.5 text-[11px] text-[#8e8e93]'
+                    ? 'rounded-full border border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-2 py-0.5 text-[11px] text-[var(--color-accent)]'
+                    : 'rounded-full border border-[var(--color-border)] bg-white px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]'
                 }
               >
                 {ws}
@@ -67,7 +67,7 @@ export function GraphFilters({
       )}
       {communityIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-[10px] font-medium text-[#6e6e73]">社区</span>
+          <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">社区</span>
           {communityIds.map((id) => {
             const active = activeCommunity === id
             return (
@@ -79,8 +79,8 @@ export function GraphFilters({
                 onClick={() => onSelectCommunity(active ? null : id)}
                 className={
                   active
-                    ? 'flex items-center gap-1 rounded-full border border-[#1d1d1f] bg-[#1d1d1f]/5 px-2 py-0.5 text-[11px] text-[#1d1d1f]'
-                    : 'flex items-center gap-1 rounded-full border border-[#e8e8ed] bg-white px-2 py-0.5 text-[11px] text-[#6e6e73]'
+                    ? 'flex items-center gap-1 rounded-full border border-[var(--color-text-primary)] bg-[var(--color-text-primary)]/5 px-2 py-0.5 text-[11px] text-[var(--color-text-primary)]'
+                    : 'flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-white px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]'
                 }
               >
                 <span

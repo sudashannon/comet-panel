@@ -44,7 +44,7 @@ function toTimelineItem(c: WikiComponent, communities: Record<string, number>): 
   const phase = typeof c.frontmatter?.phase === 'string' ? (c.frontmatter.phase as string) : ''
   const commId = communities[c.id]
   const color =
-    commId != null && commId >= 0 ? COMMUNITY_COLORS[commId % COMMUNITY_COLORS.length] : '#8e8e93'
+    commId != null && commId >= 0 ? COMMUNITY_COLORS[commId % COMMUNITY_COLORS.length] : 'var(--color-text-secondary)'
   return {
     id: c.id,
     title: c.title,
@@ -212,12 +212,12 @@ export function WikiTimeline() {
   return (
     <div className="relative flex h-[calc(100vh-160px)] min-h-[400px] w-full flex-col">
       {!loaded && (
-        <div className="flex flex-1 items-center justify-center text-xs text-[#6e6e73]">
+        <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-text-secondary)]">
           <span className="animate-pulse">加载中…</span>
         </div>
       )}
       {loaded && items.length === 0 && (
-        <div className="flex flex-1 items-center justify-center text-xs text-[#6e6e73]">
+        <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-text-secondary)]">
           暂无变更数据
         </div>
       )}
@@ -232,20 +232,20 @@ export function WikiTimeline() {
             onSelectCommunity={setActiveCommunity}
           />
           {filteredItems.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center text-xs text-[#6e6e73]">
+            <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-text-secondary)]">
               没有匹配当前筛选条件的变更
             </div>
           ) : (
-            <div data-testid="wiki-timeline" className="flex flex-1 overflow-auto rounded border border-[#e8e8ed] bg-white">
+            <div data-testid="wiki-timeline" className="flex flex-1 overflow-auto rounded border border-[var(--color-border)] bg-white">
               <div
-                className="sticky left-0 z-10 shrink-0 border-r border-[#e8e8ed] bg-white"
+                className="sticky left-0 z-10 shrink-0 border-r border-[var(--color-border)] bg-white"
                 style={{ width: LEFT_LABEL_WIDTH }}
               >
                 <div style={{ height: 24 }} />
                 {workspaces.map((ws) => (
                   <div
                     key={ws}
-                    className="flex items-center truncate px-2 text-xs text-[#1d1d1f]"
+                    className="flex items-center truncate px-2 text-xs text-[var(--color-text-primary)]"
                     style={{ height: ROW_HEIGHT }}
                     title={ws}
                   >
@@ -257,8 +257,8 @@ export function WikiTimeline() {
                 <svg width={chartWidth} height={chartHeight + 24} data-testid="wiki-timeline-svg">
                   {monthTicks.map((tick) => (
                     <g key={tick.label}>
-                      <line x1={tick.x} y1={24} x2={tick.x} y2={chartHeight + 24} stroke="#e8e8ed" strokeWidth={1} />
-                      <text x={tick.x + 3} y={16} fontSize={10} fill="#6e6e73">
+                      <line x1={tick.x} y1={24} x2={tick.x} y2={chartHeight + 24} stroke="var(--color-border)" strokeWidth={1} />
+                      <text x={tick.x + 3} y={16} fontSize={10} fill="var(--color-text-secondary)">
                         {tick.label}
                       </text>
                     </g>
@@ -313,11 +313,11 @@ export function WikiTimeline() {
       {hover && (
         <div
           data-testid="wiki-timeline-tooltip"
-          className="pointer-events-none fixed z-20 -translate-x-1/2 -translate-y-full rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm"
+          className="pointer-events-none fixed z-20 -translate-x-1/2 -translate-y-full rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm"
           style={{ left: hover.x, top: hover.y - 10 }}
         >
           <div className="font-medium">{hover.title}</div>
-          {hover.phase && <div className="text-[10px] text-[#6e6e73]">{hover.phase}</div>}
+          {hover.phase && <div className="text-[10px] text-[var(--color-text-secondary)]">{hover.phase}</div>}
         </div>
       )}
     </div>

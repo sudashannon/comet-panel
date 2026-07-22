@@ -136,16 +136,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   return (
     <div data-testid="chat-settings-panel" className="p-3 text-sm space-y-3">
       {loading ? (
-        <div className="text-[#6e6e73]">加载中…</div>
+        <div className="text-[var(--color-text-secondary)]">加载中…</div>
       ) : (
         <>
           <label className="block">
-            <span className="block text-xs font-medium text-[#6e6e73] mb-1">Provider</span>
+            <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Provider</span>
             <select
               data-testid="chat-settings-provider"
               value={providerName}
               onChange={(e) => handleProviderChange(e.target.value)}
-              className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
             >
               {providers.map((p) => (
                 <option key={p.name} value={p.name}>
@@ -155,12 +155,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <label className="block">
-            <span className="block text-xs font-medium text-[#6e6e73] mb-1">Model</span>
+            <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Model</span>
             <select
               data-testid="chat-settings-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
             >
               {(providers.find((p) => p.name === providerName)?.models ?? []).map((m) => (
                 <option key={m} value={m}>
@@ -170,30 +170,30 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <label className="block">
-            <span className="block text-xs font-medium text-[#6e6e73] mb-1">API Base</span>
+            <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">API Base</span>
             <input
               data-testid="chat-settings-api-base"
               type="text"
               value={apiBase}
               onChange={(e) => setApiBase(e.target.value)}
               placeholder="https://api.minimaxi.com"
-              className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm font-mono"
+              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm font-mono"
             />
           </label>
           <label className="block">
-            <span className="block text-xs font-medium text-[#6e6e73] mb-1">API Key</span>
+            <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">API Key</span>
             <input
               data-testid="chat-settings-api-key"
               type="password"
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
               placeholder={apiKeyPlaceholder || '未配置'}
-              className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
             />
           </label>
           <div className="flex gap-2">
             <label className="block flex-1">
-              <span className="block text-xs font-medium text-[#6e6e73] mb-1">Temperature</span>
+              <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Temperature</span>
               <input
                 data-testid="chat-settings-temperature"
                 type="number"
@@ -202,35 +202,35 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 max="2"
                 value={temperature}
                 onChange={(e) => setTemperature(Number(e.target.value))}
-                className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
               />
             </label>
             <label className="block flex-1">
-              <span className="block text-xs font-medium text-[#6e6e73] mb-1">Max Tokens</span>
+              <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Max Tokens</span>
               <input
                 data-testid="chat-settings-max-tokens"
                 type="number"
                 min="1"
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(Number(e.target.value))}
-                className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+                className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
               />
             </label>
           </div>
           <label className="block">
-            <span className="block text-xs font-medium text-[#6e6e73] mb-1">Thinking</span>
+            <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Thinking</span>
             <select
               data-testid="chat-settings-thinking"
               value={thinking}
               onChange={(e) => setThinking(e.target.value)}
-              className="w-full border border-[#e8e8ed] rounded-md p-1.5 text-sm"
+              className="w-full border border-[var(--color-border)] rounded-md p-1.5 text-sm"
             >
               <option value="auto">auto</option>
               <option value="disabled">disabled</option>
             </select>
           </label>
           {error && (
-            <div data-testid="chat-settings-error" className="text-red-600 text-xs">
+            <div data-testid="chat-settings-error" className="text-[var(--color-danger)] text-xs">
               {error}
             </div>
           )}
@@ -239,7 +239,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-testid="chat-settings-cancel"
               onClick={onClose}
-              className="text-sm text-[#6e6e73] px-3 py-1.5 rounded-md hover:bg-[#f5f5f7]"
+              className="text-sm text-[var(--color-text-secondary)] px-3 py-1.5 rounded-md hover:bg-[var(--color-bg)]"
             >
               取消
             </button>
@@ -247,16 +247,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-testid="chat-settings-save"
               onClick={handleSaveSettings}
-              className="bg-[#0063f8] text-white rounded-md px-3 py-1.5 text-sm"
+              className="bg-[var(--color-accent)] text-white rounded-md px-3 py-1.5 text-sm"
             >
               保存
             </button>
           </div>
 
-          <div className="border-t border-[#e8e8ed] pt-3 mt-1">
-            <h3 className="text-xs font-medium text-[#6e6e73] mb-2">知识库同步</h3>
+          <div className="border-t border-[var(--color-border)] pt-3 mt-1">
+            <h3 className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">知识库同步</h3>
             <label className="block mb-2">
-              <span className="block text-xs font-medium text-[#6e6e73] mb-1">Git Remote URL</span>
+              <span className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Git Remote URL</span>
               <div className="flex gap-2">
                 <input
                   data-testid="sync-remote-input"
@@ -264,21 +264,21 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   value={syncRemoteInput}
                   onChange={(e) => setSyncRemoteInput(e.target.value)}
                   placeholder="git@github.com:user/repo.git"
-                  className="flex-1 border border-[#e8e8ed] rounded-md p-1.5 text-sm font-mono"
+                  className="flex-1 border border-[var(--color-border)] rounded-md p-1.5 text-sm font-mono"
                 />
                 <button
                   type="button"
                   data-testid="sync-remote-save"
                   onClick={handleSaveSyncRemote}
                   disabled={syncSaving || syncRemoteInput.trim() === syncRemote}
-                  className="text-sm text-[#0063f8] px-3 py-1.5 rounded-md hover:bg-[#f5f5f7] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm text-[var(--color-accent)] px-3 py-1.5 rounded-md hover:bg-[var(--color-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {syncSaving ? '保存中…' : '保存'}
                 </button>
               </div>
             </label>
             {syncError && (
-              <div data-testid="sync-error" className="text-red-600 text-xs mb-2">
+              <div data-testid="sync-error" className="text-[var(--color-danger)] text-xs mb-2">
                 {syncError}
               </div>
             )}
@@ -287,12 +287,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               data-testid="sync-trigger-button"
               onClick={handleTriggerSync}
               disabled={syncing}
-              className="w-full bg-[#f5f5f7] text-[#1d1d1f] rounded-md px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[var(--color-bg)] text-[var(--color-text-primary)] rounded-md px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {syncing ? '同步中…' : '🔄 同步知识库'}
             </button>
             {syncResultMsg && (
-              <div data-testid="sync-result" className="text-xs text-[#6e6e73] mt-2">
+              <div data-testid="sync-result" className="text-xs text-[var(--color-text-secondary)] mt-2">
                 {syncResultMsg}
               </div>
             )}

@@ -245,7 +245,13 @@ export default function App() {
     : workspaceChanges
 
   return (
-    <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden relative" style={{ zoom: appZoom.zoom }}>
+    <div
+      className="h-screen flex overflow-hidden relative"
+      style={{
+        zoom: appZoom.zoom,
+        backgroundImage: 'linear-gradient(135deg, var(--color-bg) 0%, var(--color-surface) 55%, var(--color-surface) 100%)',
+      }}
+    >
       <SideRail
         view={view}
         onSelect={handleViewChange}
@@ -267,13 +273,13 @@ export default function App() {
         </div>
 
       {failedWorkspaces.length > 0 && (
-        <div data-testid="workspace-warning-banner" className="text-xs bg-[#fdeeee] text-[#dc2626] rounded p-2 m-3 shrink-0">
+        <div data-testid="workspace-warning-banner" className="text-xs bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))] text-[var(--color-danger)] rounded p-2 m-3 shrink-0">
           ⚠ 以下 workspace 无法读取，已跳过：{failedWorkspaces.join(', ')}
         </div>
       )}
 
       {wikiIndexing && (
-        <div data-testid="wiki-indexing-banner" className="text-xs bg-[#eef4ff] text-[#0063f8] rounded p-2 mx-3 mb-3 shrink-0">
+        <div data-testid="wiki-indexing-banner" className="text-xs bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-surface))] text-[var(--color-accent)] rounded p-2 mx-3 mb-3 shrink-0">
           ℹ {typeof wikiIndexingChanged === 'number' ? `检测到 ${wikiIndexingChanged} 个文件更新，正在进入搜索库…` : '已检测到文档更新，正在进入搜索库…'} 几秒后即可检索
         </div>
       )}
@@ -285,7 +291,7 @@ export default function App() {
               data-testid="sidebar"
               className={
                 (sidebarOpen ? 'block' : 'hidden') +
-                ' xl:block w-full xl:w-[340px] shrink-0 border-r border-[#e8e8ed] p-3 overflow-y-auto'
+                ' xl:block w-full xl:w-[340px] shrink-0 border-r border-[var(--color-border)] p-3 overflow-y-auto'
               }
             >
               <WorkspaceChips
@@ -346,13 +352,13 @@ export default function App() {
                   ) : (
                     <div
                       data-testid="change-empty-state"
-                      className="flex flex-col items-center justify-center gap-2 text-center rounded-lg border border-dashed border-[#e8e8ed] bg-white py-24 px-6"
+                      className="flex flex-col items-center justify-center gap-2 text-center rounded-lg border border-dashed border-[var(--color-border)] bg-white py-24 px-6"
                     >
-                      <span className="text-4xl text-[#a1a1a6]" aria-hidden="true">
+                      <span className="text-4xl text-[var(--color-text-tertiary)]" aria-hidden="true">
                         ◇
                       </span>
-                      <p className="text-sm font-medium text-[#1d1d1f]">从左侧选择一个变更查看详情</p>
-                      <p className="text-xs text-[#6e6e73]">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">从左侧选择一个变更查看详情</p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">
                         可通过上方 KPI 卡片筛选，或在左侧工作区与搜索中定位目标变更
                       </p>
                     </div>

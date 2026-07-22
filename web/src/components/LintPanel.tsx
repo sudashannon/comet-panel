@@ -47,9 +47,9 @@ export function LintPanel({ onOpen }: { onOpen?: (path: string) => void }) {
 
   if (issues.length === 0) {
     if (!gaveUp) {
-      return <div className="text-xs text-[#6e6e73] animate-pulse">索引构建中…</div>
+      return <div className="text-xs text-[var(--color-text-secondary)] animate-pulse">索引构建中…</div>
     }
-    return <div className="text-xs text-[#6e6e73]">未发现问题</div>
+    return <div className="text-xs text-[var(--color-text-secondary)]">未发现问题</div>
   }
 
   const groups = new Map<string, LintIssue[]>()
@@ -63,9 +63,9 @@ export function LintPanel({ onOpen }: { onOpen?: (path: string) => void }) {
     <div className="space-y-4 text-xs">
       {[...groups.entries()].map(([rule, items]) => (
         <section key={rule}>
-          <div className="sticky top-0 flex items-center gap-2 bg-white/95 py-1 border-b border-[#e8e8ed] mb-1">
-            <span className="shrink-0 text-[#c47a06] font-mono font-semibold whitespace-nowrap">{rule}</span>
-            <span className="text-[#6e6e73]">({items.length})</span>
+          <div className="sticky top-0 flex items-center gap-2 bg-white/95 py-1 border-b border-[var(--color-border)] mb-1">
+            <span className="shrink-0 text-[var(--color-warn)] font-mono font-semibold whitespace-nowrap">{rule}</span>
+            <span className="text-[var(--color-text-secondary)]">({items.length})</span>
           </div>
           <div className="space-y-1">
             {items.map((i, idx) => (
@@ -107,7 +107,7 @@ function LintDetail({ detail, componentId, onOpen }: { detail: string; component
     <button
       type="button"
       onClick={() => onOpen(componentId)}
-      className="shrink-0 ml-1 text-[#0063f8] hover:underline"
+      className="shrink-0 ml-1 text-[var(--color-accent)] hover:underline"
       title={`打开来源: ${componentId}`}
     >
       📄
@@ -116,7 +116,7 @@ function LintDetail({ detail, componentId, onOpen }: { detail: string; component
 
   if (!match) {
     return (
-      <div className="flex items-center min-w-0 text-[#6e6e73] pl-1" title={decodedDetail}>
+      <div className="flex items-center min-w-0 text-[var(--color-text-secondary)] pl-1" title={decodedDetail}>
         <span className="truncate">{decodedDetail}</span>
         {sourceButton}
       </div>
@@ -124,7 +124,7 @@ function LintDetail({ detail, componentId, onOpen }: { detail: string; component
   }
   const [, prefix, path, suffix] = match
   return (
-    <div className="flex items-center min-w-0 text-[#6e6e73] pl-1" title={decodedDetail}>
+    <div className="flex items-center min-w-0 text-[var(--color-text-secondary)] pl-1" title={decodedDetail}>
       <span className="shrink-0 whitespace-nowrap">{prefix}</span>
       <span className="min-w-0 truncate" dir="rtl" style={{ textAlign: 'left' }}>
         {safeDecode(path)}

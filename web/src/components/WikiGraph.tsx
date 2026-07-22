@@ -8,61 +8,53 @@ import { useWikiEvents } from '../hooks/useWikiEvents'
 /**
  * Color legend for the 8 WikiComponent types shown in the WikiGraph force-directed view.
  *
- * This map is a deliberate, governed exception to the app's 4-color UI constraint
- * (--color-accent/--color-success/--color-danger/--color-warn in styles.css). A
- * data-viz legend distinguishing 8 categories genuinely needs more hues than 4 brand
- * colors + grays can provide, so this scope is intentionally exempted -- do not
- * collapse it back down to reusing only the 4 established colors.
+ * Reused categories map to the app's semantic CSS variables; the remaining
+ * categories are derived from those same variables with color-mix() so no
+ * hardcoded hex values remain here.
  *
- * 5 of the 8 values reuse an existing color with an existing semantic meaning:
- *   change   -> #0063f8  (= --color-accent)
- *   tasks    -> #c47a06  (= --color-warn)
- *   plan     -> #16a34a  (= --color-success)
- *   diagram  -> #dc2626  (= --color-danger)
- *   artifact -> #6e6e73  (established neutral gray, used elsewhere in the app)
- *
- * The remaining 3 types have no established color to map to, so they use new hues
- * chosen to sit clearly apart from the 5 colors above *and* from each other on the
- * color wheel (verified with CIE Lab deltaE: minimum pairwise distance across all 8
- * final colors is ~30.5, vs. ~16-25 for the near-duplicate blues/greens this
- * replaced):
- *   proposal -> #7c3aed  (violet)
- *   design   -> #0d9488  (teal)
- *   spec     -> #7c2d12  (dark rust/brown -- distinct from tasks/warn's brighter #c47a06)
- *
- * All 8 values are lowercase hex, matching this codebase's existing convention.
+ * Reused mappings:
+ *   change   -> --color-accent
+ *   tasks    -> --color-warn
+ *   plan     -> --color-success
+ *   diagram  -> --color-danger
+ *   artifact -> --color-text-secondary
  */
 export const TYPE_COLORS: Record<string, string> = {
-  change: '#0063f8',
-  proposal: '#7c3aed',
-  design: '#0d9488',
-  tasks: '#c47a06',
-  spec: '#7c2d12',
-  plan: '#16a34a',
-  artifact: '#6e6e73',
-  diagram: '#dc2626',
+  change: 'var(--color-accent)',
+  proposal: 'color-mix(in srgb, var(--color-accent) 45%, var(--color-danger))',
+  design: 'color-mix(in srgb, var(--color-success) 55%, var(--color-accent))',
+  tasks: 'var(--color-warn)',
+  spec: 'color-mix(in srgb, var(--color-warn) 70%, var(--color-danger))',
+  plan: 'var(--color-success)',
+  artifact: 'var(--color-text-secondary)',
+  diagram: 'var(--color-danger)',
 }
 
 // EDGE_COLORS distinguishes the three edge kinds the wiki index actually
 // computes (see wiki/links.go): implements (design_doc/plan), references
 // (verification_report/markdown links), generates (artifact convention).
-// Unlike TYPE_COLORS above, these reuse the app's existing 4-color palette
-// directly (accent/success/warn) since edges are a separate visual channel
-// (line color, not fill) from node type colors and don't need to avoid
-// collision with them.
+// These reuse the app's semantic palette directly, since edges are a separate
+// visual channel (line color, not fill) from node type colors.
 const EDGE_COLORS: Record<string, string> = {
-  implements: '#0063f8',
-  references: '#16a34a',
-  generates: '#c47a06',
+  implements: 'var(--color-accent)',
+  references: 'var(--color-success)',
+  generates: 'var(--color-warn)',
 }
-const EDGE_FALLBACK_COLOR = '#8e8e93'
+const EDGE_FALLBACK_COLOR = 'var(--color-text-secondary)'
 
-// COMMUNITY_COLORS gives each detected community (see wiki graph community
-// detection) a distinct border color, independent of TYPE_COLORS' node fill.
 export const COMMUNITY_COLORS = [
-  '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
-  '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
-  '#dcbeff', '#9a6324',
+  'var(--color-accent)',
+  'var(--color-success)',
+  'var(--color-danger)',
+  'var(--color-warn)',
+  'color-mix(in srgb, var(--color-accent) 60%, var(--color-success))',
+  'color-mix(in srgb, var(--color-accent) 60%, var(--color-danger))',
+  'color-mix(in srgb, var(--color-success) 60%, var(--color-warn))',
+  'color-mix(in srgb, var(--color-danger) 60%, var(--color-warn))',
+  'color-mix(in srgb, var(--color-accent) 70%, var(--color-surface))',
+  'color-mix(in srgb, var(--color-success) 70%, var(--color-surface))',
+  'color-mix(in srgb, var(--color-danger) 70%, var(--color-surface))',
+  'color-mix(in srgb, var(--color-warn) 70%, var(--color-surface))',
 ]
 
 const POLL_INTERVAL_MS = 3000
@@ -251,9 +243,9 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           const commColor =
             communities[c.id] != null && communities[c.id] >= 0
               ? COMMUNITY_COLORS[communities[c.id] % COMMUNITY_COLORS.length]
-              : '#ffffff'
+              : 'var(--color-surface)'
           return {
-            data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? '#6e6e73', commColor },
+            data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? 'var(--color-text-secondary)', commColor },
           }
         }),
         ...visibleEdges.map((e, i) => ({
@@ -274,7 +266,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             label: 'data(label)',
             'font-size': 7,
             'min-zoomed-font-size': 9,
-            color: '#1d1d1f',
+            color: 'var(--color-text-primary)',
             'text-valign': 'bottom',
             'text-margin-y': 3,
             'text-wrap': 'ellipsis',
@@ -289,7 +281,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           selector: 'node.hovered',
           style: {
             'border-width': 2.5,
-            'border-color': '#0063f8',
+            'border-color': 'var(--color-accent)',
           },
         },
         {
@@ -323,7 +315,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           selector: 'node.search-match',
           style: {
             'border-width': 3,
-            'border-color': '#0063f8',
+            'border-color': 'var(--color-accent)',
             'z-index': 10,
           },
         },
@@ -406,14 +398,14 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
         {hover && (
           <div
             data-testid="wiki-graph-tooltip"
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm"
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm"
             style={{ left: hover.x, top: hover.y - 10 }}
           >
             {hover.title}
           </div>
         )}
         {components.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-[#6e6e73]">
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-[var(--color-text-secondary)]">
             {gaveUp ? (
               <span>索引为空，请先注册工作区并重建（POST /api/wiki/rebuild）</span>
             ) : (
@@ -429,18 +421,18 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="语义搜索节点…"
               aria-label="图谱语义搜索"
-              className="absolute left-2 top-2 z-10 w-48 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm outline-none focus:border-[#0063f8]"
+              className="absolute left-2 top-2 z-10 w-48 rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm outline-none focus:border-[var(--color-accent)]"
             />
             <div className="absolute left-2 top-11 z-10 flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => cyRef.current?.fit(undefined, 30)}
-                className="rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm hover:bg-[#f5f5f7]"
+                className="rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm hover:bg-[var(--color-bg)]"
               >
                 适应窗口
               </button>
               {hasEdges && (
-                <label className="flex items-center gap-1 rounded border border-[#e8e8ed] bg-white px-2 py-1 text-xs text-[#1d1d1f] shadow-sm">
+                <label className="flex items-center gap-1 rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs text-[var(--color-text-primary)] shadow-sm">
                   <input
                     type="checkbox"
                     checked={connectedOnly}
@@ -453,9 +445,9 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             {/* 类型图例 — 左下角 */}
             <div
               data-testid="wiki-graph-legend"
-              className="absolute left-2 bottom-2 z-10 w-28 max-h-[50vh] overflow-y-auto rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+              className="absolute left-2 bottom-2 z-10 w-28 max-h-[50vh] overflow-y-auto rounded border border-[var(--color-border)] bg-white/95 px-2 py-1.5 text-xs text-[var(--color-text-primary)] shadow-sm"
             >
-              <div className="mb-1 font-medium text-[#6e6e73]">类型</div>
+              <div className="mb-1 font-medium text-[var(--color-text-secondary)]">类型</div>
               <ul className="space-y-0.5">
                 {Object.entries(TYPE_COLORS).map(([type, color]) => (
                   <li key={type} className="flex items-center gap-1.5">
@@ -469,9 +461,9 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             {topCommunities.length > 0 && (
               <div
                 data-testid="wiki-graph-community-legend"
-                className="absolute right-2 bottom-2 z-10 w-44 max-h-[50vh] overflow-y-auto rounded border border-[#e8e8ed] bg-white/95 px-2 py-1.5 text-xs text-[#1d1d1f] shadow-sm"
+                className="absolute right-2 bottom-2 z-10 w-44 max-h-[50vh] overflow-y-auto rounded border border-[var(--color-border)] bg-white/95 px-2 py-1.5 text-xs text-[var(--color-text-primary)] shadow-sm"
               >
-                <div className="mb-1 font-medium text-[#6e6e73]">社区</div>
+                <div className="mb-1 font-medium text-[var(--color-text-secondary)]">社区</div>
                 <ul className="space-y-0.5">
                   {topCommunities.map((id) => {
                     const active = activeCommunity === id
@@ -484,12 +476,12 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
                           onClick={() => setActiveCommunity(active ? null : id)}
                           className={
                             active
-                              ? 'flex w-full items-center gap-1 rounded bg-[#1d1d1f]/10 px-1 py-0.5 text-left'
-                              : 'flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-[#f5f5f7]'
+                              ? 'flex w-full items-center gap-1 rounded bg-[color-mix(in_srgb,var(--color-text-primary)_10%,var(--color-surface))] px-1 py-0.5 text-left'
+                              : 'flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-[var(--color-bg)]'
                           }
                         >
                           <span
-                            className="inline-block h-2 w-2 shrink-0 rounded-full border border-[#1d1d1f]/10"
+                            className="inline-block h-2 w-2 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--color-text-primary)_10%,var(--color-surface))]"
                             style={{ backgroundColor: COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] }}
                           />
                           <span className="truncate">{effectiveCommunityLabels[String(id)] ?? `#${id}`}</span>

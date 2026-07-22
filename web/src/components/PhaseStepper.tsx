@@ -24,7 +24,7 @@ export function PhaseStepper({ currentPhase }: { currentPhase: string }) {
       {isUnknown && (
         <div
           data-testid="phase-unknown-notice"
-          className="text-[11px] text-[#c47a06] font-semibold mb-2"
+          className="text-[11px] text-[var(--color-warn)] font-semibold mb-2"
         >
           ⚠ 阶段信息缺失
         </div>
@@ -38,15 +38,16 @@ export function PhaseStepper({ currentPhase }: { currentPhase: string }) {
                 <div
                   data-testid={`step-${p.key}`}
                   data-state={state}
+                  style={state === 'current' ? { boxShadow: '0 0 0 4px color-mix(in srgb, var(--color-accent) 15%, transparent)' } : undefined}
                   className={
                     'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ' +
                     (state === 'done'
-                      ? 'bg-[#16a34a] text-white'
+                      ? 'bg-[var(--color-success)] text-white'
                       : state === 'current'
-                        ? 'bg-[#0063f8] text-white shadow-[0_0_0_4px_rgba(0,99,248,0.15)]'
+                        ? 'bg-[var(--color-accent)] text-white'
                         : state === 'unknown'
-                          ? 'bg-white border-2 border-[#c47a06] text-[#c47a06]'
-                          : 'bg-white border-2 border-[#d2d2d7] text-[#6e6e73]')
+                          ? 'bg-white border-2 border-[var(--color-warn)] text-[var(--color-warn)]'
+                          : 'bg-white border-2 border-[var(--color-border)] text-[var(--color-text-secondary)]')
                   }
                 >
                   {state === 'done' ? '✓' : state === 'unknown' ? '?' : i + 1}
@@ -55,10 +56,10 @@ export function PhaseStepper({ currentPhase }: { currentPhase: string }) {
                   className={
                     'text-[10px] mt-1 ' +
                     (state === 'pending'
-                      ? 'text-[#6e6e73]'
+                      ? 'text-[var(--color-text-secondary)]'
                       : state === 'unknown'
-                        ? 'text-[#c47a06] font-semibold'
-                        : 'text-[#0063f8] font-semibold')
+                        ? 'text-[var(--color-warn)] font-semibold'
+                        : 'text-[var(--color-accent)] font-semibold')
                   }
                 >
                   {p.label}
@@ -68,7 +69,7 @@ export function PhaseStepper({ currentPhase }: { currentPhase: string }) {
                 <div
                   className={
                     'hidden md:block flex-1 h-[2px] ' +
-                    (i < currentIndex ? 'bg-[#16a34a]' : 'bg-[#d2d2d7]')
+                    (i < currentIndex ? 'bg-[var(--color-success)]' : 'bg-[var(--color-border)]')
                   }
                 />
               )}

@@ -22,7 +22,7 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
     setSubmitting(true)
     setError(null)
     try {
-      await onAdd({ alias, path, color: '#0063f8' })
+      await onAdd({ alias, path, color: 'var(--color-accent)' })
       setAdding(false)
       setAlias('')
       setPath('')
@@ -48,7 +48,7 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
         onClick={() => onSelect(null)}
         className={
           'rounded-full px-3 py-1.5 text-xs ' +
-          (active === null ? 'bg-[#0063f8] text-white' : 'bg-[#f2f3f7] text-[#6e6e73]')
+          (active === null ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]')
         }
       >
         全部
@@ -59,38 +59,38 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
           onClick={() => onSelect(w.alias)}
           className={
             'rounded-full px-3 py-1.5 text-xs ' +
-            (active === w.alias ? 'bg-[#0063f8] text-white' : 'bg-[#f2f3f7] text-[#6e6e73]')
+            (active === w.alias ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]')
           }
         >
           {w.alias}
         </button>
       ))}
-      <button onClick={() => setAdding(true)} className="rounded-full px-3 py-1.5 text-xs bg-white border border-dashed border-[#d5d7e0] text-[#6e6e73]">
+      <button onClick={() => setAdding(true)} className="rounded-full px-3 py-1.5 text-xs bg-white border border-dashed border-[var(--color-border)] text-[var(--color-text-secondary)]">
         + 添加
       </button>
       {adding && (
-        <div className="absolute top-full left-0 mt-2 z-10 w-64 rounded-xl border border-[#e8e8ed] bg-white p-3 shadow-lg flex flex-col gap-2">
+        <div className="absolute top-full left-0 mt-2 z-10 w-64 rounded-xl border border-[var(--color-border)] bg-white p-3 shadow-lg flex flex-col gap-2">
           <input
             data-testid="add-ws-alias"
             placeholder="alias"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
-            className="w-full border border-[#e8e8ed] rounded px-2 py-1.5 text-sm"
+            className="w-full border border-[var(--color-border)] rounded px-2 py-1.5 text-sm"
           />
           <input
             data-testid="add-ws-path"
             placeholder="path"
             value={path}
             onChange={(e) => setPath(e.target.value)}
-            className="w-full border border-[#e8e8ed] rounded px-2 py-1.5 text-sm"
+            className="w-full border border-[var(--color-border)] rounded px-2 py-1.5 text-sm"
           />
           {error && (
-            <div data-testid="add-ws-error" className="text-xs text-[#dc2626] leading-snug">
+            <div data-testid="add-ws-error" className="text-xs text-[var(--color-danger)] leading-snug">
               {error}
             </div>
           )}
           <div className="flex items-center justify-end gap-2 pt-1">
-            <button onClick={cancel} className="px-2 py-1 text-xs text-[#6e6e73]">
+            <button onClick={cancel} className="px-2 py-1 text-xs text-[var(--color-text-secondary)]">
               取消
             </button>
             <button
@@ -99,7 +99,7 @@ export function WorkspaceChips({ workspaces, active, onSelect, onAdd }: Props) {
               disabled={!canSubmit}
               className={
                 'px-3 py-1 rounded text-xs text-white ' +
-                (canSubmit ? 'bg-[#0063f8]' : 'bg-[#0063f8]/40 cursor-not-allowed')
+                (canSubmit ? 'bg-[var(--color-accent)]' : 'bg-[color-mix(in_srgb,var(--color-accent)_40%,var(--color-surface))] cursor-not-allowed')
               }
             >
               提交

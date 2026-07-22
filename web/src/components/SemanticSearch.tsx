@@ -68,15 +68,15 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="按含义搜索组件…"
         aria-label="语义搜索"
-        className="w-full rounded-lg border border-[#e4e4e8] px-3 py-2 text-sm outline-none focus:border-[#0063f8]"
+        className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
       />
-      {loadError && <div className="text-[#dc2626]">搜索失败</div>}
+      {loadError && <div className="text-[var(--color-danger)]">搜索失败</div>}
       {!loadError && query.trim() !== '' && results.length === 0 && (
-        <div className="text-[#6e6e73]">无匹配结果</div>
+        <div className="text-[var(--color-text-secondary)]">无匹配结果</div>
       )}
       {results.length > 0 && (
         <>
-          <div className="text-[#6e6e73]">共 {results.length} 条结果</div>
+          <div className="text-[var(--color-text-secondary)]">共 {results.length} 条结果</div>
           {types.length > 1 && (
             <div className="flex flex-wrap gap-1.5">
               <button
@@ -85,8 +85,8 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
                 onClick={() => { setTypeFilter(null); setPage(0) }}
                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                   typeFilter === null
-                    ? 'bg-[#0063f8] text-white'
-                    : 'bg-[#f0f0ee] text-[#6e6e73] hover:bg-[#e4e4e8]'
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]'
                 }`}
               >全部</button>
               {types.map((t) => (
@@ -98,9 +98,9 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
                   className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                     typeFilter === t
                       ? 'text-white'
-                      : 'bg-[#f0f0ee] text-[#6e6e73] hover:bg-[#e4e4e8]'
+                      : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]'
                   }`}
-                  style={typeFilter === t ? { backgroundColor: TYPE_COLORS[t] ?? '#6e6e73' } : undefined}
+                  style={typeFilter === t ? { backgroundColor: TYPE_COLORS[t] ?? 'var(--color-text-secondary)' } : undefined}
                 >{t}</button>
               ))}
             </div>
@@ -113,17 +113,17 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
             <button
               type="button"
               onClick={() => onNodeClick(item.id)}
-              className="w-full flex items-center gap-2 rounded-lg border border-[#e4e4e8] px-3 py-2 text-left hover:bg-[#f0f5ff]"
+              className="w-full flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--color-bg)]"
             >
               <span
                 className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                style={{ backgroundColor: TYPE_COLORS[item.type] ?? '#6e6e73' }}
+                style={{ backgroundColor: TYPE_COLORS[item.type] ?? 'var(--color-text-secondary)' }}
               >
                 {item.type}
               </span>
               <span className="flex-1 truncate font-medium">{item.title}</span>
-              <span className="shrink-0 text-[#6e6e73]">{item.workspace}</span>
-              <span className="shrink-0 tabular-nums text-[#0063f8]">
+              <span className="shrink-0 text-[var(--color-text-secondary)]">{item.workspace}</span>
+              <span className="shrink-0 tabular-nums text-[var(--color-accent)]">
                 {Math.round(item.similarity * 100)}%
               </span>
             </button>
@@ -136,18 +136,18 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
             type="button"
             disabled={page === 0}
             onClick={() => setPage(page - 1)}
-            className="rounded border border-[#e4e4e8] px-2 py-1 disabled:opacity-30"
+            className="rounded border border-[var(--color-border)] px-2 py-1 disabled:opacity-30"
           >
             ← 上一页
           </button>
-          <span className="text-[#6e6e73]">
+          <span className="text-[var(--color-text-secondary)]">
             {page + 1} / {totalPages}
           </span>
           <button
             type="button"
             disabled={page >= totalPages - 1}
             onClick={() => setPage(page + 1)}
-            className="rounded border border-[#e4e4e8] px-2 py-1 disabled:opacity-30"
+            className="rounded border border-[var(--color-border)] px-2 py-1 disabled:opacity-30"
           >
             下一页 →
           </button>

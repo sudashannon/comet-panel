@@ -16,7 +16,7 @@ describe('SideRail', () => {
   it('renders active view with blue background', () => {
     render(<SideRail view="graph" onSelect={() => {}} />)
     const graphBtn = screen.getByRole('button', { name: '知识图谱' })
-    expect(graphBtn.className).toContain('bg-[#0063f8]')
+    expect(graphBtn.className).toContain('bg-\[var(--color-accent)\]')
   })
 
   it('calls onSelect with the view key when a button is clicked', () => {
@@ -54,7 +54,7 @@ describe('SideRail', () => {
   it('marks the bookmark button as active when panel is open', () => {
     render(<SideRail view="changes" onSelect={() => {}} onToggleBookmarks={() => {}} bookmarkPanelOpen={true} />)
     const star = screen.getByRole('button', { name: '收藏夹' })
-    expect(star.className).toContain('bg-[#0063f8]')
+    expect(star.className).toContain('bg-\[var(--color-accent)\]')
   })
 
   it('renders command palette button', () => {

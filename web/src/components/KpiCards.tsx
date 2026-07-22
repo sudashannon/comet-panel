@@ -52,11 +52,48 @@ export function KpiCards({
   )
 
   const cards = [
-    { key: 'active', label: '活跃变更', value: classification.active.length, testId: 'kpi-active', icon: '◔', chip: 'bg-[#eaf1ff] text-[#0063f8]' },
-    { key: 'archived', label: '已归档', value: classification.archived.length, testId: 'kpi-archived', icon: '✓', chip: 'bg-[#eafaf0] text-[#16a34a]' },
-    { key: 'stuck', label: '卡死预警', value: classification.stuck.length, testId: 'kpi-stuck', warn: classification.stuck.length > 0, icon: '⚠', chip: 'bg-[#fff3e0] text-[#d97706]' },
-    { key: 'verify-failed', label: 'Verify 失败', value: classification.verifyFailed.length, testId: 'kpi-verify-failed', danger: classification.verifyFailed.length > 0, icon: '◎', chip: 'bg-[#f3eeff] text-[#7c3aed]' },
-    { key: 'incomplete-tasks', label: '未完成任务', value: incompleteTasks, testId: 'kpi-incomplete-tasks', icon: '▤', chip: 'bg-[#f3f4f8] text-[#6e6e73]' },
+    {
+      key: 'active',
+      label: '活跃变更',
+      value: classification.active.length,
+      testId: 'kpi-active',
+      icon: '◔',
+      chip: 'bg-[color-mix(in_srgb,var(--color-accent)_10%,white)] text-[var(--color-accent)]',
+    },
+    {
+      key: 'archived',
+      label: '已归档',
+      value: classification.archived.length,
+      testId: 'kpi-archived',
+      icon: '✓',
+      chip: 'bg-[color-mix(in_srgb,var(--color-success)_10%,white)] text-[var(--color-success)]',
+    },
+    {
+      key: 'stuck',
+      label: '卡死预警',
+      value: classification.stuck.length,
+      testId: 'kpi-stuck',
+      warn: classification.stuck.length > 0,
+      icon: '⚠',
+      chip: 'bg-[color-mix(in_srgb,var(--color-warn)_10%,white)] text-[var(--color-warn)]',
+    },
+    {
+      key: 'verify-failed',
+      label: 'Verify 失败',
+      value: classification.verifyFailed.length,
+      testId: 'kpi-verify-failed',
+      danger: classification.verifyFailed.length > 0,
+      icon: '◎',
+      chip: 'bg-[color-mix(in_srgb,var(--color-danger)_10%,white)] text-[var(--color-danger)]',
+    },
+    {
+      key: 'incomplete-tasks',
+      label: '未完成任务',
+      value: incompleteTasks,
+      testId: 'kpi-incomplete-tasks',
+      icon: '▤',
+      chip: 'bg-[color-mix(in_srgb,var(--color-text-secondary)_10%,white)] text-[var(--color-text-secondary)]',
+    },
   ]
 
   return (
@@ -80,20 +117,20 @@ export function KpiCards({
               }
             }}
             className={
-              'bg-white rounded-2xl px-4 py-4 shadow-[0_6px_20px_rgba(30,32,60,0.05),0_1px_2px_rgba(0,0,0,0.03)] cursor-pointer flex flex-col gap-2.5' +
-              (c.warn ? ' outline outline-[1.5px] outline-[#f0cf9a] bg-[#fffdf8]' : '') +
-              (isFilterActive ? ' ring-2 ring-[#0063f8]' : '')
+              'bg-white rounded-2xl px-4 py-4 shadow-[var(--shadow-card)] cursor-pointer flex flex-col gap-2.5' +
+              (c.warn ? ' outline outline-[1.5px] outline-[var(--color-warn)] bg-[color-mix(in_srgb,var(--color-warn)_4%,white)]' : '') +
+              (isFilterActive ? ' ring-2 ring-[var(--color-accent)]' : '')
             }
           >
             <div className="flex items-center gap-2.5">
               <div className={'w-[34px] h-[34px] rounded-[10px] grid place-items-center text-base ' + c.chip}>
                 <span aria-hidden="true">{c.icon}</span>
               </div>
-              <div className={'text-[13px] ' + (c.warn ? 'text-[#d97706] font-semibold' : 'text-[#6e6e73]')}>
+              <div className={'text-[13px] ' + (c.warn ? 'text-[var(--color-warn)] font-semibold' : 'text-[var(--color-text-secondary)]')}>
                 {c.label}
               </div>
             </div>
-            <div className={'text-[27px] font-bold leading-none tracking-tight ' + (c.warn ? 'text-[#d97706]' : c.danger ? 'text-[#dc2626]' : 'text-[#1d1d1f]')}>
+            <div className={'text-[27px] font-bold leading-none tracking-tight ' + (c.warn ? 'text-[var(--color-warn)]' : c.danger ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-primary)]')}>
               {c.value}
             </div>
           </div>

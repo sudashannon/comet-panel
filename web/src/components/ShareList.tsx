@@ -63,26 +63,26 @@ export function ShareList() {
 
   const filename = (path: string) => path.split('/').pop() || path
 
-  if (loading) return <div className="text-[#6e6e73] text-sm p-4">加载中…</div>
+  if (loading) return <div className="text-[var(--color-text-secondary)] text-sm p-4">加载中…</div>
 
   return (
     <div className="p-4" data-testid="share-list">
-      <h2 className="text-xs font-semibold text-[#6e6e73] uppercase tracking-wider mb-3">已分享文档</h2>
+      <h2 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">已分享文档</h2>
       {shares.length === 0 ? (
-        <p className="text-sm text-[#8e8e93]">暂无分享。在 Markdown 查看器中点击 🔗 创建分享。</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">暂无分享。在 Markdown 查看器中点击 🔗 创建分享。</p>
       ) : (
         <div className="space-y-2">
           {shares.map((s) => (
-            <div key={s.token} className="bg-white border border-[#e8e8ed] rounded-lg p-3 text-sm">
+            <div key={s.token} className="bg-white border border-[var(--color-border)] rounded-lg p-3 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium text-[#1d1d1f] truncate" title={s.path}>
+                  <div className="font-medium text-[var(--color-text-primary)] truncate" title={s.path}>
                     {filename(s.path)}
                   </div>
-                  <div className="text-xs text-[#8e8e93] mt-0.5">
-                    <span className="text-[#0063f8]">{s.workspace || '(无 workspace)'}</span>
+                  <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                    <span className="text-[var(--color-accent)]">{s.workspace || '(无 workspace)'}</span>
                     <span className="mx-1.5">·</span>
-                    <span className={s.expires_at ? '' : 'text-[#10b981]'}>
+                    <span className={s.expires_at ? '' : 'text-[var(--color-success)]'}>
                       {formatExpiry(s.expires_at)}
                     </span>
                   </div>
@@ -90,14 +90,14 @@ export function ShareList() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleCopy(s.url)}
-                    className="text-xs px-2 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff] hover:border-[#0063f8]"
+                    className="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:bg-[var(--color-bg)] hover:border-[var(--color-accent)]"
                     title="复制链接"
                   >
                     {copied === s.url ? '✓' : '复制'}
                   </button>
                   <button
                     onClick={() => handleRevoke(s.token)}
-                    className="text-xs px-2 py-1 rounded border border-[#e8e8ed] text-[#dc2626] hover:bg-[#fdeeee] hover:border-[#dc2626]"
+                    className="text-xs px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-danger)] hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-surface))] hover:border-[var(--color-danger)]"
                     title="撤销分享"
                   >
                     撤销

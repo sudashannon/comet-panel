@@ -110,7 +110,9 @@ export function GuardButton({ changeName, targetPhase, onComplete, blockedReason
           data-tone={tone}
           className={
             'text-xs p-2 rounded mt-2 max-h-40 overflow-y-auto ' +
-            (tone === 'danger' ? 'bg-[#fdeeee] text-[#dc2626]' : 'bg-[#1d1d1f] text-[#d8dee9]')
+            (tone === 'danger'
+              ? 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]'
+              : 'bg-[var(--color-text-primary)] text-[var(--color-bg)]')
           }
         >
           {output.join('')}

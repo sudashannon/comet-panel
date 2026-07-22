@@ -7,8 +7,8 @@ interface Props {
 function Pill({ testId, tone, label }: { testId: string; tone: 'ok' | 'neutral'; label: string }) {
   const cls =
     tone === 'ok'
-      ? 'bg-[#e6f7ec] text-[#16a34a]'
-      : 'bg-[#f5f5f7] text-[#6e6e73]'
+      ? 'bg-[color-mix(in_srgb,var(--color-success)_12%,var(--color-surface))] text-[var(--color-success)]'
+      : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'
   return (
     <span
       data-testid={testId}

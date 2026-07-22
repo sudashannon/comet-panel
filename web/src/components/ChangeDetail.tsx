@@ -57,7 +57,7 @@ export function ChangeDetail({
         />
       </div>
       {change.stateWarning && (
-        <div className="text-xs text-[#dc2626] bg-[#fdeeee] rounded p-2">
+        <div className="text-xs text-[var(--color-danger)] bg-red-50 rounded p-2">
           ⚠ {change.stateWarning}
         </div>
       )}
@@ -89,12 +89,12 @@ export function ChangeDetail({
         )
       })()}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border border-[#e8e8ed] rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">产出物</h4>
+        <div className="border border-[var(--color-border)] rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">产出物</h4>
           <ArtifactList changeName={change.name} workspace={change.workspace} onSelectArtifact={onOpenArtifact} />
         </div>
-        <div className="border border-[#e8e8ed] rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-[#1d1d1f] mb-2">文档关联</h4>
+        <div className="border border-[var(--color-border)] rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-2">文档关联</h4>
           <BacklinksPanel componentId={change.componentId ?? change.name} />
         </div>
       </div>

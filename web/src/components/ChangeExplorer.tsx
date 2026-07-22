@@ -13,22 +13,22 @@ type WorkflowFilter = 'all' | 'full' | 'hotfix' | 'tweak'
 type PhaseFilter = 'all' | 'open' | 'design' | 'build' | 'verify' | 'archive'
 
 function barColor(phase: string, pct: number): string {
-  if (pct >= 100) return '#16a34a'
+  if (pct >= 100) return 'var(--color-success)'
   switch (phase) {
-    case 'design': return '#0063f8'
-    case 'verify': return '#7c3aed'
-    case 'archive': return '#16a34a'
-    case 'build': return '#d97706'
-    default: return '#c7cad4'
+    case 'design': return 'var(--color-accent)'
+    case 'verify': return 'rebeccapurple'
+    case 'archive': return 'var(--color-success)'
+    case 'build': return 'var(--color-warn)'
+    default: return 'var(--color-border-hover)'
   }
 }
 
 const PHASE_STYLES: Record<string, string> = {
-  open: 'bg-[#f0f0f0] text-[#6e6e73]',
-  design: 'bg-[#e6f0ff] text-[#0063f8]',
-  build: 'bg-[#fdf1dc] text-[#d97706]',
-  verify: 'bg-[#f1e6fb] text-[#7c3aed]',
-  archive: 'bg-[#e7f7ec] text-[#16a34a]',
+  open: 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]',
+  design: 'bg-blue-50 text-[var(--color-accent)]',
+  build: 'bg-amber-50 text-[var(--color-warn)]',
+  verify: 'bg-violet-50 text-violet-600',
+  archive: 'bg-green-50 text-[var(--color-success)]',
 }
 
 const WORKFLOW_LABELS: Record<string, string> = {
@@ -57,7 +57,7 @@ function ChangeCard({
   onSelect: (name: string) => void
 }) {
   const progress = change.tasksTotal > 0 ? change.tasksCompleted / change.tasksTotal : 0
-  const phaseStyle = PHASE_STYLES[change.phase] ?? 'bg-[#f0f0f0] text-[#6e6e73]'
+  const phaseStyle = PHASE_STYLES[change.phase] ?? 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'
 
   return (
     <div
@@ -65,38 +65,38 @@ function ChangeCard({
       className={
         'rounded-xl px-2.5 py-2.5 border cursor-pointer ' +
         (selected
-          ? 'border-transparent bg-[#eef4ff] shadow-[inset_0_0_0_1px_#cfe0ff]'
-          : 'border-[#e8e8ed] hover:bg-[#f7f8fc]')
+          ? 'border-transparent bg-blue-50 shadow-[inset_0_0_0_1px_var(--color-border)]'
+          : 'border-[var(--color-border)] hover:bg-[var(--color-bg)]')
       }
     >
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-medium truncate" title={change.name}>{change.name}</div>
         <div className="flex shrink-0 items-center gap-1">
           <Badge className={phaseStyle}>{change.phase}</Badge>
-          <Badge className="bg-[#f0f0f0] text-[#6e6e73]">
+          <Badge className="bg-[var(--color-bg)] text-[var(--color-text-secondary)]">
             {WORKFLOW_LABELS[change.workflow] ?? change.workflow}
           </Badge>
           {change.verifyResult === 'pass' && (
-            <Badge className="bg-[#e7f7ec] text-[#16a34a]">✓ pass</Badge>
+            <Badge className="bg-green-50 text-[var(--color-success)]">✓ pass</Badge>
           )}
           {change.verifyResult === 'fail' && (
-            <Badge className="bg-[#fbe9e9] text-[#dc2626]">✗ fail</Badge>
+            <Badge className="bg-red-50 text-[var(--color-danger)]">✗ fail</Badge>
           )}
           {change.stateWarning && (
-            <Badge className="bg-[#fdf1dc] text-[#c47a06]" data-testid={`warning-${change.name}`}>
+            <Badge className="bg-amber-50 text-[var(--color-warn)]" data-testid={`warning-${change.name}`}>
               ⚠
             </Badge>
           )}
         </div>
       </div>
       <div className="mt-1.5 flex items-center gap-2">
-        <div className="h-[5px] flex-1 rounded-full bg-[#eef0f5]">
+        <div className="h-[5px] flex-1 rounded-full bg-[var(--color-bg)]">
           <div
             className="h-[5px] rounded-full"
             style={{ width: `${Math.round(progress * 100)}%`, backgroundColor: barColor(change.phase, progress * 100) }}
           />
         </div>
-        <div className="text-xs text-[#6e6e73] shrink-0">
+        <div className="text-xs text-[var(--color-text-secondary)] shrink-0">
           {change.tasksCompleted}/{change.tasksTotal}
         </div>
       </div>
@@ -151,14 +151,14 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索变更名称…"
-          className="w-full rounded-lg border border-[#e8e8ed] px-2 py-1 text-sm"
+          className="w-full rounded-lg border border-[var(--color-border)] px-2 py-1 text-sm"
         />
         <div className="flex gap-2">
           <select
             aria-label="状态"
             value={status}
             onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="flex-1 rounded-lg border border-[#e8e8ed] px-2 py-1 text-xs"
+            className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs"
           >
             <option value="all">全部状态</option>
             <option value="active">活跃</option>
@@ -168,7 +168,7 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
             aria-label="工作流"
             value={workflow}
             onChange={(e) => setWorkflow(e.target.value as WorkflowFilter)}
-            className="flex-1 rounded-lg border border-[#e8e8ed] px-2 py-1 text-xs"
+            className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs"
           >
             <option value="all">全部工作流</option>
             <option value="full">full</option>
@@ -179,7 +179,7 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
             aria-label="阶段"
             value={phase}
             onChange={(e) => setPhase(e.target.value as PhaseFilter)}
-            className="flex-1 rounded-lg border border-[#e8e8ed] px-2 py-1 text-xs"
+            className="flex-1 rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs"
           >
             <option value="all">全部阶段</option>
             <option value="open">open</option>
@@ -191,14 +191,14 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
         </div>
       </div>
       {active.length === 0 && archived.length === 0 && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[#e8e8ed] py-8 text-center">
-          <span className="text-2xl text-[#c7c7cc]" aria-hidden="true">🔍</span>
-          <div className="text-sm font-medium text-[#6e6e73]">无匹配的变更</div>
-          <div className="text-xs text-[#a1a1a6]">尝试调整搜索关键词或筛选条件</div>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[var(--color-border)] py-8 text-center">
+          <span className="text-2xl text-[var(--color-text-tertiary)]" aria-hidden="true">🔍</span>
+          <div className="text-sm font-medium text-[var(--color-text-secondary)]">无匹配的变更</div>
+          <div className="text-xs text-[var(--color-text-tertiary)]">尝试调整搜索关键词或筛选条件</div>
           <button
             type="button"
             onClick={clearFilters}
-            className="mt-1 rounded-lg border border-[#e8e8ed] px-3 py-1 text-xs font-medium text-[#0063f8] hover:bg-[#f0f5ff]"
+            className="mt-1 rounded-lg border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-accent)] hover:bg-blue-50"
           >
             清除筛选
           </button>
@@ -214,9 +214,9 @@ export function ChangeExplorer({ changes, selected, onSelect }: Props) {
       ))}
       {archived.length > 0 && (
         <>
-          <div className="border-t border-[#e8e8ed] my-3" />
+          <div className="border-t border-[var(--color-border)] my-3" />
           <details open={selectedIsArchived}>
-            <summary className="text-xs text-[#6e6e73] cursor-pointer select-none font-medium">
+            <summary className="text-xs text-[var(--color-text-secondary)] cursor-pointer select-none font-medium">
               已归档 ({archived.length})
             </summary>
             <div className="space-y-2 mt-2">
