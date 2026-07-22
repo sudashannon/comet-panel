@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { fetchWorkspaces, addWorkspace, fetchChangesWithMeta, fetchWikiIndex, fetchBookmarks, addBookmark, removeBookmark } from './api/client'
 import type { ChangeSummary, WorkspaceConfig, WikiComponent, Bookmark } from './api/types'
 import { KpiCards, classifyChanges } from './components/KpiCards'
@@ -73,7 +73,7 @@ export default function App() {
     calendar: '产品日历',
   }
 
-  const commandActions: CommandAction[] = [
+  const commandActions: CommandAction[] = useMemo(() => [
     ...Object.entries(viewLabels).map(([v, label]) => ({
       id: `nav-${v}`,
       label,
@@ -84,12 +84,12 @@ export default function App() {
     { id: 'bookmarks', label: '收藏夹', category: 'Navigation', icon: '⭐', run: () => setBookmarkPanelOpen((p) => !p) },
     { id: 'settings', label: '设置', category: 'Navigation', icon: '⚙️', run: () => setSettingsOpen(true) },
     { id: 'refresh', label: '刷新数据', category: 'Commands', icon: '🔄', run: () => window.location.reload() },
-  ]
+  ], [])
 
   const palette = useCommandPalette(commandActions)
   const appZoom = useAppZoom()
 
-  const shortcutDefs = [
+  const shortcutDefs = useMemo(() => [
     { key: 'k', ctrlOrCmd: true, label: '命令面板', run: () => {} },
     { key: '1', ctrlOrCmd: true, label: '变更仪表盘', run: () => {} },
     { key: '2', ctrlOrCmd: true, label: '知识图谱', run: () => {} },
@@ -103,7 +103,7 @@ export default function App() {
     { key: "=", ctrlOrCmd: true, label: "放大", run: () => {} },
     { key: "-", ctrlOrCmd: true, label: "缩小", run: () => {} },
     { key: "0", ctrlOrCmd: true, label: "重置缩放", run: () => {} },
-  ]
+  ], [])
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
   useKeyboardShortcuts([
@@ -493,6 +493,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <CommandPalette palette={palette} shortcuts={shortcutDefs} />
       {viewerPath && (
         <ChatBubble
           key={viewerPath}
