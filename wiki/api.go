@@ -283,32 +283,61 @@ func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 	a.mu.RUnlock()
 
 	type scored struct {
-		id  string
-		sim float64
+		id   string
+		sim  float64
+		typ  string
+		sortKey float64
+	}
+
+	// typeSortOrder: lower = higher priority in search results
+	typeSortOrder := map[string]int{
+		"knowledge": 0, "report": 1, "design": 2, "spec": 3,
+		"plan": 4, "proposal": 5, "tasks": 6, "change": 7,
+		"artifact": 8, "diagram": 9,
 	}
 	var results []scored
 	queryNorm := vecNorm(queryVec)
 	queryLower := strings.ToLower(req.Query)
 	for id, vec := range embeddings {
 		sim := cosineSim(queryVec, vec, queryNorm, vecNorm(vec))
-		if sim > 0.15 {
-			// Keyword boost: if title contains the query term, boost score by 0.3
-			// This ensures exact keyword matches rank above vaguely similar docs.
-			if c, ok := components[id]; ok && strings.Contains(strings.ToLower(c.Title), queryLower) {
-				sim += 0.3
-			}
-			results = append(results, scored{id, sim})
+		if sim < 0.12 {
+			continue
 		}
+		c, ok := components[id]
+		if !ok {
+			results = append(results, scored{id: id, sim: sim, typ: ""})
+			continue
+		}
+		// Title keyword boost
+		if strings.Contains(strings.ToLower(c.Title), queryLower) {
+			sim += 0.6
+		}
+		// Filename keyword boost (skip common extensions)
+		filename := filepath.Base(c.Path)
+		ext := filepath.Ext(filename)
+		nameOnly := strings.TrimSuffix(filename, ext)
+		if strings.Contains(strings.ToLower(nameOnly), queryLower) {
+			sim += 0.3
+		}
+		// Prevent negative similarity floor
+		if sim < 0 {
+			sim = 0
+		}
+		// sortKey: type priority first, then similarity inverted for descending sort
+		typOrder := typeSortOrder[string(c.Type)]
+		sortKey := (1.0 - sim) + float64(typOrder)*0.001
+		results = append(results, scored{id: id, sim: sim, typ: string(c.Type), sortKey: sortKey})
 	}
 	// Fallback: if vector search yields nothing, do title substring match
 	if len(results) == 0 {
 		for id, c := range components {
-			if strings.Contains(strings.ToLower(c.Title), queryLower) {
-				results = append(results, scored{id, 0.5})
+			name := strings.TrimSuffix(filepath.Base(c.Path), filepath.Ext(c.Path))
+			if strings.Contains(strings.ToLower(c.Title), queryLower) || strings.Contains(strings.ToLower(name), queryLower) {
+				results = append(results, scored{id: id, sim: 0.5, typ: string(c.Type)})
 			}
 		}
 	}
-	sort.Slice(results, func(i, j int) bool { return results[i].sim > results[j].sim })
+	sort.Slice(results, func(i, j int) bool { return results[i].sortKey < results[j].sortKey })
 
 	w.Header().Set("Content-Type", "application/json")
 	out := make([]semanticSearchResult, 0, len(results))
