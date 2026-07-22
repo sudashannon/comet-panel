@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { TYPE_COLORS } from './WikiGraph'
+import { useContextMenu } from './ContextMenu'
 
 interface DayItem {
   id: string
@@ -23,6 +24,7 @@ interface CalendarPanelProps {
 }
 
 export function CalendarPanel({ onOpen }: CalendarPanelProps) {
+  const ctx = useContextMenu()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3))
@@ -140,7 +142,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onOpen(item.path)}
+                  onClick={() => onOpen(item.path)} onContextMenu={ctx.onContextMenu([{ id: 'open', label: '打开', icon: '📂', run: () => onOpen(item.path) }, { id: 'copy-path', label: '复制路径', icon: '📋', run: () => navigator.clipboard.writeText(item.path) }, { id: 'copy-title', label: '复制标题', icon: '📝', run: () => navigator.clipboard.writeText(item.title) }])}
                   className="flex items-center gap-2 border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)] text-xs"
                 >
                   <span
@@ -159,6 +161,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
       {!selected && (
         <div className="text-center text-[var(--color-text-secondary)] text-sm py-8">点击日期查看当天产物</div>
       )}
+      {ctx.renderMenu}
     </div>
   )
 }

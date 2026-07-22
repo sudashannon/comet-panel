@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import type { ChangeSummary } from '../api/types'
+import { useContextMenu } from './ContextMenu'
 
 interface Props {
   changes: ChangeSummary[]
@@ -59,9 +60,19 @@ function ChangeCard({
   const progress = change.tasksTotal > 0 ? change.tasksCompleted / change.tasksTotal : 0
   const phaseStyle = PHASE_STYLES[change.phase] ?? 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'
 
+  const ctx = useContextMenu()
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    ctx.onContextMenu([
+      { id: 'open', label: '打开', icon: '📂', run: () => onSelect(change.name) },
+      { id: 'copy-name', label: '复制名称', icon: '📋', run: () => navigator.clipboard.writeText(change.name) },
+    ])(e)
+  }, [change.name, onSelect, ctx])
+
   return (
     <div
       onClick={() => onSelect(change.name)}
+      onContextMenu={handleContextMenu}
       className={
         'px-2.5 py-2.5 border cursor-pointer ' +
         (selected

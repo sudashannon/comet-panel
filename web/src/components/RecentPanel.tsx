@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { fetchRecent } from '../api/client'
 import type { RecentItem } from '../api/types'
 import { TYPE_COLORS } from './WikiGraph'
+import { useContextMenu } from './ContextMenu'
 
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
@@ -23,6 +24,7 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
   const [loadError, setLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
+  const ctx = useContextMenu()
 
   const load = useCallback(async (offset: number) => {
     const CHUNK = 20
@@ -57,11 +59,16 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
             <button
               type="button"
               onClick={() => onOpen?.(item.path)}
-              className="w-full flex items-center gap-2 border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--palette-highlight)]"
+              onContextMenu={ctx.onContextMenu([
+                { id: 'open', label: '打开', icon: '📂', run: () => onOpen?.(item.path) },
+                { id: 'copy-path', label: '复制路径', icon: '📋', run: () => navigator.clipboard.writeText(item.path) },
+                { id: 'copy-title', label: '复制标题', icon: '📝', run: () => navigator.clipboard.writeText(item.title) },
+              ])}
+              className="w-full flex items-center gap-2 border border-[var(--color-border)] px-3 py-2 text-left hover:bg-[var(--color-layer)]"
             >
               <span
-                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                style={{ backgroundColor: TYPE_COLORS[item.type] ?? 'var(--color-text-secondary)' }}
+                className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium text-white"
+                style={{ backgroundColor: TYPE_COLORS[item.type] ?? '#6e6e73' }}
               >
                 {item.type}
               </span>
@@ -79,11 +86,12 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
         <button
           type="button"
           onClick={() => { setLoading(true); load(items.length) }}
-          className="w-full text-xs py-2 text-[var(--color-accent)] hover:bg-[var(--palette-highlight)] mt-1"
+          className="w-full text-xs py-2 text-[var(--color-link)] hover:bg-[var(--color-layer)] mt-1"
         >
           加载更多
         </button>
       )}
+      {ctx.renderMenu}
     </div>
   )
 }
