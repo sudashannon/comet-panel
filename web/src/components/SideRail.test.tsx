@@ -3,51 +3,79 @@ import { describe, it, expect, vi } from 'vitest'
 import { SideRail } from './SideRail'
 
 describe('SideRail', () => {
-  it('renders the three view icons inside view-switcher', () => {
+  it('renders navigation buttons for all views', () => {
     render(<SideRail view="changes" onSelect={() => {}} />)
-    const nav = screen.getByTestId('view-switcher')
-    expect(nav).toBeTruthy()
-    expect(screen.getByRole('button', { name: '变更列表' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '图谱' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '变更仪表盘' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '知识图谱' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '时间线' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '最近' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Lint' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '语义搜索' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '最近更新' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '文档健康' })).toBeTruthy()
   })
 
-  it('marks the active view with aria-pressed', () => {
+  it('renders active view with blue background', () => {
     render(<SideRail view="graph" onSelect={() => {}} />)
-    expect(screen.getByRole('button', { name: '图谱' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: '变更列表' }).getAttribute('aria-pressed')).toBe('false')
+    const graphBtn = screen.getByRole('button', { name: '知识图谱' })
+    expect(graphBtn.className).toContain('bg-[#0063f8]')
   })
 
-  it('calls onSelect with the view key when an icon is clicked', () => {
+  it('calls onSelect with the view key when a button is clicked', () => {
     const onSelect = vi.fn()
     render(<SideRail view="changes" onSelect={onSelect} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Lint' }))
+    fireEvent.click(screen.getByRole('button', { name: '文档健康' }))
     expect(onSelect).toHaveBeenCalledWith('lint')
   })
 
-  it('renders a disabled settings placeholder', () => {
+  it('renders a disabled settings button when no handler provided', () => {
     render(<SideRail view="changes" onSelect={() => {}} />)
     const settings = screen.getByRole('button', { name: '设置' }) as HTMLButtonElement
     expect(settings.disabled).toBe(true)
   })
 
-  it('renders a disabled bookmark placeholder when onToggleBookmarks is omitted', () => {
+  it('renders enabled settings when handler provided', () => {
+    render(<SideRail view="changes" onSelect={() => {}} onOpenSettings={() => {}} />)
+    const settings = screen.getByRole('button', { name: '设置' }) as HTMLButtonElement
+    expect(settings.disabled).toBe(false)
+  })
+
+  it('renders a disabled bookmark button when onToggleBookmarks is omitted', () => {
     render(<SideRail view="changes" onSelect={() => {}} />)
-    const star = screen.getByRole('button', { name: '收藏' }) as HTMLButtonElement
+    const star = screen.getByRole('button', { name: '收藏夹' }) as HTMLButtonElement
     expect(star.disabled).toBe(true)
   })
 
-  it('calls onToggleBookmarks when the star icon is clicked', () => {
+  it('calls onToggleBookmarks when the bookmark button is clicked', () => {
     const onToggleBookmarks = vi.fn()
     render(<SideRail view="changes" onSelect={() => {}} onToggleBookmarks={onToggleBookmarks} />)
-    fireEvent.click(screen.getByRole('button', { name: '收藏' }))
+    fireEvent.click(screen.getByRole('button', { name: '收藏夹' }))
     expect(onToggleBookmarks).toHaveBeenCalledTimes(1)
   })
 
-  it('marks the bookmark icon as pressed when the panel is open', () => {
+  it('marks the bookmark button as active when panel is open', () => {
     render(<SideRail view="changes" onSelect={() => {}} onToggleBookmarks={() => {}} bookmarkPanelOpen={true} />)
-    expect(screen.getByRole('button', { name: '收藏' }).getAttribute('aria-pressed')).toBe('true')
+    const star = screen.getByRole('button', { name: '收藏夹' })
+    expect(star.className).toContain('bg-[#0063f8]')
+  })
+
+  it('renders command palette button', () => {
+    render(<SideRail view="changes" onSelect={() => {}} onOpenPalette={() => {}} />)
+    expect(screen.getByRole('button', { name: '命令面板' })).toBeTruthy()
+  })
+
+  it('calls onOpenPalette when command palette button is clicked', () => {
+    const onOpenPalette = vi.fn()
+    render(<SideRail view="changes" onSelect={() => {}} onOpenPalette={onOpenPalette} />)
+    fireEvent.click(screen.getByRole('button', { name: '命令面板' }))
+    expect(onOpenPalette).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders zoom indicator when zoomPercent is provided', () => {
+    render(<SideRail view="changes" onSelect={() => {}} zoomPercent="90%" />)
+    expect(screen.getByText('90%')).toBeTruthy()
+  })
+
+  it('does not render zoom indicator when zoomPercent is omitted', () => {
+    render(<SideRail view="changes" onSelect={() => {}} />)
+    expect(screen.queryByText('100%')).toBeNull()
   })
 })

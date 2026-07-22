@@ -98,8 +98,12 @@ export async function fetchWikiGraph(): Promise<WikiGraphData> {
   return res.json()
 }
 
-export async function fetchRecent(): Promise<RecentItem[]> {
-  const res = await fetch('/api/wiki/recent')
+export async function fetchRecent(offset?: number, limit?: number): Promise<RecentItem[]> {
+  const params = new URLSearchParams()
+  if (offset !== undefined) params.set('offset', String(offset))
+  if (limit !== undefined) params.set('limit', String(limit))
+  const qs = params.toString() ? '?' + params.toString() : ''
+  const res = await fetch('/api/wiki/recent' + qs)
   if (!res.ok) throw new Error(`fetchRecent failed: ${res.status}`)
   return res.json()
 }

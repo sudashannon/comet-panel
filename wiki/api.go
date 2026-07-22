@@ -149,6 +149,7 @@ type recentItem struct {
 
 // HandleRecent returns the 50 most recently updated components, newest
 // first, for the sidebar's "Recent Changes" view.
+// Accepts optional ?offset= and ?limit= query params for pagination.
 func (a *API) HandleRecent(w http.ResponseWriter, r *http.Request) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -161,8 +162,22 @@ func (a *API) HandleRecent(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(all, func(i, j int) bool {
 		return all[i].UpdatedAt.After(all[j].UpdatedAt)
 	})
-	if len(all) > 50 {
-		all = all[:50]
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 50 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(all) {
+		all = nil
+	} else {
+		end := offset + limit
+		if end > len(all) {
+			end = len(all)
+		}
+		all = all[offset:end]
 	}
 	items := make([]recentItem, len(all))
 	for i, c := range all {

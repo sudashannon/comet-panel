@@ -19,6 +19,11 @@ import { SemanticSearch } from './components/SemanticSearch'
 import { ShareList } from './components/ShareList'
 import { CalendarPanel } from './components/CalendarPanel'
 import { useWikiEvents } from './hooks/useWikiEvents'
+import { CommandPalette } from './components/CommandPalette'
+import { useKeyboardShortcuts, formatShortcut } from './hooks/useKeyboardShortcuts'
+import { useCommandPalette } from './hooks/useCommandPalette'
+import { useAppZoom } from './hooks/useAppZoom'
+import type { CommandAction } from './hooks/useCommandPalette'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
 // internal counts and the KPI-filter classification below so the two can
@@ -52,6 +57,70 @@ export default function App() {
   const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false)
   const [wikiIndexing, setWikiIndexing] = useState(false)
   const [wikiIndexingChanged, setWikiIndexingChanged] = useState<number | null>(null)
+  
+  // ── Command Palette actions ─────────────────────────────────────────────
+  // Registered once; palette and shortcuts share the same action list.
+  // View names and labels intentionally match SideRail for consistency.
+  const viewLabels: Record<string, string> = {
+    changes: '变更仪表盘',
+    graph: '知识图谱',
+    timeline: '时间线',
+    search: '语义搜索',
+    recent: '最近更新',
+    lint: '文档健康检查',
+    report: '报告生成',
+    shares: '分享管理',
+    calendar: '产品日历',
+  }
+
+  const commandActions: CommandAction[] = [
+    ...Object.entries(viewLabels).map(([v, label]) => ({
+      id: `nav-${v}`,
+      label,
+      category: 'Navigation',
+      icon: '📍',
+      run: () => handleViewChange(v as typeof view),
+    })),
+    { id: 'bookmarks', label: '收藏夹', category: 'Navigation', icon: '⭐', run: () => setBookmarkPanelOpen((p) => !p) },
+    { id: 'settings', label: '设置', category: 'Navigation', icon: '⚙️', run: () => setSettingsOpen(true) },
+    { id: 'refresh', label: '刷新数据', category: 'Commands', icon: '🔄', run: () => window.location.reload() },
+  ]
+
+  const palette = useCommandPalette(commandActions)
+  const appZoom = useAppZoom()
+
+  const shortcutDefs = [
+    { key: 'k', ctrlOrCmd: true, label: '命令面板', run: () => {} },
+    { key: '1', ctrlOrCmd: true, label: '变更仪表盘', run: () => {} },
+    { key: '2', ctrlOrCmd: true, label: '知识图谱', run: () => {} },
+    { key: '3', ctrlOrCmd: true, label: '时间线', run: () => {} },
+    { key: '4', ctrlOrCmd: true, label: '语义搜索', run: () => {} },
+    { key: '5', ctrlOrCmd: true, label: '最近更新', run: () => {} },
+    { key: '6', ctrlOrCmd: true, label: '文档健康', run: () => {} },
+    { key: '7', ctrlOrCmd: true, label: '产品日历', run: () => {} },
+    { key: 'b', ctrlOrCmd: true, label: '收藏夹', run: () => {} },
+    { key: 'Escape', ctrlOrCmd: false, label: '关闭面板', run: () => {} },
+    { key: "=", ctrlOrCmd: true, label: "放大", run: () => {} },
+    { key: "-", ctrlOrCmd: true, label: "缩小", run: () => {} },
+    { key: "0", ctrlOrCmd: true, label: "重置缩放", run: () => {} },
+  ]
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────
+  useKeyboardShortcuts([
+    { key: 'k', ctrlOrCmd: true, label: '命令面板', run: () => palette.togglePalette() },
+    { key: '1', ctrlOrCmd: true, label: '变更仪表盘', run: () => handleViewChange('changes') },
+    { key: '2', ctrlOrCmd: true, label: '知识图谱', run: () => handleViewChange('graph') },
+    { key: '3', ctrlOrCmd: true, label: '时间线', run: () => handleViewChange('timeline') },
+    { key: '4', ctrlOrCmd: true, label: '语义搜索', run: () => handleViewChange('search') },
+    { key: '5', ctrlOrCmd: true, label: '最近更新', run: () => handleViewChange('recent') },
+    { key: '6', ctrlOrCmd: true, label: '文档健康', run: () => handleViewChange('lint') },
+    { key: '7', ctrlOrCmd: true, label: '产品日历', run: () => handleViewChange('calendar') },
+    { key: 'b', ctrlOrCmd: true, label: '收藏夹', run: () => setBookmarkPanelOpen((p) => !p) },
+    { key: 'Escape', ctrlOrCmd: false, label: '关闭面板', run: () => { palette.closePalette(); setViewerPath(null); setBookmarkPanelOpen(false); setSettingsOpen(false) } },
+    { key: "=", ctrlOrCmd: true, label: "放大", run: appZoom.zoomIn },
+    { key: "-", ctrlOrCmd: true, label: "缩小", run: appZoom.zoomOut },
+    { key: "0", ctrlOrCmd: true, label: "重置缩放", run: appZoom.zoomReset },
+  ])
 
   // Every SideRail view switch must close any open MarkdownViewer first —
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
@@ -176,13 +245,15 @@ export default function App() {
     : workspaceChanges
 
   return (
-    <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden relative">
+    <div className="h-screen flex bg-gradient-to-br from-[#e9eeff] via-[#f2f4fb] to-[#fdfdff] overflow-hidden relative" style={{ zoom: appZoom.zoom }}>
       <SideRail
         view={view}
         onSelect={handleViewChange}
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleBookmarks={() => setBookmarkPanelOpen((v) => !v)}
         bookmarkPanelOpen={bookmarkPanelOpen}
+        onOpenPalette={() => palette.openPalette()}
+        zoomPercent={appZoom.zoomPercent}
       />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <div className="xl:hidden flex items-center p-3 shrink-0">

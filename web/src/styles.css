@@ -3,11 +3,40 @@
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
 
-:root {
+root {
+  /* ── Semantic colors ── */
   --color-accent: #0063f8;
+  --color-accent-hover: #004ec6;
   --color-success: #16a34a;
-  --color-danger: #dc2626;
+  --color-danger: #da1e28;
   --color-warn: #c47a06;
+
+  /* ── Neutral palette ── */
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-border: #e8e8ed;
+  --color-border-hover: #c6c6cc;
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #8e8e93;
+  --color-text-tertiary: #aeaeb2;
+
+  /* ── Radii ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* ── Shadows ── */
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* ── Palette ── */
+  --palette-bg: rgba(0, 0, 0, 0.3);
+  --palette-surface: #ffffff;
+  --palette-input-border: #d0d0d5;
+  --palette-highlight: #f0f5ff;
+  --palette-match-bg: #cce0ff;
+  --palette-match-text: #004ec6;
+  --palette-separator: #e8e8ed;
 }
 
 body {

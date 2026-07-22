@@ -232,14 +232,14 @@ describe('App', () => {
     fireEvent.click(artifactButton)
     await screen.findByText('✕ 关闭')
 
-    fireEvent.click(screen.getAllByRole('button', { name: '收藏' })[1])
+    fireEvent.click(screen.getAllByRole('button', { name: '收藏' })[0])
     await waitFor(() =>
       expect(addBookmark).toHaveBeenCalledWith({ path: '/x/alpha/design.md', title: 'design.md', type: 'md' }),
     )
 
     fireEvent.click(screen.getByText('✕ 关闭'))
 
-    fireEvent.click(screen.getAllByRole('button', { name: '收藏' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: '收藏夹' })[0])
     await screen.findByTestId('bookmark-panel')
     fireEvent.click(screen.getByText('design.md'))
 
@@ -271,7 +271,7 @@ describe('App view switcher', () => {
     render(<App />)
     await screen.findByTestId('workspace-warning-banner')
 
-    fireEvent.click(screen.getByRole('button', { name: '图谱' }))
+    fireEvent.click(screen.getByRole('button', { name: '知识图谱' }))
 
     await waitFor(() => expect(fetchWikiIndex).toHaveBeenCalled())
     await waitFor(() => expect(screen.getByTestId('wiki-graph-canvas')).toBeTruthy())
@@ -286,7 +286,7 @@ describe('App view switcher', () => {
     render(<App />)
     await screen.findByTestId('workspace-warning-banner')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Lint' }))
+    fireEvent.click(screen.getByRole('button', { name: '文档健康' }))
 
     await waitFor(() => expect(fetchLintIssues).toHaveBeenCalled())
     await screen.findByText(/orphan/)
@@ -300,7 +300,7 @@ describe('App view switcher', () => {
     render(<App />)
     await screen.findByTestId('workspace-warning-banner')
 
-    fireEvent.click(screen.getByRole('button', { name: '最近' }))
+    fireEvent.click(screen.getByRole('button', { name: '最近更新' }))
 
     await waitFor(() => expect(fetchRecent).toHaveBeenCalled())
     await screen.findByText('A doc')
@@ -314,7 +314,7 @@ describe('App view switcher', () => {
     render(<App />)
     await screen.findByTestId('workspace-warning-banner')
 
-    fireEvent.click(screen.getByRole('button', { name: '最近' }))
+    fireEvent.click(screen.getByRole('button', { name: '最近更新' }))
     const recentDoc = await screen.findByText('A doc')
     expect(screen.queryByTestId('chat-bubble-button')).toBeNull()
 
@@ -332,10 +332,10 @@ describe('App view switcher', () => {
     render(<App />)
     await screen.findByTestId('workspace-warning-banner')
 
-    fireEvent.click(screen.getByRole('button', { name: '图谱' }))
+    fireEvent.click(screen.getByRole('button', { name: '知识图谱' }))
     await waitFor(() => expect(fetchWikiIndex).toHaveBeenCalled())
 
-    fireEvent.click(screen.getByRole('button', { name: '变更列表' }))
+    fireEvent.click(screen.getByRole('button', { name: '变更仪表盘' }))
     expect(screen.getByTestId('kpi-grid')).toBeTruthy()
     expect(screen.queryByTestId('wiki-graph-canvas')).toBeNull()
   })
@@ -365,7 +365,7 @@ describe('App view switcher', () => {
     fireEvent.click(artifactButton)
     await screen.findByText('✕ 关闭')
 
-    fireEvent.click(screen.getByRole('button', { name: '图谱' }))
+    fireEvent.click(screen.getByRole('button', { name: '知识图谱' }))
 
     // The viewer must be gone immediately on view switch, not just hidden
     // behind the newly-mounted 图谱 view.

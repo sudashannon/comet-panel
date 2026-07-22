@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { fetchRecent } from '../api/client'
 import type { RecentItem } from '../api/types'
 import { TYPE_COLORS } from './WikiGraph'
@@ -7,10 +7,6 @@ const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
 
-// formatRelativeTime renders a coarse, Chinese-locale "time ago" label —
-// minutes/hours/days back, falling back to a plain date once the gap
-// exceeds a week (matching how e.g. GitHub/微信 collapse old timestamps
-// instead of showing an ever-growing day count).
 function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return iso
@@ -25,23 +21,26 @@ function formatRelativeTime(iso: string): string {
 export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
   const [items, setItems] = useState<RecentItem[]>([])
   const [loadError, setLoadError] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(true)
 
-  useEffect(() => {
-    let cancelled = false
-    fetchRecent()
-      .then((data) => {
-        if (cancelled) return
-        setItems(data)
-        setLoadError(false)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setLoadError(true)
-      })
-    return () => {
-      cancelled = true
+  const load = useCallback(async (offset: number) => {
+    const CHUNK = 20
+    try {
+      const data = await fetchRecent(offset, CHUNK)
+      setItems((prev) => offset === 0 ? data : [...prev, ...data])
+      setHasMore(data.length === CHUNK)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    load(0)
+  }, [load])
 
   if (loadError) {
     return <div className="text-xs text-[#dc2626]">加载失败</div>
@@ -51,28 +50,40 @@ export function RecentPanel({ onOpen }: { onOpen?: (path: string) => void }) {
   }
 
   return (
-    <ul className="space-y-1.5 text-xs">
-      {items.map((item) => (
-        <li key={item.id}>
-          <button
-            type="button"
-            onClick={() => onOpen?.(item.path)}
-            className="w-full flex items-center gap-2 rounded-lg border border-[#e4e4e8] px-3 py-2 text-left hover:bg-[#f0f5ff]"
-          >
-            <span
-              className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-              style={{ backgroundColor: TYPE_COLORS[item.type] ?? '#6e6e73' }}
+    <div>
+      <ul className="space-y-1.5 text-xs">
+        {items.map((item) => (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => onOpen?.(item.path)}
+              className="w-full flex items-center gap-2 rounded-lg border border-[#e4e4e8] px-3 py-2 text-left hover:bg-[#f0f5ff]"
             >
-              {item.type}
-            </span>
-            <span className="flex-1 truncate font-medium">{item.title}</span>
-            <span className="shrink-0 text-[#6e6e73]">{item.workspace}</span>
-            <span className="shrink-0 tabular-nums text-[#6e6e73]">
-              {formatRelativeTime(item.updatedAt)}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+              <span
+                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                style={{ backgroundColor: TYPE_COLORS[item.type] ?? '#6e6e73' }}
+              >
+                {item.type}
+              </span>
+              <span className="flex-1 truncate font-medium">{item.title}</span>
+              <span className="shrink-0 text-[#6e6e73]">{item.workspace}</span>
+              <span className="shrink-0 tabular-nums text-[#6e6e73]">
+                {formatRelativeTime(item.updatedAt)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {loading && <div className="text-center py-2 text-xs text-[#6e6e73]">加载中…</div>}
+      {hasMore && !loading && (
+        <button
+          type="button"
+          onClick={() => { setLoading(true); load(items.length) }}
+          className="w-full text-xs py-2 text-[#0063f8] hover:bg-[#f0f5ff] rounded mt-1"
+        >
+          加载更多
+        </button>
+      )}
+    </div>
   )
 }
