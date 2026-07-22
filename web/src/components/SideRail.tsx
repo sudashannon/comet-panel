@@ -1,4 +1,4 @@
-type View = 'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares'
+type View = 'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares' | 'calendar'
 
 interface SideRailProps {
   view: View
@@ -17,6 +17,7 @@ const ITEMS: { key: View; label: string; icon: string }[] = [
   { key: 'lint', label: 'Lint', icon: '✓' },
   { key: 'report', label: '报告', icon: '📊' },
   { key: 'shares', label: '分享', icon: '🔗' },
+  { key: 'calendar', label: '日历', icon: '📅' },
 ]
 
 export function SideRail({ view, onSelect, onOpenSettings, onToggleBookmarks, bookmarkPanelOpen }: SideRailProps) {

@@ -17,6 +17,7 @@ import { ReportView } from './components/ReportView'
 import { BookmarkPanel } from './components/BookmarkPanel'
 import { SemanticSearch } from './components/SemanticSearch'
 import { ShareList } from './components/ShareList'
+import { CalendarPanel } from './components/CalendarPanel'
 import { useWikiEvents } from './hooks/useWikiEvents'
 
 // Single source of truth for the "stuck" threshold: shared by KpiCards'
@@ -36,7 +37,7 @@ export default function App() {
   // App-level view switch: 变更列表 (default) is the existing per-change
   // dashboard; 图谱/Lint are GLOBAL cross-change views over the whole wiki
   // index, so they live as siblings here rather than nested under a change.
-  const [view, setView] = useState<'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares'>('changes')
+  const [view, setView] = useState<'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares' | 'calendar'>('changes')
   // Wiki components (id -> path) so a WikiGraph node tap can open the right
   // artifact in MarkdownViewer; fetched independently of the graph view
   // itself since node ids alone don't carry a file path.
@@ -56,7 +57,7 @@ export default function App() {
   // otherwise a doc opened while viewing 变更列表/图谱 stays mounted (still
   // reading changeArtifacts/wikiComponents state from the view being left)
   // after switching to a sibling view, e.g. lingering into 报告 or Lint.
-  function handleViewChange(v: 'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares') {
+  function handleViewChange(v: 'changes' | 'graph' | 'timeline' | 'search' | 'recent' | 'lint' | 'report' | 'shares' | 'calendar') {
     setViewerPath(null)
     setView(v)
   }
@@ -369,8 +370,14 @@ export default function App() {
       )}
 
       {view === 'shares' && (
-        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <ShareList />
+        </div>
+      )}
+
+      {view === 'calendar' && (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <CalendarPanel onOpen={(path) => setViewerPath(path)} />
         </div>
       )}
       </div>

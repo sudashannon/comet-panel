@@ -137,6 +137,8 @@ func main() {
 	mux.HandleFunc("/api/wiki/summarize", wikiAPI.HandleSummarize)
 	mux.HandleFunc("/api/wiki/overview", wikiAPI.HandleOverview)
 	mux.HandleFunc("/api/wiki/search-semantic", wikiAPI.HandleSemanticSearch)
+	mux.HandleFunc("/api/wiki/calendar/month", wikiAPI.HandleCalendarMonth)
+	mux.HandleFunc("/api/wiki/calendar/day", wikiAPI.HandleCalendarDay)
 	mux.HandleFunc("/mcp", wikiAPI.HandleMCP)
 	mux.Handle("/api/wiki/events", sseHub)
 

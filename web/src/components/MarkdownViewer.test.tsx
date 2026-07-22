@@ -28,7 +28,7 @@ describe('MarkdownViewer', () => {
 
     render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
     expect(screen.getByText('body')).toBeTruthy()
   })
 
@@ -42,7 +42,7 @@ describe('MarkdownViewer', () => {
 
     render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('Real Title')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Real Title' })).toBeTruthy())
     // Frontmatter keys must not appear in the rendered document.
     expect(screen.queryByText('comet_change: foo')).toBeNull()
     expect(screen.queryByText('canonical_spec: openspec')).toBeNull()
@@ -56,7 +56,7 @@ describe('MarkdownViewer', () => {
 
     const onClose = vi.fn()
     render(<MarkdownViewer path="/x/design.md" onClose={onClose} />)
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
 
     screen.getByText('✕ 关闭').click()
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -69,7 +69,7 @@ describe('MarkdownViewer', () => {
     } as Response)
 
     render(<MarkdownViewer path="/x/design.md" onClose={vi.fn()} />)
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
 
     expect(screen.queryByRole('button', { name: '收藏' })).toBeNull()
     expect(screen.queryByRole('button', { name: '取消收藏' })).toBeNull()
@@ -85,7 +85,7 @@ describe('MarkdownViewer', () => {
     render(
       <MarkdownViewer path="/x/design.md" onClose={vi.fn()} onToggleStar={onToggleStar} isStarred={false} />,
     )
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
 
     const starButton = screen.getByRole('button', { name: '收藏' })
     expect(starButton.textContent).toBe('☆')
@@ -102,7 +102,7 @@ describe('MarkdownViewer', () => {
     render(
       <MarkdownViewer path="/x/design.md" onClose={vi.fn()} onToggleStar={vi.fn()} isStarred={true} />,
     )
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
 
     const starButton = screen.getByRole('button', { name: '取消收藏' })
     expect(starButton.textContent).toBe('⭐')
@@ -174,7 +174,7 @@ describe('MarkdownViewer', () => {
 
     const onClose = vi.fn()
     render(<MarkdownViewer path="/x/design.md" onClose={onClose} />)
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -233,7 +233,7 @@ describe('MarkdownViewer', () => {
       />,
     )
 
-    await waitFor(() => expect(screen.getByText('Hello')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
     expect(screen.queryByTestId('artifact-switcher')).toBeNull()
   })
 

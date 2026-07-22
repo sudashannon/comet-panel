@@ -2,6 +2,7 @@ package wiki
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"os"
@@ -174,6 +175,85 @@ func (a *API) HandleRecent(w http.ResponseWriter, r *http.Request) {
 			Path:      c.Path,
 		}
 	}
+	json.NewEncoder(w).Encode(items)
+}
+
+
+// HandleCalendarMonth returns a map of days that have artifacts for a given month.
+func (a *API) HandleCalendarMonth(w http.ResponseWriter, r *http.Request) {
+	year, _ := strconv.Atoi(r.URL.Query().Get("year"))
+	month, _ := strconv.Atoi(r.URL.Query().Get("month"))
+	if year == 0 || month < 1 || month > 12 {
+		today := time.Now()
+		year, month = today.Year(), int(today.Month())
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	days := make(map[string]int)
+	for id := range a.graph.components {
+		c, _ := a.graph.Component(id)
+		y, m, d := c.UpdatedAt.Date()
+		if y == year && m == time.Month(month) {
+			key := fmt.Sprintf("%04d-%02d-%02d", y, m, d)
+			days[key]++
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"year":  year,
+		"month": month,
+		"days":  days,
+	})
+}
+
+// HandleCalendarDay returns artifacts for a specific day, grouped by type.
+func (a *API) HandleCalendarDay(w http.ResponseWriter, r *http.Request) {
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		http.Error(w, "missing date", 400)
+		return
+	}
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		http.Error(w, "invalid date format, use YYYY-MM-DD", 400)
+		return
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	type item struct {
+		ID        string    `json:"id"`
+		Title     string    `json:"title"`
+		Type      string    `json:"type"`
+		Workspace string    `json:"workspace"`
+		Path      string    `json:"path"`
+		UpdatedAt time.Time `json:"updatedAt"`
+	}
+	var items []item
+	for id := range a.graph.components {
+		c, _ := a.graph.Component(id)
+		y, m, d := c.UpdatedAt.Date()
+		if y == t.Year() && m == t.Month() && d == t.Day() {
+			items = append(items, item{
+				ID: id, Title: c.Title, Type: string(c.Type),
+				Workspace: c.Workspace, Path: c.Path, UpdatedAt: c.UpdatedAt,
+			})
+		}
+	}
+	// Sort by type priority (same order as search)
+	typeOrder := map[string]int{
+		"knowledge": 0, "report": 1, "design": 2, "spec": 3,
+		"plan": 4, "proposal": 5, "tasks": 6, "change": 7,
+		"artifact": 8, "diagram": 9,
+	}
+	sort.Slice(items, func(i, j int) bool {
+		oi := typeOrder[items[i].Type]
+		oj := typeOrder[items[j].Type]
+		if oi != oj {
+			return oi < oj
+		}
+		return items[i].Title < items[j].Title
+	})
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(items)
 }
 
