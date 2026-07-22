@@ -11,14 +11,31 @@
 | 模块 | 功能 |
 |------|------|
 | 🚀 **变更仪表盘** | KPI 卡片、变更列表、进度条、多 workspace 聚合 |
+| ⌨️ **命令面板** | `Ctrl+K` 模糊搜索所有命令、`?` 快捷键速查、类别分组 |
 | 🗺️ **知识图谱** | Cytoscape 力导向图、社区检测、分组染色、节点关系可视化 |
-| 📅 **时间线** | 按时间轴展示变更诞生/归档,workspace 分行,社区染色 |
-| 🔍 **语义搜索** | Ternlight 向量 embedding + cosine 相似度 + 关键词增强,分页 |
-| ✓ **Lint** | 死链检测、孤儿节点、lifecycle gap 规则,来源文件可点击查看 |
-| 📊 **报告生成** | LLM 驱动的周报/月报(Markdown + Swiss HTML),历史管理 |
-| 💬 **AI 对话** | 流式 Chat,图谱模式(注入 2-hop 邻域 + 社区综述) |
-| ⚙️ **设置面板** | Provider/Model/API Base 配置 |
-| 🤖 **MCP Server** | Streamable HTTP 端点,6 个 tools 供 AI agent 查询知识图谱 |
+| 📅 **时间线** | Gantt 风格、阶段着色、今日标记线、周末高亮、workspace 分行 |
+| 📆 **产品日历** | 季度视图、日期产物热力图、按类型排序、点击跳转 viewer |
+| 🔍 **语义搜索** | Ternlight 向量 embedding + cosine 相似度 + 关键词增强 |
+| ✓ **文档健康** | 死链检测、孤儿节点、lifecycle gap 规则 |
+| 📊 **报告生成** | LLM 驱动的周报/月报 (Markdown + Swiss HTML), 历史管理 |
+| 💬 **AI 对话** | 流式 Chat, 图谱模式 (注入 2-hop 邻域 + 社区综述) |
+| 🖱️ **右键菜单** | 变更卡片 / 最近更新 / 日历产物右键复制路径、打开 |
+| 🔗 **分享** | 生成分享链接，可设置过期时间 |
+| ⚙️ **设置面板** | Provider / Model / API Base 配置 |
+| 🤖 **MCP Server** | Streamable HTTP 端点, 6 个 tools 供 AI agent 查询知识图谱 |
+
+---
+
+## 键盘快捷键
+
+| 快捷键 | 功能 |
+|--------|------|
+| `Ctrl+K` | 打开命令面板 |
+| `Ctrl+1~7` | 切换视图：变更/图谱/时间线/搜索/最近/文档健康/日历 |
+| `Ctrl+B` | 收藏夹开关 |
+| `Ctrl+=/-` | 放大/缩小 (50%-200%) |
+| `Ctrl+0` | 重置缩放 |
+| `Escape` | 关闭面板 / viewer / 收藏夹 |
 
 ---
 
@@ -27,6 +44,7 @@
 ```
 ┌───────────────────────────────────────────────────┐
 │  Frontend (React + Vite + Tailwind)               │
+│  Carbon Design System tokens (IBM Plex Sans)      │
 │  WikiGraph · WikiTimeline · SemanticSearch         │
 │  ChangeExplorer · ReportView · LintPanel · Chat   │
 └───────────────┬───────────────────────────────────┘
@@ -89,14 +107,14 @@
 ### 社区检测
 
 - Louvain 算法自动聚类
-- 向量质心标签(最中心成员的标题)
-- 社区综述页(LLM 生成,带缓存)
+- 向量质心标签 (最中心成员的标题)
+- 社区综述页 (LLM 生成, 带缓存)
 
 ### 增量更新
 
 - fsnotify 监控所有 workspace 目录
 - 2s debounce → 自动 rebuild
-- embedding 缓存(只 embed 新增/变更文件)
+- embedding 缓存 (只 embed 新增/变更文件)
 - SSE push → 前端自动刷新
 
 ---
@@ -106,22 +124,22 @@
 - **后端**: Ternlight (`@ternlight/base`, 7MB, 384 维) 通过 Bun 调用
 - **排序**: cosine similarity + 标题关键词 boost (+30%)
 - **Fallback**: 向量无结果时自动转标题子串匹配
-- **性能**: embedding 缓存命中后 rebuild 4s;搜索 <300ms
+- **性能**: embedding 缓存命中后 rebuild 4s; 搜索 <300ms
 
 ---
 
 ## 报告生成
 
-- **周报**: Markdown 格式,按 workspace×主题分组,列关键成果
-- **月报**: Swiss-style 单页 HTML,KPI 卡片 + 主题摘要
-- **LLM 驱动**: 使用已配置的 provider (MiniMax/Claude/OpenAI)
-- **历史管理**: 持久化到 `~/.comet-panel/reports/`,支持查看/下载/删除
+- **周报**: Markdown 格式, 按 workspace × 主题分组, 列关键成果
+- **月报**: Swiss-style 单页 HTML, KPI 卡片 + 主题摘要
+- **LLM 驱动**: 使用已配置的 provider (MiniMax / Claude / OpenAI)
+- **历史管理**: 持久化到 `~/.comet-panel/reports/`, 支持查看/下载/删除
 
 ---
 
 ## MCP Server
 
-Comet Panel 内嵌 MCP (Model Context Protocol) Streamable HTTP 端点,让 AI agent 直接查询知识图谱。
+Comet Panel 内嵌 MCP (Model Context Protocol) Streamable HTTP 端点, 让 AI agent 直接查询知识图谱。
 
 **端点**: `POST http://localhost:8989/mcp`
 
@@ -180,7 +198,7 @@ systemctl --user enable --now comet-panel
 
 ### 配置 Workspace
 
-通过 UI 添加,或直接编辑 `~/.comet-panel/workspaces.yaml`:
+通过 UI 添加, 或直接编辑 `~/.comet-panel/workspaces.yaml`:
 
 ```yaml
 workspaces:
@@ -193,7 +211,7 @@ workspaces:
 
 ### 配置 LLM Provider
 
-UI 设置面板,或编辑 `~/.comet-ui/config.json`:
+UI 设置面板, 或编辑 `~/.comet-ui/config.json`:
 
 ```json
 {
@@ -225,7 +243,7 @@ tags: [orin, quantization]
 # 正文...
 ```
 
-不在 `knowledge/` 目录的文件,加 `wiki: true` frontmatter 也可以被追踪:
+不在 `knowledge/` 目录的文件, 加 `wiki: true` frontmatter 也可以被追踪:
 
 ```markdown
 ---
@@ -245,7 +263,7 @@ tags: [architecture, decision]
 | `/api/changes` | GET | 变更列表 |
 | `/api/changes/:name` | GET | 变更详情 |
 | `/api/artifact` | GET | 读取文档内容 |
-| `/api/chat/message` | POST | AI 对话(流式) |
+| `/api/chat/message` | POST | AI 对话 (流式) |
 | `/api/chat/config` | GET/PUT | Chat 配置 |
 | `/api/report` | POST | 生成报告 |
 | `/api/reports` | GET | 报告历史 |
@@ -257,6 +275,9 @@ tags: [architecture, decision]
 | `/api/wiki/rebuild` | POST | 重建索引 |
 | `/api/wiki/lint` | GET | Lint 问题 |
 | `/api/wiki/overview` | GET | 社区综述 |
+| `/api/wiki/recent` | GET | 最近更新 (支持 ?offset=&limit=) |
+| `/api/wiki/calendar/month` | GET | 日历月视图 (?year=&month=) |
+| `/api/wiki/calendar/day` | GET | 日历日视图 (?date=) |
 | `/api/wiki/events` | GET (SSE) | 实时更新推送 |
 | `/mcp` | POST | MCP JSON-RPC 端点 |
 
@@ -268,6 +289,7 @@ tags: [architecture, decision]
 |---|------|
 | 后端 | Go 1.22+, 单二进制 |
 | 前端 | React 18, Vite, Tailwind CSS, Cytoscape.js |
+| 设计 | IBM Carbon Design System tokens, IBM Plex Sans 字体 |
 | Embedding | Ternlight (@ternlight/base, Bun runtime) |
 | 图算法 | Louvain 社区检测, BM25 (标签), Cosine similarity |
 | 文件监控 | fsnotify |
