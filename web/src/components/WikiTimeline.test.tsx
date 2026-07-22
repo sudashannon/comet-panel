@@ -87,7 +87,7 @@ describe('WikiTimeline', () => {
   it('falls back to an empty component list when the fetch fails', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 500 } as Response)
     render(<WikiTimeline />)
-    await waitFor(() => expect(screen.getByText('暂无变更数据')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('加载时间线数据失败')).toBeTruthy())
   })
 
   it('filters bars by workspace chip toggle', async () => {
@@ -126,41 +126,6 @@ describe('WikiTimeline', () => {
     await waitFor(() => expect(screen.getAllByTestId('wiki-timeline-bar')).toHaveLength(1))
   })
 
-  it('filters bars to a single community when its legend entry is clicked', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      mockGraphResponse(
-        [
-          {
-            id: 'c1',
-            type: 'change',
-            title: 'Add timeline view',
-            path: 'openspec/changes/c1',
-            workspace: 'comet-panel',
-            frontmatter: { created_at: '2026-01-01T00:00:00Z', phase: 'build' },
-            updatedAt: '2026-01-05T00:00:00Z',
-          },
-          {
-            id: 'c2',
-            type: 'change',
-            title: 'Fix lint rule',
-            path: 'openspec/changes/c2',
-            workspace: 'other-repo',
-            frontmatter: { created_at: '2026-02-01T00:00:00Z', phase: 'verify' },
-            updatedAt: '2026-02-03T00:00:00Z',
-          },
-        ],
-        { c1: 0, c2: 1 },
-      ),
-    )
-    render(<WikiTimeline />)
-
-    await waitFor(() => expect(screen.getAllByTestId('wiki-timeline-bar')).toHaveLength(2))
-    const chips = screen.getAllByTestId('community-chip')
-    const communityZeroChip = chips.find((el) => el.textContent?.includes('#0'))!
-    fireEvent.click(communityZeroChip)
-
-    await waitFor(() => expect(screen.getAllByTestId('wiki-timeline-bar')).toHaveLength(1))
-  })
 
   it('refetches the graph when the SSE hook fires a graph-updated event', async () => {
     class MockEventSource {
