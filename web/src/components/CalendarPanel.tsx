@@ -78,13 +78,13 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
 
     return (
       <div key={data.month} className="bg-white border border-[#e8e8ed] rounded-xl overflow-hidden">
-        <div className="text-center text-[13px] font-bold py-2.5 bg-[#f5f5f7] border-b border-[#e8e8ed]">
+        <div className="text-center text-[13px] font-bold py-2 bg-[#f5f5f7] border-b border-[#e8e8ed]">
           {data.year}年{monthNames[data.month-1]}
         </div>
-        <div className="grid grid-cols-7 text-center text-[10px] text-[#8e8e93] pt-1.5 pb-0.5">
+        <div className="grid grid-cols-7 text-center text-[10px] text-[#8e8e93] pt-1 pb-0">
           {WEEKDAYS.map((w) => <span key={w}>{w}</span>)}
         </div>
-        <div className="grid grid-cols-7 text-center px-1.5 pb-2">
+        <div className="grid grid-cols-7 text-center px-1 pb-1.5">
           {days.map((d, i) => {
             if (d === null) return <span key={`e${i}`} className="aspect-square" />
             const dateKey = `${data.year}-${String(data.month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
@@ -96,7 +96,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
                 key={d}
                 type="button"
                 onClick={() => handleSelect(dateKey)}
-                className={`aspect-square flex flex-col items-center justify-center text-[12px] rounded-md relative transition-colors
+                className={`aspect-square flex flex-col items-center justify-center text-[13px] rounded-md relative transition-colors
                   ${isSel ? 'bg-[#0063f8] text-white font-bold' : isToday ? 'text-[#0063f8] font-bold' : 'hover:bg-[#f0f5ff]'}
                 `}
               >
@@ -113,7 +113,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-3 space-y-3">
       <div className="flex items-center justify-between">
         <button onClick={prevQuarter} className="text-sm px-3 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">← 上一季度</button>
         <h2 className="text-sm font-bold text-[#1d1d1f]">
@@ -122,7 +122,7 @@ export function CalendarPanel({ onOpen }: CalendarPanelProps) {
         <button onClick={nextQuarter} className="text-sm px-3 py-1 rounded border border-[#e8e8ed] hover:bg-[#f0f5ff]">下一季度 →</button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {months.map(renderMonth)}
       </div>
 
