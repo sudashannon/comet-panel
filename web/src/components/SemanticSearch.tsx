@@ -15,6 +15,16 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
   const [results, setResults] = useState<SemanticSearchResult[]>([])
   const [loadError, setLoadError] = useState(false)
   const [page, setPage] = useState(0)
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
+  const types = useMemo(() => {
+    const seen = new Set<string>()
+    for (const r of results) seen.add(r.type)
+    return Array.from(seen).sort()
+  }, [results])
+  const filteredResults = useMemo(
+    () => typeFilter ? results.filter(r => r.type === typeFilter) : results,
+    [results, typeFilter]
+  )
   const debounceRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
@@ -32,6 +42,7 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
           setResults(data)
           setLoadError(false)
           setPage(0)
+          setTypeFilter(null)
         })
         .catch(() => {
           setResults([])
@@ -43,10 +54,10 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
     }
   }, [query])
 
-  const totalPages = Math.ceil(results.length / PAGE_SIZE)
+  const totalPages = Math.ceil(filteredResults.length / PAGE_SIZE)
   const pageResults = useMemo(
-    () => results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [results, page],
+    () => filteredResults.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [filteredResults, page],
   )
 
   return (
@@ -64,9 +75,37 @@ export function SemanticSearch({ onNodeClick }: SemanticSearchProps) {
         <div className="text-[#6e6e73]">无匹配结果</div>
       )}
       {results.length > 0 && (
-        <div className="text-[#6e6e73]">
-          共 {results.length} 条结果
-        </div>
+        <>
+          <div className="text-[#6e6e73]">共 {results.length} 条结果</div>
+          {types.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                aria-pressed={typeFilter === null}
+                onClick={() => { setTypeFilter(null); setPage(0) }}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                  typeFilter === null
+                    ? 'bg-[#0063f8] text-white'
+                    : 'bg-[#f0f0ee] text-[#6e6e73] hover:bg-[#e4e4e8]'
+                }`}
+              >全部</button>
+              {types.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={typeFilter === t}
+                  onClick={() => { setTypeFilter(typeFilter === t ? null : t); setPage(0) }}
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                    typeFilter === t
+                      ? 'text-white'
+                      : 'bg-[#f0f0ee] text-[#6e6e73] hover:bg-[#e4e4e8]'
+                  }`}
+                  style={typeFilter === t ? { backgroundColor: TYPE_COLORS[t] ?? '#6e6e73' } : undefined}
+                >{t}</button>
+              ))}
+            </div>
+          )}
+        </>
       )}
       <ul className="space-y-1.5">
         {pageResults.map((item) => (
