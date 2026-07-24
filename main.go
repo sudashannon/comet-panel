@@ -89,6 +89,7 @@ func main() {
 	// tens of seconds on a large repo. Run it in the background so
 	// ListenAndServe below binds immediately instead of leaving the
 	// dashboard unreachable for the whole scan; HandleIndex/HandleLint
+	mux.HandleFunc("/api/wiki/fix-dead-links", wikiAPI.HandleFixDeadLinks)
 	// serve `[]` off the empty graph from NewAPIWithWorkspacesAsync until
 	// this swaps in the built one.
 	watcher := wiki.NewWatcher(wikiAPI, "scripts/embed.ts")

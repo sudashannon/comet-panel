@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -339,5 +340,208 @@ func TestHandleGraph_ReturnsComponentsAndEdges(t *testing.T) {
 	}
 	if !foundImplements {
 		t.Fatalf("expected an 'implements' edge among %+v", resp.Edges)
+	}
+}
+
+func TestHandleFixDeadLinksRewritesExactMarkdownDestinationsAndRefreshesGraph(t *testing.T) {
+	root := t.TempDir()
+	sourcePath := filepath.Join(root, "lz100", "reports", "source.md")
+	oldPath := filepath.Join(root, "lz100", "secure", "v2", "LZ100_产线生产与密钥预置方案设计.md")
+	newPath := filepath.Join(root, "lz100", "knowledge", "LZ100_产线生产与密钥预置方案设计.md")
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	encodedOld := (&url.URL{Path: oldPath}).EscapedPath()
+	source := strings.Join([]string{
+		"[relative](../secure/v2/LZ100_产线生产与密钥预置方案设计.md)",
+		"[absolute](" + oldPath + ")",
+		"[encoded](file://" + encodedOld + ")",
+		"`[not a link](" + oldPath + ")`",
+	}, "\n")
+	if err := os.WriteFile(sourcePath, []byte(source), 0o640); err != nil {
+		t.Fatal(err)
+	}
+
+	component := Component{ID: sourcePath, Path: sourcePath, Type: TypeSpec, Workspace: "test"}
+	oldEdges, err := ExtractMarkdownLinks(component)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(oldEdges) != 3 {
+		t.Fatalf("expected three links to repair, got %d", len(oldEdges))
+	}
+	api := NewAPI(BuildGraph(
+		[]Component{
+			component,
+			{ID: newPath, Path: newPath, Type: TypeSpec, Workspace: "test"},
+		},
+		oldEdges,
+	))
+
+	body, err := json.Marshal([]fixDeadLinkRequest{{SourceID: sourcePath, OldPath: oldPath, NewPath: newPath}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/wiki/fix-dead-links", strings.NewReader(string(body)))
+	w := httptest.NewRecorder()
+	api.HandleFixDeadLinks(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var response struct {
+		Results []fixDeadLinkResult `json:"results"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Results) != 1 || !response.Results[0].Fixed {
+		t.Fatalf("expected successful repair, got %+v", response.Results)
+	}
+
+	updated, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedNew := (&url.URL{Path: newPath}).EscapedPath()
+	for _, want := range []string{
+		"[relative](../knowledge/LZ100_产线生产与密钥预置方案设计.md)",
+		"[absolute](" + newPath + ")",
+		"[encoded](file://" + encodedNew + ")",
+		"`[not a link](" + oldPath + ")`",
+	} {
+		if !strings.Contains(string(updated), want) {
+			t.Errorf("repaired source missing %q:\n%s", want, updated)
+		}
+	}
+
+	for _, edge := range api.graph.Forward(sourcePath) {
+		if edge.To == oldPath {
+			t.Fatalf("stale dead-link edge remained after repair: %+v", edge)
+		}
+		if edge.To != newPath {
+			t.Fatalf("unexpected repaired edge: %+v", edge)
+		}
+	}
+}
+
+func TestHandleFixDeadLinksRewritesYAMLArtifactReferencesAndRefreshesGraph(t *testing.T) {
+	root := t.TempDir()
+	openspec := filepath.Join(root, "openspec")
+	sourcePath := filepath.Join(openspec, "changes", "archive", "moved-change", ".comet.yaml")
+	oldPath := filepath.Join(openspec, "changes", "moved-change", "design.md")
+	newPath := filepath.Join(openspec, "changes", "archive", "moved-change", "design.md")
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sourcePath, []byte("design_doc: openspec/changes/moved-change/design.md\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+
+	component := Component{ID: sourcePath, Path: sourcePath, Type: TypeChange, Workspace: "test"}
+	oldEdges, err := ExtractYAMLLinks(filepath.Dir(sourcePath), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := NewAPI(BuildGraph(
+		[]Component{
+			component,
+			{ID: newPath, Path: newPath, Type: TypeDesign, Workspace: "test"},
+		},
+		oldEdges,
+	))
+	api.ws = []WorkspaceConfig{{Alias: "test", Path: openspec}}
+
+	body, err := json.Marshal([]fixDeadLinkRequest{{SourceID: sourcePath, OldPath: oldPath, NewPath: newPath}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	api.HandleFixDeadLinks(w, httptest.NewRequest(http.MethodPost, "/api/wiki/fix-dead-links", strings.NewReader(string(body))))
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var response struct {
+		Results []fixDeadLinkResult `json:"results"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Results) != 1 || !response.Results[0].Fixed {
+		t.Fatalf("expected successful repair, got %+v", response.Results)
+	}
+	updated, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "design_doc: openspec/changes/archive/moved-change/design.md\n"; string(updated) != want {
+		t.Fatalf("unexpected repaired YAML: got %q, want %q", updated, want)
+	}
+	edges := api.graph.Forward(sourcePath)
+	if len(edges) != 1 || edges[0].To != newPath || edges[0].Source != "yaml" {
+		t.Fatalf("unexpected refreshed edges: %+v", edges)
+	}
+}
+
+func TestHandleFixDeadLinksRepairsMultipleYAMLFieldsFromOneSource(t *testing.T) {
+	root := t.TempDir()
+	openspec := filepath.Join(root, "openspec")
+	sourcePath := filepath.Join(openspec, "changes", "archive", "moved-change", ".comet.yaml")
+	oldDesign := filepath.Join(openspec, "changes", "moved-change", "design.md")
+	newDesign := filepath.Join(openspec, "changes", "archive", "moved-change", "design.md")
+	oldVerification := filepath.Join(openspec, "changes", "moved-change", "verification-report.md")
+	newVerification := filepath.Join(openspec, "changes", "archive", "moved-change", "verification-report.md")
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source := "design_doc: openspec/changes/moved-change/design.md\n" +
+		"verification_report: openspec/changes/moved-change/verification-report.md\n"
+	if err := os.WriteFile(sourcePath, []byte(source), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	component := Component{ID: sourcePath, Path: sourcePath, Type: TypeChange, Workspace: "test"}
+	oldEdges, err := ExtractYAMLLinks(filepath.Dir(sourcePath), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := NewAPI(BuildGraph(
+		[]Component{
+			component,
+			{ID: newDesign, Path: newDesign, Type: TypeDesign, Workspace: "test"},
+			{ID: newVerification, Path: newVerification, Type: TypeSpec, Workspace: "test"},
+		},
+		oldEdges,
+	))
+	api.ws = []WorkspaceConfig{{Alias: "test", Path: openspec}}
+
+	body, err := json.Marshal([]fixDeadLinkRequest{
+		{SourceID: sourcePath, OldPath: oldDesign, NewPath: newDesign},
+		{SourceID: sourcePath, OldPath: oldVerification, NewPath: newVerification},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	api.HandleFixDeadLinks(w, httptest.NewRequest(http.MethodPost, "/api/wiki/fix-dead-links", strings.NewReader(string(body))))
+	var response struct {
+		Results []fixDeadLinkResult `json:"results"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Results) != 2 || !response.Results[0].Fixed || !response.Results[1].Fixed {
+		t.Fatalf("expected both repairs to succeed, got %+v", response.Results)
+	}
+	updated, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "design_doc: openspec/changes/archive/moved-change/design.md\n" +
+		"verification_report: openspec/changes/archive/moved-change/verification-report.md\n"
+	if string(updated) != want {
+		t.Fatalf("unexpected repaired YAML: got %q, want %q", updated, want)
+	}
+	edges := api.graph.Forward(sourcePath)
+	if len(edges) != 2 || edges[0].To == oldDesign || edges[1].To == oldVerification {
+		t.Fatalf("unexpected refreshed edges: %+v", edges)
 	}
 }

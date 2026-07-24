@@ -6,6 +6,34 @@ import { GraphFilters } from './GraphFilters'
 import { useWikiEvents } from '../hooks/useWikiEvents'
 
 /**
+ * Resolves a CSS color expression (var(), color-mix(), or plain hex) to a
+ * concrete color value usable on Canvas. CSS custom properties and color-mix()
+ * work in DOM styling but Canvas fillStyle/strokeStyle needs a resolved color
+ * string (e.g. "rgb(15, 98, 254)").
+ *
+ * Uses a cached hidden element: sets the expression as color, reads the
+ * computed value via getComputedStyle, then clears it.
+ */
+let _resolveEl: HTMLDivElement | null = null
+const _resolveCache = new Map<string, string>()
+function resolveCSSColor(expr: string): string {
+  const cached = _resolveCache.get(expr)
+  if (cached !== undefined) return cached
+  if (!_resolveEl) {
+    _resolveEl = document.createElement('div')
+    _resolveEl.style.display = 'none'
+    document.body.appendChild(_resolveEl)
+  }
+  const supportsColorMix = CSS.supports('color', 'color-mix(in srgb, red, blue)')
+  const testExpr = supportsColorMix ? expr : expr.replace(/color-mix\([^)]+\)/g, 'var(--color-text-secondary)')
+  _resolveEl.style.color = testExpr
+  const resolved = getComputedStyle(_resolveEl).color
+  _resolveEl.style.color = ''
+  _resolveCache.set(expr, resolved)
+  return resolved
+}
+
+/**
  * Color legend for the 8 WikiComponent types shown in the WikiGraph force-directed view.
  *
  * Reused categories map to the app's semantic CSS variables; the remaining
@@ -56,6 +84,22 @@ export const COMMUNITY_COLORS = [
   'color-mix(in srgb, var(--color-danger) 70%, var(--color-surface))',
   'color-mix(in srgb, var(--color-warn) 70%, var(--color-surface))',
 ]
+
+// Canvas-resolved equivalents of the CSS-variable-based color maps above.
+// CSS var() and color-mix() do not work in Canvas fillStyle/strokeStyle, so
+// every value used in a cytoscape style must be pre-resolved via the browser's
+// CSS engine.
+const R_TYPE_COLORS = Object.fromEntries(
+  Object.entries(TYPE_COLORS).map(([k, v]) => [k, resolveCSSColor(v)]),
+)
+const R_EDGE_COLORS = Object.fromEntries(
+  Object.entries(EDGE_COLORS).map(([k, v]) => [k, resolveCSSColor(v)]),
+)
+const R_EDGE_FALLBACK_COLOR = resolveCSSColor(EDGE_FALLBACK_COLOR)
+const R_COMMUNITY_COLORS = COMMUNITY_COLORS.map(resolveCSSColor)
+const R_TEXT_PRIMARY = resolveCSSColor('var(--color-text-primary)')
+const R_ACCENT = resolveCSSColor('var(--color-accent)')
+const R_SURFACE = resolveCSSColor('var(--color-surface)')
 
 const POLL_INTERVAL_MS = 3000
 const MAX_POLL_ATTEMPTS = 20
@@ -242,10 +286,10 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
         ...visible.map((c) => {
           const commColor =
             communities[c.id] != null && communities[c.id] >= 0
-              ? COMMUNITY_COLORS[communities[c.id] % COMMUNITY_COLORS.length]
-              : 'var(--color-surface)'
+              ? R_COMMUNITY_COLORS[communities[c.id] % R_COMMUNITY_COLORS.length]
+              : R_SURFACE
           return {
-            data: { id: c.id, label: c.title, color: TYPE_COLORS[c.type] ?? 'var(--color-text-secondary)', commColor },
+            data: { id: c.id, label: c.title, color: R_TYPE_COLORS[c.type] ?? R_EDGE_FALLBACK_COLOR, commColor },
           }
         }),
         ...visibleEdges.map((e, i) => ({
@@ -254,7 +298,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             source: e.from,
             target: e.to,
             kind: e.kind,
-            color: EDGE_COLORS[e.kind] ?? EDGE_FALLBACK_COLOR,
+            color: R_EDGE_COLORS[e.kind] ?? R_EDGE_FALLBACK_COLOR,
           },
         })),
       ],
@@ -266,7 +310,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
             label: 'data(label)',
             'font-size': 7,
             'min-zoomed-font-size': 9,
-            color: 'var(--color-text-primary)',
+            color: R_TEXT_PRIMARY,
             'text-valign': 'bottom',
             'text-margin-y': 3,
             'text-wrap': 'ellipsis',
@@ -281,7 +325,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           selector: 'node.hovered',
           style: {
             'border-width': 2.5,
-            'border-color': 'var(--color-accent)',
+            'border-color': R_ACCENT,
           },
         },
         {
@@ -315,7 +359,7 @@ export function WikiGraph({ onNodeClick }: { onNodeClick: (id: string) => void }
           selector: 'node.search-match',
           style: {
             'border-width': 3,
-            'border-color': 'var(--color-accent)',
+            'border-color': R_ACCENT,
             'z-index': 10,
           },
         },

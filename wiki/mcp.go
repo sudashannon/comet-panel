@@ -53,7 +53,7 @@ type mcpToolResult struct {
 var mcpTools = []mcpTool{
 	{
 		Name:        "wiki_search",
-		Description: "语义搜索工程文档。输入自然语言查询,返回最相关的组件列表(按相似度排序)。",
+		Description: "语义搜索工程文档。输入自然语言查询,返回最相关的组件列表(按相似度排序)。建议对感兴趣的结果继续调用 wiki_neighbors 查看其图谱关联。",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -75,7 +75,7 @@ var mcpTools = []mcpTool{
 	},
 	{
 		Name:        "wiki_neighbors",
-		Description: "查看某个组件的2-hop图谱邻居(直接关联 + 间接关联),了解该组件在知识图谱中的位置。",
+		Description: "查看某个组件的2-hop图谱邻居(直接关联 + 间接关联),了解该组件在知识图谱中的位置。通常在 wiki_search 找到相关文档后使用,可以发现内容不相似但图谱上关联的文档。",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

@@ -66,6 +66,60 @@ func ExtractYAMLLinks(changeDir, root string) ([]Edge, error) {
 	return edges, nil
 }
 
+// rewriteYAMLArtifactReferences updates artifact fields that resolve to
+// oldPath, using the same workspace-relative convention as ExtractYAMLLinks.
+func rewriteYAMLArtifactReferences(content, root, changeDir, oldPath, newPath string) (string, bool) {
+	oldPath = filepath.Clean(oldPath)
+	newPath = filepath.Clean(newPath)
+	fields := map[string]bool{
+		"design_doc":          true,
+		"plan":                true,
+		"verification_report": true,
+	}
+
+	var rewritten strings.Builder
+	rewritten.Grow(len(content))
+	changed := false
+	for _, line := range strings.SplitAfter(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		parts := strings.SplitN(trimmed, ":", 2)
+		if len(parts) != 2 || !fields[strings.TrimSpace(parts[0])] {
+			rewritten.WriteString(line)
+			continue
+		}
+		value := strings.TrimSpace(parts[1])
+		if value == "" || value == "null" || value == "~" ||
+			filepath.Clean(pathresolve.ResolveArtifactPath(value, root, changeDir)) != oldPath {
+			rewritten.WriteString(line)
+			continue
+		}
+		valueOffset := strings.Index(line, value)
+		if valueOffset < 0 {
+			rewritten.WriteString(line)
+			continue
+		}
+		rewritten.WriteString(line[:valueOffset])
+		rewritten.WriteString(yamlArtifactReference(value, root, changeDir, newPath))
+		rewritten.WriteString(line[valueOffset+len(value):])
+		changed = true
+	}
+	if !changed {
+		return content, false
+	}
+	return rewritten.String(), true
+}
+
+func yamlArtifactReference(oldReference, root, changeDir, newPath string) string {
+	if !strings.Contains(oldReference, "/") && filepath.Dir(newPath) == changeDir {
+		return filepath.Base(newPath)
+	}
+	relative, err := filepath.Rel(root, newPath)
+	if err != nil {
+		return oldReference
+	}
+	return filepath.ToSlash(relative)
+}
+
 // ExtractMarkdownLinks parses [text](path) links and ![alt](path) images out
 // of a component's source file and resolves relative paths against the
 // file's own directory — standard markdown semantics. filepath.Join +
@@ -104,34 +158,16 @@ func ExtractMarkdownLinks(component Component) ([]Edge, error) {
 		default:
 			return ast.WalkContinue, nil
 		}
-		d := string(dest)
-		if d == "" || strings.HasPrefix(d, "http://") || strings.HasPrefix(d, "https://") ||
-			strings.HasPrefix(d, "#") || strings.HasPrefix(d, "mailto:") {
+		target, ok := resolveMarkdownDestination(fileDir, string(dest))
+		if !ok {
 			return ast.WalkContinue, nil
 		}
-		// Strip fragment anchor (#L164-L185, #section, etc.)
-		if idx := strings.IndexByte(d, '#'); idx > 0 {
-			d = d[:idx]
-		}
-		// URL-decode percent-encoded paths (%E4%BA%A7 → 产)
-		if strings.Contains(d, "%") {
-			if decoded, err := url.PathUnescape(d); err == nil {
-				d = decoded
-			}
-		}
-		// Handle file: and file:// URI scheme (VS Code / Obsidian absolute links)
-		if strings.HasPrefix(d, "file:///") {
-			d = d[len("file://"):]
-		} else if strings.HasPrefix(d, "file://") {
-			d = d[len("file://"):]
-		} else if strings.HasPrefix(d, "file:") {
-			d = d[len("file:"):]
-		}
-		var target string
-		if filepath.IsAbs(d) {
-			target = filepath.Clean(d)
-		} else {
-			target = filepath.Clean(filepath.Join(fileDir, d))
+		// Only create edges for wiki-tracked targets: .md files, directories
+		// (may contain .comet.yaml), and embedded images. .yaml/.json config
+		// files and source code are outside the knowledge graph's scope.
+		ext := strings.ToLower(filepath.Ext(target))
+		if ext != "" && ext != ".md" && ext != ".png" && ext != ".jpg" && ext != ".svg" && ext != ".webp" && ext != ".pdf" {
+			return ast.WalkContinue, nil
 		}
 		edges = append(edges, Edge{
 			From:   component.Path,
@@ -143,6 +179,168 @@ func ExtractMarkdownLinks(component Component) ([]Edge, error) {
 	})
 
 	return edges, nil
+}
+
+func resolveMarkdownDestination(fileDir, destination string) (string, bool) {
+	d := destination
+	if d == "" || strings.HasPrefix(d, "http://") || strings.HasPrefix(d, "https://") ||
+		strings.HasPrefix(d, "#") || strings.HasPrefix(d, "mailto:") {
+		return "", false
+	}
+	if idx := strings.IndexByte(d, '#'); idx > 0 {
+		d = d[:idx]
+	}
+	if strings.Contains(d, "%") {
+		if decoded, err := url.PathUnescape(d); err == nil {
+			d = decoded
+		}
+	}
+	if strings.HasPrefix(d, "file:///") {
+		d = d[len("file://"):]
+	} else if strings.HasPrefix(d, "file://") {
+		d = d[len("file://"):]
+	} else if strings.HasPrefix(d, "file:") {
+		d = d[len("file:"):]
+	}
+	if filepath.IsAbs(d) {
+		return filepath.Clean(d), true
+	}
+	return filepath.Clean(filepath.Join(fileDir, d)), true
+}
+
+// rewriteMarkdownLinkDestinations updates only link destinations whose
+// resolved target is oldPath. It leaves prose and inline code untouched.
+func rewriteMarkdownLinkDestinations(sourcePath, content, oldPath, newPath string) (string, bool) {
+	fileDir := filepath.Dir(sourcePath)
+	oldPath = filepath.Clean(oldPath)
+	newPath = filepath.Clean(newPath)
+
+	var rewritten strings.Builder
+	rewritten.Grow(len(content))
+	start, cursor := 0, 0
+	changed := false
+	for cursor < len(content) {
+		linkOffset := strings.Index(content[cursor:], "](")
+		codeOffset := strings.IndexByte(content[cursor:], '`')
+		if codeOffset >= 0 && (linkOffset < 0 || codeOffset < linkOffset) {
+			codeStart := cursor + codeOffset
+			runLength := 1
+			for codeStart+runLength < len(content) && content[codeStart+runLength] == '`' {
+				runLength++
+			}
+			closeOffset := strings.Index(content[codeStart+runLength:], strings.Repeat("`", runLength))
+			if closeOffset < 0 {
+				break
+			}
+			cursor = codeStart + runLength + closeOffset + runLength
+			continue
+		}
+		if linkOffset < 0 {
+			break
+		}
+		open := cursor + linkOffset
+		valueStart, valueEnd, close, ok := markdownLinkDestinationBounds(content, open+2)
+		if !ok {
+			cursor = open + 2
+			continue
+		}
+		target, resolves := resolveMarkdownDestination(fileDir, content[valueStart:valueEnd])
+		if !resolves || target != oldPath {
+			cursor = close + 1
+			continue
+		}
+		rewritten.WriteString(content[start:valueStart])
+		rewritten.WriteString(markdownDestinationForTarget(content[valueStart:valueEnd], fileDir, newPath))
+		start = valueEnd
+		cursor = close + 1
+		changed = true
+	}
+	if !changed {
+		return content, false
+	}
+	rewritten.WriteString(content[start:])
+	return rewritten.String(), true
+}
+
+// markdownLinkDestinationBounds returns the destination's byte range and the
+// closing parenthesis for the basic inline-link forms emitted by this project.
+func markdownLinkDestinationBounds(content string, start int) (valueStart, valueEnd, close int, ok bool) {
+	if start >= len(content) {
+		return 0, 0, 0, false
+	}
+	if content[start] == '<' {
+		end := strings.IndexByte(content[start+1:], '>')
+		if end < 0 {
+			return 0, 0, 0, false
+		}
+		valueStart, valueEnd = start+1, start+1+end
+		close = valueEnd + 1
+		for close < len(content) && (content[close] == ' ' || content[close] == '\t') {
+			close++
+		}
+		return valueStart, valueEnd, close, close < len(content) && content[close] == ')'
+	}
+
+	depth := 0
+	for i := start; i < len(content); i++ {
+		switch content[i] {
+		case '\\':
+			i++
+		case '\n', '\r', ' ', '\t':
+			return 0, 0, 0, false
+		case '(':
+			depth++
+		case ')':
+			if depth == 0 {
+				return start, i, i, true
+			}
+			depth--
+		}
+	}
+	return 0, 0, 0, false
+}
+
+func markdownDestinationForTarget(raw, fileDir, newPath string) string {
+	prefix, path := "", raw
+	switch {
+	case strings.HasPrefix(path, "file:///"):
+		prefix, path = "file://", path[len("file://"):]
+	case strings.HasPrefix(path, "file://"):
+		prefix, path = "file://", path[len("file://"):]
+	case strings.HasPrefix(path, "file:"):
+		prefix, path = "file:", path[len("file:"):]
+	}
+
+	var destination string
+	if prefix != "" || filepath.IsAbs(path) {
+		destination = newPath
+	} else {
+		relative, err := filepath.Rel(fileDir, newPath)
+		if err != nil {
+			return raw
+		}
+		destination = filepath.ToSlash(relative)
+		if strings.HasPrefix(path, "./") && destination != "." && !strings.HasPrefix(destination, "../") {
+			destination = "./" + destination
+		}
+	}
+	if containsPercentEscape(raw) {
+		destination = (&url.URL{Path: destination}).EscapedPath()
+	}
+	return prefix + destination
+}
+
+func containsPercentEscape(s string) bool {
+	for i := 0; i+2 < len(s); i++ {
+		if s[i] == '%' && isHexDigit(s[i+1]) && isHexDigit(s[i+2]) {
+			return true
+		}
+	}
+	return false
+}
+
+func isHexDigit(b byte) bool {
+	return b >= '0' && b <= '9' || b >= 'a' && b <= 'f' || b >= 'A' && b <= 'F'
 }
 
 var taskArtifactRe = regexp.MustCompile(`^task-(\d+)-`)

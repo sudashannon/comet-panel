@@ -294,6 +294,34 @@ export async function searchSemantic(query: string, topK = 10): Promise<Semantic
   return res.json()
 }
 
+export async function rebuildWiki(): Promise<void> {
+  const res = await fetch('/api/wiki/rebuild', { method: 'POST' })
+  if (!res.ok) throw new Error(`rebuild failed: ${res.status}`)
+}
+
+export interface FixDeadLinkRequest {
+  sourceId: string
+  oldPath: string
+  newPath: string
+}
+
+export interface FixDeadLinkResult {
+  sourceId: string
+  fixed: boolean
+  error?: string
+}
+
+export async function fixDeadLinks(reqs: FixDeadLinkRequest[]): Promise<FixDeadLinkResult[]> {
+  const res = await fetch('/api/wiki/fix-dead-links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(reqs),
+  })
+  if (!res.ok) throw new Error(`fix dead links failed: ${res.status}`)
+  const data = await res.json()
+  return data.results
+}
+
 // Share
 
 interface CreateShareResponse {

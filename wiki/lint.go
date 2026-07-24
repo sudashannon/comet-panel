@@ -10,7 +10,7 @@ import (
 )
 
 type LintIssue struct {
-	Rule        string `json:"rule"` // orphan | dead-link | duplicate | task-artifact-missing | design-no-plan | stale-active
+	Rule        string `json:"rule"` // orphan | dead-link | duplicate | task-artifact-missing | design-no-plan | stale-active | low-content | placeholder-heavy | missing-sections | low-link-density
 	ComponentID string `json:"componentId"`
 	Detail      string `json:"detail"`
 }
@@ -44,9 +44,13 @@ func (g *Graph) Lint() []LintIssue {
 				if _, err := os.Stat(e.To); err == nil {
 					continue
 				}
+				detail := fmt.Sprintf("link to %s has no matching component", e.To)
+				if suggestion := suggestArchivedTarget(e.To, g); suggestion != "" {
+					detail += "; " + suggestion
+				}
 				issues = append(issues, LintIssue{
 					Rule: "dead-link", ComponentID: from,
-					Detail: fmt.Sprintf("link to %s has no matching component", e.To),
+					Detail: detail,
 				})
 			}
 		}
@@ -76,6 +80,10 @@ func (g *Graph) Lint() []LintIssue {
 		}
 	}
 
+	issues = append(issues, g.lintLowContent()...)
+	issues = append(issues, g.lintPlaceholderHeavy()...)
+	issues = append(issues, g.lintMissingSections()...)
+	issues = append(issues, g.lintLowLinkDensity()...)
 	issues = append(issues, g.lintLifecycleGaps()...)
 	return issues
 }
@@ -95,6 +103,226 @@ func frontmatterTime(v any) (time.Time, bool) {
 	}
 	return time.Time{}, false
 }
+// ── Content-quality rules ────────────────────────────────────────────
+//
+var placeholderRE = regexp.MustCompile(`(?i)\b(TODO|TBD|FIXME|HACK|WIP)\b|待定|待补充|待实现|暂未`)
+//
+func readBody(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	text := string(data)
+	if strings.HasPrefix(text, "---\n") {
+		if idx := strings.Index(text[4:], "\n---\n"); idx >= 0 {
+			text = text[4+idx+5:]
+		}
+	}
+	return text
+}
+//
+func stripMarkup(body string) string {
+	body = regexp.MustCompile("(?s)```[^`]*```").ReplaceAllString(body, "")
+	body = regexp.MustCompile("`[^`]+`").ReplaceAllString(body, "")
+	body = regexp.MustCompile(`\[([^\]]*)\]\([^)]+\)`).ReplaceAllString(body, "$1")
+	body = regexp.MustCompile(`!\[([^\]]*)\]\([^)]+\)`).ReplaceAllString(body, "")
+	body = regexp.MustCompile(`<[^>]+>`).ReplaceAllString(body, "")
+	body = regexp.MustCompile(`(?m)^#{1,6}\s*`).ReplaceAllString(body, "")
+	body = regexp.MustCompile(`(?m)^>\s*`).ReplaceAllString(body, "")
+	body = regexp.MustCompile(`(?m)^[-*_]{3,}\s*$`).ReplaceAllString(body, "")
+	body = regexp.MustCompile(`(?m)^\s*[-*+]\s+`).ReplaceAllString(body, "")
+	body = regexp.MustCompile(`(?m)^\s*\d+\.\s+`).ReplaceAllString(body, "")
+	body = strings.TrimSpace(body)
+	return strings.Map(func(r rune) rune {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, body)
+}
+//
+func (g *Graph) lintLowContent() []LintIssue {
+	var issues []LintIssue
+	for id, c := range g.components {
+		if strings.Contains(c.Path, "/archive/") {
+			continue
+		}
+		body := readBody(c.Path)
+		if body == "" {
+			continue
+		}
+		stripped := stripMarkup(body)
+		if len(stripped) < 200 {
+			issues = append(issues, LintIssue{
+				Rule:        "low-content",
+				ComponentID: id,
+				Detail:      fmt.Sprintf("body has %d substantive chars (threshold: 200)", len(stripped)),
+			})
+		}
+	}
+	return issues
+}
+//
+func (g *Graph) lintPlaceholderHeavy() []LintIssue {
+	var issues []LintIssue
+	for id, c := range g.components {
+		if strings.Contains(c.Path, "/archive/") {
+			continue
+		}
+		body := readBody(c.Path)
+		if body == "" {
+			continue
+		}
+		count := len(placeholderRE.FindAllString(body, -1))
+		if count == 0 {
+			continue
+		}
+		phase, _ := c.Frontmatter["phase"].(string)
+		isDone := phase == "archive" || phase == "verify"
+		if isDone {
+			issues = append(issues, LintIssue{
+				Rule:        "placeholder-heavy",
+				ComponentID: id,
+				Detail:      fmt.Sprintf("%d placeholder(s) in a completed (%s) document", count, phase),
+			})
+			continue
+		}
+		if count > 3 {
+			issues = append(issues, LintIssue{
+				Rule:        "placeholder-heavy",
+				ComponentID: id,
+				Detail:      fmt.Sprintf("%d placeholders in active document", count),
+			})
+		}
+	}
+	return issues
+}
+//
+var requiredSectionGroups = map[ComponentType][][]string{
+	TypeProposal: {
+		{"why", "背景", "动机"},
+		{"what change", "方案", "改动"},
+	},
+	TypeDesign: {
+		{"goal", "decision", "risk", "目标", "决策", "风险", "trade"},
+	},
+	TypeReport: {
+		{"pass", "fail", "验证", "结论"},
+	},
+}
+//
+func (g *Graph) lintMissingSections() []LintIssue {
+	var issues []LintIssue
+	for id, c := range g.components {
+		groups, ok := requiredSectionGroups[c.Type]
+		if !ok {
+			continue
+		}
+		if strings.Contains(c.Path, "/archive/") {
+			continue
+		}
+		body := readBody(c.Path)
+		if body == "" {
+			continue
+		}
+		bodyLower := strings.ToLower(body)
+		var missingGroups []string
+		for _, group := range groups {
+			found := false
+			for _, kw := range group {
+				if strings.Contains(bodyLower, strings.ToLower(kw)) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingGroups = append(missingGroups, strings.Join(group, "|"))
+			}
+		}
+		if len(missingGroups) > 0 {
+			issues = append(issues, LintIssue{
+				Rule:        "missing-sections",
+				ComponentID: id,
+				Detail:      fmt.Sprintf("type %s missing: %s", c.Type, strings.Join(missingGroups, "; ")),
+			})
+		}
+	}
+	return issues
+}
+//
+func (g *Graph) lintLowLinkDensity() []LintIssue {
+	var issues []LintIssue
+	for id, c := range g.components {
+		if c.Type == TypeChange || strings.Contains(c.Path, "/archive/") {
+			continue
+		}
+		fwd := len(g.forward[id])
+		bwd := len(g.backward[id])
+		if fwd == 0 && bwd == 0 {
+			continue // caught by orphan
+		}
+		if fwd > 0 {
+			continue
+		}
+		hasFormalBacklink := false
+		for _, e := range g.backward[id] {
+			if e.Source == "yaml" || e.Source == "convention-internal" {
+				hasFormalBacklink = true
+				break
+			}
+		}
+		if !hasFormalBacklink {
+			issues = append(issues, LintIssue{
+				Rule:        "low-link-density",
+				ComponentID: id,
+				Detail:      fmt.Sprintf("0 outgoing references, %d incoming (no formal backlinks)", bwd),
+			})
+		}
+	}
+	return issues
+}
+//
+// suggestArchivedTarget checks whether a dead-link target might have been
+// archived or moved. For /changes/ paths, it looks for a matching change
+// under "/archive/". As a fallback, it matches by filename against all
+// graph components — catching directory restructures like
+// "knowledge/secure/v2/foo.md" → "knowledge/foo.md".
+func suggestArchivedTarget(target string, g *Graph) string {
+	// Archive check: /changes/<name>/... → /archive/.../<name>/...
+	if idx := strings.Index(target, "/changes/"); idx >= 0 {
+		rest := target[idx+len("/changes/"):]
+		if slash := strings.Index(rest, "/"); slash >= 0 {
+			if cn := rest[:slash]; cn != "" {
+				for id := range g.components {
+					if strings.Contains(id, "/archive/") && strings.Contains(id, cn) {
+						if ai := strings.Index(id, "/archive/"); ai >= 0 {
+							return "possibly archived as " + id[ai+1:]
+						}
+						return "possibly archived as " + id
+					}
+				}
+			}
+		}
+	}
+	// Filename fallback: the file may have moved within the same workspace.
+	base := filepath.Base(target)
+	if base == "" || base == "." || base == string(filepath.Separator) {
+		return ""
+	}
+	for id, c := range g.components {
+		if id == target {
+			continue
+		}
+		if filepath.Base(c.Path) == base {
+			if ai := strings.Index(id, "/archive/"); ai >= 0 {
+				return "possibly at " + id[ai+1:]
+			}
+			return "possibly at " + id
+		}
+	}
+	return ""
+}
+//
 
 // lintLifecycleGaps flags workflow-lifecycle gaps that the link-based checks
 // above cannot see:

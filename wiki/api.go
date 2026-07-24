@@ -193,7 +193,6 @@ func (a *API) HandleRecent(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(items)
 }
 
-
 // HandleCalendarMonth returns a map of days that have artifacts for a given month.
 func (a *API) HandleCalendarMonth(w http.ResponseWriter, r *http.Request) {
 	year, _ := strconv.Atoi(r.URL.Query().Get("year"))
@@ -378,9 +377,9 @@ func (a *API) HandleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 	a.mu.RUnlock()
 
 	type scored struct {
-		id   string
-		sim  float64
-		typ  string
+		id      string
+		sim     float64
+		typ     string
 		sortKey float64
 	}
 
@@ -489,6 +488,154 @@ func (a *API) HandleLint(w http.ResponseWriter, r *http.Request) {
 		issues = []LintIssue{}
 	}
 	json.NewEncoder(w).Encode(issues)
+}
+
+// fixDeadLinkRequest is one link to repair.
+type fixDeadLinkRequest struct {
+	SourceID string `json:"sourceId"`
+	OldPath  string `json:"oldPath"`
+	NewPath  string `json:"newPath"`
+}
+
+type fixDeadLinkResult struct {
+	SourceID string `json:"sourceId"`
+	Fixed    bool   `json:"fixed"`
+	Error    string `json:"error,omitempty"`
+}
+
+// HandleFixDeadLinks rewrites exact Markdown link destinations and updates
+// their graph edges synchronously, so subsequent lint requests see the repair.
+func (a *API) HandleFixDeadLinks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var reqs []fixDeadLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqs); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+
+	results := make([]fixDeadLinkResult, 0, len(reqs))
+	for _, req := range reqs {
+		results = append(results, a.fixDeadLink(req))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+}
+
+func (a *API) fixDeadLink(req fixDeadLinkRequest) fixDeadLinkResult {
+	res := fixDeadLinkResult{SourceID: req.SourceID}
+	if req.SourceID == "" || req.OldPath == "" || req.NewPath == "" {
+		res.Error = "sourceId, oldPath, and newPath are required"
+		return res
+	}
+
+	a.mu.RLock()
+	component, exists := a.graph.Component(req.SourceID)
+	a.mu.RUnlock()
+	if !exists || filepath.Clean(component.Path) != filepath.Clean(req.SourceID) {
+		res.Error = "source component not found"
+		return res
+	}
+
+	data, err := os.ReadFile(component.Path)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	updated, changed, err := a.rewriteDeadLinkSource(component, string(data), req.OldPath, req.NewPath)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	if !changed {
+		res.Error = "matching link reference not found in source"
+		return res
+	}
+	info, err := os.Stat(component.Path)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	if err := os.WriteFile(component.Path, []byte(updated), info.Mode().Perm()); err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	if err := a.refreshRepairedLinkEdges(component); err != nil {
+		res.Error = fmt.Sprintf("link repaired but graph refresh failed: %v", err)
+		return res
+	}
+	res.Fixed = true
+	return res
+}
+
+func (a *API) rewriteDeadLinkSource(component Component, content, oldPath, newPath string) (string, bool, error) {
+	if component.Type != TypeChange {
+		updated, changed := rewriteMarkdownLinkDestinations(component.Path, content, oldPath, newPath)
+		return updated, changed, nil
+	}
+	_, workspacePath := a.resolveWorkspace(component.Path)
+	if workspacePath == "" {
+		return content, false, fmt.Errorf("source component is outside configured workspaces")
+	}
+	updated, changed := rewriteYAMLArtifactReferences(
+		content,
+		projectRootForWorkspace(workspacePath),
+		filepath.Dir(component.Path),
+		oldPath,
+		newPath,
+	)
+	return updated, changed, nil
+}
+
+// refreshRepairedLinkEdges updates the edge layer that the repaired source
+// owns, preserving generated artifact and structural edges.
+func (a *API) refreshRepairedLinkEdges(component Component) error {
+	source := "markdown-link"
+	var edges []Edge
+	var err error
+	if component.Type == TypeChange {
+		_, workspacePath := a.resolveWorkspace(component.Path)
+		if workspacePath == "" {
+			return fmt.Errorf("source component is outside configured workspaces")
+		}
+		source = "yaml"
+		edges, err = ExtractYAMLLinks(
+			filepath.Dir(component.Path),
+			projectRootForWorkspace(workspacePath),
+		)
+	} else {
+		edges, err = ExtractMarkdownLinks(component)
+	}
+	if err != nil {
+		return err
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, exists := a.graph.Component(component.ID); !exists {
+		return nil
+	}
+	current := append([]Edge(nil), a.graph.Forward(component.ID)...)
+	next := make([]Edge, 0, len(current)+len(edges))
+	for _, edge := range current {
+		if edge.Source != source {
+			next = append(next, edge)
+		}
+	}
+	next = append(next, edges...)
+	if changed := changedEdgeCount(current, next); changed > 0 {
+		a.graph.RemoveEdgesFrom(component.ID)
+		a.graph.AddEdges(next)
+		a.AddDirty(changed)
+	}
+	return nil
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
 }
 
 // Rebuild reruns BuildIndex against the current workspace set (preferring
